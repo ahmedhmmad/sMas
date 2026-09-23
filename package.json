@@ -1,0 +1,18 @@
+{
+  "name": "smas",
+  "private": true,
+  "description": "Multi-tenant School Management System — monorepo",
+  "scripts": {
+    "db:start": "supabase start",
+    "db:stop": "supabase stop",
+    "db:reset": "supabase db reset",
+    "db:test": "supabase test db",
+    "check:secrets": "node scripts/check-secrets.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "supabase": "^2.117.0"
+  }
+}

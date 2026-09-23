@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  database:
+    name: Secrets + Supabase + pgTAP
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Secret scan
+        run: npm run check:secrets
+
+      - name: Start Supabase (database only)
+        # gotrue و kong و postgrest تبقى: auth.users يُنشئه gotrue، واختبارات Auth تمر عبر kong
+        run: npx supabase start -x studio,imgproxy,mailpit,edge-runtime,logflare,vector,supavisor,realtime,storage-api,postgres-meta
+
+      - name: Apply migrations from scratch
+        run: npx supabase db reset
+
+      - name: pgTAP
+        run: npx supabase test db

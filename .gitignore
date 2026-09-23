@@ -1,0 +1,28 @@
+# الأسرار — لا تُحفظ أبداً (PLAN_v3.md §3.3 بند 12)
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+dist/
+*.log
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Supabase CLI — حالة محلية
+supabase/.branches/
+supabase/.temp/
+
+# مخرجات الـspike المؤقتة
+spikes/**/out/
+
+# المحررات ونظام التشغيل
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db

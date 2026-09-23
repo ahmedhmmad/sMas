@@ -1,0 +1,6 @@
+# كل الملفات النصية بنهايات LF — SQL والسكربتات تُنفَّذ داخل حاويات Linux وفي CI
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.pdf binary
