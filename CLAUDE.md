@@ -3,7 +3,7 @@
 **المشروع:** نظام إدارة المدارس متعدد المستأجرين (Multi-Tenant SMS)
 **تاريخ الإنشاء:** 2026-09-22
 **آخر تحديث:** 2026-09-23
-**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (Gate I مغلق 2026-09-24؛ M01 مطبّقة، التالي M02)
+**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (M01، M02 ✅؛ التالي M03 `identity_root`)
 
 ---
 
@@ -350,6 +350,14 @@ Platform Admin → Role → Permission + Platform-level scope
 
 > **الترتيب الملزم والتفصيلي: `DB_IMPLEMENTATION_SPEC_v1.md` §B10 (M01–M23).** البنود C/D أدناه تجميع للتتبع فقط؛ عند أي اختلاف يُرجَّح B10.
 
+**تقدم B10:**
+
+| # | Migration | pgTAP | ملاحظة التنفيذ |
+|---|---|---|---|
+| M01 | `setup` | ✅ 21/21 | `IN SCHEMA` بلا أثر ← `FOR ROLE app_owner` |
+| M02 | `app_trigger_functions` | ✅ 26/26 | إصلاح قطع `lpad` في `temporary_id`؛ T5 يغطي `TRUNCATE` |
+| M03 | `identity_root` | ⬜ | التالي |
+
 - [ ] **C1.** `schema app` + الأنواع/الـenums المشتركة.
 - [ ] **C2.** Tenancy: `platform_tenants`, `groups`, `schools` (+ قيد: `schools.group_id` من نفس Tenant).
 - [ ] **C3.** Platform Admin: `system_users`, `platform_admin_roles`, `platform_admin_assignments`, `platform_admin_role_permissions` (بعد `permissions`).
@@ -481,6 +489,7 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | ✅ **C3** — اعتماد `platform_admin_roles → platform_admin_role_permissions → permissions`؛ `is_platform_admin()` اختبار هوية فقط، و`has_permission()` توحّد المسارين. الكتالوج 73 مفتاحاً بعد K4 (`tenant.create`) | `docs/ROLE_PERMISSION_SEED_v1.md`, `AUTHORIZATION_MATRIX_v1.md`, `docs/DATA_DICTIONARY_v1.md`, `CLAUDE.md` |
 | 2026-09-22 | ✅ **A3** — RLS Model: 7 دوال، سياسات كل الجداول، حل تعارض FORCE RLS/recursion، 30 اختبار pgTAP، و6 بنود معلّقة | `docs/RLS_MODEL_v1.md`, `CLAUDE.md` |
 | 2026-09-23 | ✅ **A5** — اعتماد A1–A4 كـFoundation Design Baseline | — |
+| 2026-09-24 | ✅ **M02** — T5 (يغطي `TRUNCATE` بـtrigger جملة)، T6 (ختم عام يتجاهل قيم العميل)، `temporary_id` (إصلاح قطع `lpad` بعد 999,999)؛ 50/50 | `supabase/migrations/20260923223202_app_trigger_functions.sql`, `supabase/tests/02_app_trigger_functions.test.sql`, `docs/DATA_DICTIONARY_v1.md`, `docs/DB_IMPLEMENTATION_SPEC_v1.md`, `CLAUDE.md` |
 | 2026-09-24 | 🔒 **Gate I مغلق** — أول commit `23ced0b` إلى `github.com/ahmedhmmad/sMas`؛ CI أخضر (https://github.com/ahmedhmmad/sMas/actions/runs/35927163791) | `.github/workflows/ci.yml`, `CLAUDE.md`, `docs/PLAN_v3.md` |
 | 2026-09-23 | **M00 أخضر 58/58 على الحزمة الكاملة** (Podman + `scripts/podman-relay.mjs`)؛ R2 مُطبَّق؛ **M01** ✅ 24/24 — وكشف اختباره أن `IN SCHEMA` بلا أثر فصُحِّح إلى `FOR ROLE app_owner` | `supabase/migrations/20260923123034_setup.sql`, `supabase/tests/01_setup.test.sql`, `scripts/podman-relay.mjs`, `docs/M00_RESULTS.md`, `docs/DB_IMPLEMENTATION_SPEC_v1.md`, `docs/RLS_MODEL_v1.md`, `CLAUDE.md` |
 | 2026-09-23 | **Gate I:** I1 ✅ (monorepo، git، فحص أسرار مُختبَر)؛ M00 نُفِّذ ووُثِّق — V1، V3–V7 ✅، V2 بديل مُفعَّل، V8 جزء DB ✅؛ اكتشاف V3c (`EXECUTE` لـ`anon` افتراضياً في schema جديد) أُضيف إلى M01؛ Supabase الكامل محجوب بيئياً | `docs/M00_RESULTS.md`, `spikes/m00/*`, `docs/DB_IMPLEMENTATION_SPEC_v1.md`, `CLAUDE.md`, `.github/workflows/ci.yml`, `scripts/check-secrets.mjs`, ملفات الجذر |

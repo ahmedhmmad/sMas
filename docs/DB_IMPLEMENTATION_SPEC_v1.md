@@ -229,7 +229,7 @@ CHECK (start_date >= year_start_date AND end_date <= year_end_date)
 
 | # | الـTrigger | على | لماذا لا يوجد بديل إعلاني |
 |---|---|---|---|
-| **T5** | رفض UPDATE/DELETE | `audit_log` | REVOKE لا يمنع service role |
+| **T5** | رفض UPDATE/DELETE/**TRUNCATE** | `audit_log` (صف + جملة) | REVOKE لا يمنع مالك الجدول؛ و`TRUNCATE` لا يطلق trigger الصف |
 | **T6** | ختم `created_*`/`updated_*` | كل الجداول ذات الأعمدة | لا «DEFAULT عند UPDATE» في Postgres؛ ومنع التزوير |
 | **T7** | التقاط التدقيق | 27 جدولاً | — |
 | **T8** | صلاحيات الدور ⊆ صلاحيات الفاعل | `membership_roles` (INSERT/DELETE)، `role_permissions` (INSERT/DELETE) | يعتمد على هوية الفاعل |
@@ -695,8 +695,8 @@ helpers ─► state fns ─► provisioning fns ─► reference data
 | # | الـMigration | المحتوى | اختبار pgTAP |
 |---|---|---|---|
 | **M00** | *spike — لا يُحفظ* | التحقق من V1–V8 على Supabase محلي | — |
-| M01 | `setup` | `btree_gist` في schema `extensions`؛ schema `app` **ملك `postgres`**؛ الدور `app_owner` (`NOLOGIN BYPASSRLS`) + `grant app_owner to postgres` + `grant usage, create on schema app to app_owner` (R2)؛ **`app.auth_uid()`** ملك `postgres` و`EXECUTE` لـ`app_owner` وحده؛ **`ALTER DEFAULT PRIVILEGES FOR ROLE app_owner REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC`** (V3c — مُصحَّح) | `01_setup` ✅ 21/21 |
-| M02 | `app_trigger_functions` | T5, T6؛ `app.temporary_id_seq`, `app.next_temporary_id()` | `02_stamp` |
+| M01 ✅ | `setup` | `btree_gist` في schema `extensions`؛ schema `app` **ملك `postgres`**؛ الدور `app_owner` (`NOLOGIN BYPASSRLS`) + `grant app_owner to postgres` + `grant usage, create on schema app to app_owner` (R2)؛ **`app.auth_uid()`** ملك `postgres` و`EXECUTE` لـ`app_owner` وحده؛ **`ALTER DEFAULT PRIVILEGES FOR ROLE app_owner REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC`** (V3c — مُصحَّح) | `01_setup` ✅ 21/21 |
+| M02 | `app_trigger_functions` | T5, T6؛ `app.temporary_id_seq`, `app.next_temporary_id()` (إصلاح `lpad`) | `02_app_trigger_functions` ✅ 26/26 |
 | M03 | `identity_root` | [G10 `auth_identities`]؛ `platform_tenants`؛ `profiles` | `03_identity` (O1، I11) |
 | M04 | `tenancy` | `groups`؛ `schools` + أعمدة مشتقة؛ `identity_scopes`؛ T9 | `04_tenancy` (I5, I7–I9) |
 | M05 | `platform_admin_identity` | `system_users`؛ `platform_admin_roles`؛ `platform_admin_assignments` | — |

@@ -730,8 +730,14 @@ CREATE SEQUENCE app.temporary_id_seq;
 CREATE FUNCTION app.next_temporary_id() RETURNS text
 LANGUAGE sql VOLATILE AS $$
   SELECT 'TMP-' || to_char(now(), 'YYYY') || '-'
-      || lpad(nextval('app.temporary_id_seq')::text, 6, '0');
+      || lpad(n::text, greatest(6, length(n::text)), '0')
+  FROM (SELECT nextval('app.temporary_id_seq') AS n) s;
 $$;
+```
+
+> **🔴 تصحيح (M02، 2026-09-24):** الصيغة الأولى `lpad(nextval(...), 6, '0')` **تقطع** الأرقام الأطول من 6 خانات: `lpad('1000000', 6) = '100000'` — أي أن الطالب رقم 1,000,000 يأخذ معرّف الطالب رقم 100,000، وهذا يكسر شرط «بلا إعادة استخدام» في O3. الصيغة أعلاه تحافظ على الأصفار البادئة ولا تقطع. مُختبَر في `supabase/tests/02_app_trigger_functions.test.sql`.
+
+```sql
 ```
 
 **ملاحظة تنفيذية (تُراجع في Gate C7):** الـsequence **مشترك بين الـTenants** ولا يُصفَّر مع تغير السنة. البديلان — تسلسل مستقل لكل Tenant أو تصفير سنوي — يتطلبان إما DDL ديناميكياً (sequence لكل Tenant/سنة) أو جدول عدّادات مع `UPDATE ... RETURNING`، وهذا الأخير **تعاملي** أي يُعيد الرقم عند rollback ويخالف شرط "عدم إعادة الاستخدام". لذلك اختير الـsequence الأصلي المشترك: الرقم معرف داخلي مؤقت لا دلالة إحصائية له، والفجوات فيه غير ضارة.
@@ -1000,12 +1006,15 @@ ALTER TABLE academic_years ADD CONSTRAINT academic_years_no_overlap
 
 **الحماية من التعديل:**
 ```sql
-REVOKE UPDATE, DELETE ON audit_log FROM authenticated, anon;
+REVOKE UPDATE, DELETE, TRUNCATE ON audit_log FROM authenticated, anon, service_role;
 CREATE TRIGGER audit_log_immutable
   BEFORE UPDATE OR DELETE ON audit_log
   FOR EACH ROW EXECUTE FUNCTION app.tg_reject_mutation();
+CREATE TRIGGER audit_log_no_truncate
+  BEFORE TRUNCATE ON audit_log
+  FOR EACH STATEMENT EXECUTE FUNCTION app.tg_reject_mutation();
 ```
-الطبقتان معاً: صلاحيات + trigger. الأولى وحدها لا تمنع `service_role`.
+الطبقتان معاً: صلاحيات + trigger. الأولى وحدها لا تمنع مالك الجدول. **و`TRUNCATE` يحتاج trigger على مستوى الجملة** — trigger الصف لا يعمل عنده، و`service_role` في Supabase يملك `TRUNCATE` (M02، 2026-09-24).
 
 **الفهارس:** `(platform_tenant_id, created_at DESC)`, `(entity_type, entity_id)` (ERD §8)، `(actor_id, created_at DESC)`
 
