@@ -26,7 +26,7 @@ jobs:
       - name: Secret scan
         run: npm run check:secrets
 
-      - name: Start Supabase (database only)
+      - name: Start Supabase (db + auth + api)
         # gotrue و kong و postgrest تبقى: auth.users يُنشئه gotrue، واختبارات Auth تمر عبر kong
         run: npx supabase start -x studio,imgproxy,mailpit,edge-runtime,logflare,vector,supavisor,realtime,storage-api,postgres-meta
 

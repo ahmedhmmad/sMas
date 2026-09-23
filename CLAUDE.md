@@ -3,7 +3,7 @@
 **المشروع:** نظام إدارة المدارس متعدد المستأجرين (Multi-Tenant SMS)
 **تاريخ الإنشاء:** 2026-09-22
 **آخر تحديث:** 2026-09-23
-**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate I — البنية التحتية و M00** (Gate B مغلق)
+**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (Gate I مغلق 2026-09-24؛ M01 مطبّقة، التالي M02)
 
 ---
 
@@ -151,7 +151,7 @@ app.can_access_*() + app.has_permission() تبني عليه
 
 ## 2. حالة المستودع
 
-**الحالة (Gate I):** git مهيأ (`main`)، الهيكل منشأ، Supabase CLI مثبت كـdevDependency. لا migrations بعد — بانتظار M00.
+**الحالة:** المستودع على GitHub: `ahmedhmmad/sMas` (`main`). CI أخضر. M01 مطبّقة ومختبرة.
 
 ```
 /docs                 7 وثائق التصميم                     ✅
@@ -332,13 +332,15 @@ Platform Admin → Role → Permission + Platform-level scope
 
 - [x] **I1. Monorepo** — git (`main`)، الهيكل حسب `PLAN_v3.md` §3.4، نقل الوثائق إلى `docs/`، `.gitattributes` (LF)، `.gitignore`، `.env.example`، فحص أسرار بلا dependency (`scripts/check-secrets.mjs`) مُختبَر بضابط سلبي.
 - [x] **I2. Supabase Local** — الحزمة الكاملة تعمل على Podman. Podman ينشر المنافذ بـDNAT داخل الـVM فلا تصل إلى `127.0.0.1` على Windows؛ الحل `node scripts/podman-relay.mjs` (يُشغَّل قبل `supabase start`) — بلا تغيير في إعدادات Podman.
-- [ ] **I3. CI** — `.github/workflows/ci.yml` مكتوب (أسرار ← Supabase ← `db reset` ← pgTAP). **إثبات «أخضر» يتطلب remote على GitHub.**
+- [x] **I3. CI** — `.github/workflows/ci.yml`: أسرار ← Supabase ← `db reset` ← pgTAP. أخضر. المتابعة بلا `gh`: `node scripts/watch-ci.mjs`.
 - [x] **I4. M00** — ✅ **58/58 على الحزمة الكاملة**. V2 بإعداد R2 (17/17)، V8 بمسار الـSaga الحقيقي (13/13).
 - [x] **I5. توثيق النتائج** — `docs/M00_RESULTS.md`.
 - [x] **I6. البدائل** — V2 فشل (المالك المخصص لا يصل إلى `auth.uid()`) ← البديل المحدد (`postgres` مالكاً) ← المواصفة حُدِّثت ← V1 يثبت أنه يعمل.
 - [x] **قرار R2** (2026-09-23) — المالك المخصص `app_owner` عبر `app.auth_uid()`؛ V2 17/17؛ `postgres` احتياط فقط. schema `app` يبقى ملك `postgres`.
 - [x] **M01** — `supabase/migrations/20260923123034_setup.sql` + `supabase/tests/01_setup.test.sql`: ✅ 24/24، تُطبَّق مرتين متتاليتين (`db reset`) دون خطأ. الاختبار كشف أن `ALTER DEFAULT PRIVILEGES IN SCHEMA` بلا أثر ← صُحِّح إلى `FOR ROLE app_owner`.
-- [ ] **I3 الأخضر** — remote على GitHub ← أول commit ← push ← CI أخضر ← **Gate I مغلق**.
+- [x] **I3 الأخضر** — `github.com/ahmedhmmad/sMas`؛ أول commit `23ced0b`؛ CI أخضر من المحاولة الأولى (https://github.com/ahmedhmmad/sMas/actions/runs/35927163791).
+
+**🔒 Gate I مغلق (2026-09-24).**
 
 **مؤجل إلى Gate F:** Lint/formatting للويب والـAPI — لا يوجد كود بعد يُطبَّق عليه.
 
@@ -479,6 +481,7 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | ✅ **C3** — اعتماد `platform_admin_roles → platform_admin_role_permissions → permissions`؛ `is_platform_admin()` اختبار هوية فقط، و`has_permission()` توحّد المسارين. الكتالوج 73 مفتاحاً بعد K4 (`tenant.create`) | `docs/ROLE_PERMISSION_SEED_v1.md`, `AUTHORIZATION_MATRIX_v1.md`, `docs/DATA_DICTIONARY_v1.md`, `CLAUDE.md` |
 | 2026-09-22 | ✅ **A3** — RLS Model: 7 دوال، سياسات كل الجداول، حل تعارض FORCE RLS/recursion، 30 اختبار pgTAP، و6 بنود معلّقة | `docs/RLS_MODEL_v1.md`, `CLAUDE.md` |
 | 2026-09-23 | ✅ **A5** — اعتماد A1–A4 كـFoundation Design Baseline | — |
+| 2026-09-24 | 🔒 **Gate I مغلق** — أول commit `23ced0b` إلى `github.com/ahmedhmmad/sMas`؛ CI أخضر (https://github.com/ahmedhmmad/sMas/actions/runs/35927163791) | `scripts/watch-ci.mjs`, `.github/workflows/ci.yml`, `CLAUDE.md`, `docs/PLAN_v3.md` |
 | 2026-09-23 | **M00 أخضر 58/58 على الحزمة الكاملة** (Podman + `scripts/podman-relay.mjs`)؛ R2 مُطبَّق؛ **M01** ✅ 24/24 — وكشف اختباره أن `IN SCHEMA` بلا أثر فصُحِّح إلى `FOR ROLE app_owner` | `supabase/migrations/20260923123034_setup.sql`, `supabase/tests/01_setup.test.sql`, `scripts/podman-relay.mjs`, `docs/M00_RESULTS.md`, `docs/DB_IMPLEMENTATION_SPEC_v1.md`, `docs/RLS_MODEL_v1.md`, `CLAUDE.md` |
 | 2026-09-23 | **Gate I:** I1 ✅ (monorepo، git، فحص أسرار مُختبَر)؛ M00 نُفِّذ ووُثِّق — V1، V3–V7 ✅، V2 بديل مُفعَّل، V8 جزء DB ✅؛ اكتشاف V3c (`EXECUTE` لـ`anon` افتراضياً في schema جديد) أُضيف إلى M01؛ Supabase الكامل محجوب بيئياً | `docs/M00_RESULTS.md`, `spikes/m00/*`, `docs/DB_IMPLEMENTATION_SPEC_v1.md`, `CLAUDE.md`, `.github/workflows/ci.yml`, `scripts/check-secrets.mjs`, ملفات الجذر |
 | 2026-09-23 | ✅ **Gate B مغلق** — اعتماد G4–G9؛ قرار حدّ الأمان لانتقالات الحالة داخل PostgreSQL مع عقد الدوال المتحكَّم بها (§5.0 في المواصفة) | `docs/DB_IMPLEMENTATION_SPEC_v1.md`, `CLAUDE.md`, `PLAN_v3.md` + الوثائق التي حملت علامات G |
