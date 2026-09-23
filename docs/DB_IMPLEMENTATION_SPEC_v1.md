@@ -696,8 +696,8 @@ helpers ─► state fns ─► provisioning fns ─► reference data
 |---|---|---|---|
 | **M00** | *spike — لا يُحفظ* | التحقق من V1–V8 على Supabase محلي | — |
 | M01 ✅ | `setup` | `btree_gist` في schema `extensions`؛ schema `app` **ملك `postgres`**؛ الدور `app_owner` (`NOLOGIN BYPASSRLS`) + `grant app_owner to postgres` + `grant usage, create on schema app to app_owner` (R2)؛ **`app.auth_uid()`** ملك `postgres` و`EXECUTE` لـ`app_owner` وحده؛ **`ALTER DEFAULT PRIVILEGES FOR ROLE app_owner REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC`** (V3c — مُصحَّح) | `01_setup` ✅ 21/21 |
-| M02 | `app_trigger_functions` | T5, T6؛ `app.temporary_id_seq`, `app.next_temporary_id()` (إصلاح `lpad`) | `02_app_trigger_functions` ✅ 26/26 |
-| M03 | `identity_root` | [G10 `auth_identities`]؛ `platform_tenants`؛ `profiles` | `03_identity` (O1، I11) |
+| M02 ✅ | `app_trigger_functions` | T5, T6؛ `app.temporary_id_seq`, `app.next_temporary_id()` (إصلاح `lpad`) | `02_app_trigger_functions` ✅ 26/26 |
+| M03 ✅ | `identity_root` | `auth_identities` (G10)؛ `platform_tenants`؛ `profiles`؛ **`app.current_profile_id()`, `app.current_tenant_id()`** (نُقلتا من M12: اعتمادياتهما جاهزة وT6 تحتاج الأولى) | `03_identity_root` ✅ 28/28 |
 | M04 | `tenancy` | `groups`؛ `schools` + أعمدة مشتقة؛ `identity_scopes`؛ T9 | `04_tenancy` (I5, I7–I9) |
 | M05 | `platform_admin_identity` | `system_users`؛ `platform_admin_roles`؛ `platform_admin_assignments` | — |
 | M06 | `permission_catalog_tables` | `permissions`؛ `roles` + `owner_key`؛ `role_permissions`؛ `platform_admin_role_permissions` | `06_catalog_shape` |
@@ -707,7 +707,7 @@ helpers ─► state fns ─► provisioning fns ─► reference data
 | M10 | `enrollments` | `enrollments` (I38–I42) | `10_enrollments` |
 | M11 | `audit` | `audit_log`؛ T7؛ ربطه بـ27 جدولاً | `11_audit` (I44–I46) |
 | M12 | `authz_helpers` | دوال الهوية والصلاحية والنطاق والعلاقة و`can_see/can_manage_membership` | `12_helpers` |
-| M13 | `rls_enable` | `ENABLE` + `FORCE` على كل الجداول | T2 من RLS §15 |
+| M13 | `rls_enable` | **تحقق فقط:** كل الجداول مفعّلة ومفروضة منذ إنشائها (تنفيذياً: RLS يُفعَّل في migration كل جدول، لأن صلاحيات Supabase الافتراضية تمنح `anon` صلاحية ALL على جداول `public` فور إنشائها) | T2 من RLS §15 |
 | M14 | `policies_tenancy_platform` | | `14_isolation` (I1–I7) |
 | M15 | `policies_authz` | profiles، memberships، roles، scopes | `15_escalation` (E1–E8 + F1–F5) |
 | M16 | `policies_academic` | | |

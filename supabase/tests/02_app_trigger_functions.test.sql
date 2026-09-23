@@ -1,6 +1,6 @@
 -- M02 — T5، T6، temporary_id
--- app.current_profile_id() تُنشأ في M12؛ هنا بديل مؤقت داخل المعاملة (يُلغى) يقرأ GUC test.profile.
--- اختبار M12 يعيد التحقق من T6 مع الدالة الحقيقية.
+-- يعزل آلية T6 عن مصدر الفاعل: يستبدل app.current_profile_id() داخل المعاملة (يُلغى) ببديل يقرأ GUC test.profile.
+-- الدالة الحقيقية (M03) مع T6 تُختبر في 03_identity_root.test.sql.
 begin;
 
 create temp table r (k text primary key, v text) on commit drop;

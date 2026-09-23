@@ -148,6 +148,24 @@ ALTER TABLE schools ADD CONSTRAINT schools_group_same_tenant_fk
 
 ## 2. الجداول
 
+### 2.0 `auth_identities` — [P] (G10)
+
+حساب Auth واحد = سياق أمني واحد. المفتاح الأساسي على `auth_user_id` يجعل الحصرية بين `tenant` و`platform` **إعلانية بلا race**.
+
+| العمود | النوع | NULL | افتراضي | ملاحظات |
+|---|---|---|---|---|
+| `auth_user_id` | uuid | NOT NULL | — | PK، FK → `auth.users(id)` |
+| `kind` | text | NOT NULL | — | `tenant` \| `platform` |
+| `created_at` | timestamptz | NOT NULL | `now()` | |
+
+**القيود:** `PRIMARY KEY (auth_user_id)`؛ `CHECK (kind IN ('tenant','platform'))`؛ `UNIQUE (auth_user_id, kind)` — هدف FK من:
+- `profiles (auth_user_id, identity_kind)` حيث `identity_kind` ثابت `'tenant'` (`CHECK`)
+- `system_users (auth_user_id, identity_kind)` حيث `identity_kind` ثابت `'platform'` (M05)
+
+`app.current_security_context()` (`RLS_MODEL_v1.md` §2.1) تقرأ `kind` من هنا.
+
+---
+
 ### 2.1 `platform_tenants` — [P]
 
 | العمود | النوع | NULL | افتراضي | ملاحظات |
@@ -298,7 +316,8 @@ ALTER TABLE schools ADD CONSTRAINT schools_group_same_tenant_fk
 | `id` | uuid | NOT NULL | `gen_random_uuid()` | PK |
 | `platform_tenant_id` | uuid | NOT NULL | — | FK → `platform_tenants(id)` |
 | `auth_user_id` | uuid | NOT NULL | — | FK → `auth.users(id)` |
-| `display_name` | text | NOT NULL | — | |
+| `identity_kind` | text | NOT NULL | `'tenant'` | G10 — ثابت؛ `CHECK (identity_kind = 'tenant')` + FK مركّب إلى `auth_identities` |
+| `display_name` | text | NOT NULL | — | `CHECK (length(btrim(display_name)) > 0)` |
 | `status` | text | NOT NULL | `'active'` | `active`, `suspended`, `disabled` |
 | الأعمدة المشتركة | | | | |
 
