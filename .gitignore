@@ -26,3 +26,6 @@ spikes/**/out/
 .idea/
 .DS_Store
 Thumbs.db
+
+# أداة محلية لمتابعة CI — خارج المستودع بقرار 2026-09-24
+scripts/watch-ci.mjs
