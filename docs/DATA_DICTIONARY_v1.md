@@ -627,6 +627,7 @@ CHECK (
 - `UNIQUE (school_id) WHERE school_id IS NOT NULL` — نطاق واحد لكل مدرسة مستقلة
 - `UNIQUE (id, platform_tenant_id)`
 - `FOREIGN KEY (group_id, platform_tenant_id) REFERENCES groups (id, platform_tenant_id)`
+- `FOREIGN KEY (school_id, platform_tenant_id) REFERENCES schools (id, platform_tenant_id)` — **أُضيف في M04 (2026-09-24):** قيد `is_standalone` (§2.16.2) لا يضمن أن المدرسة من Tenant النطاق؛ هذا القيد يطبّق نمط §0.6. مُختبَر بضابط.
 - `CHECK (school_is_standalone)` — دائماً true
 
 **الإنشاء التلقائي:** صف نطاق يُنشأ مع كل `group` ومع كل مدرسة `group_id IS NULL` — ✅ **G9: عبر trigger T9**. (كانت هذه الملاحظة تنص سابقاً على «طبقة الأعمال لا trigger»؛ عُكست في Gate B لأن الـinvariant «لكل مجموعة نطاق» يجب ألا يعتمد على مسار الإنشاء.)

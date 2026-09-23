@@ -698,7 +698,7 @@ helpers ─► state fns ─► provisioning fns ─► reference data
 | M01 ✅ | `setup` | `btree_gist` في schema `extensions`؛ schema `app` **ملك `postgres`**؛ الدور `app_owner` (`NOLOGIN BYPASSRLS`) + `grant app_owner to postgres` + `grant usage, create on schema app to app_owner` (R2)؛ **`app.auth_uid()`** ملك `postgres` و`EXECUTE` لـ`app_owner` وحده؛ **`ALTER DEFAULT PRIVILEGES FOR ROLE app_owner REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC`** (V3c — مُصحَّح) | `01_setup` ✅ 21/21 |
 | M02 ✅ | `app_trigger_functions` | T5, T6؛ `app.temporary_id_seq`, `app.next_temporary_id()` (إصلاح `lpad`) | `02_app_trigger_functions` ✅ 26/26 |
 | M03 ✅ | `identity_root` | `auth_identities` (G10)؛ `platform_tenants`؛ `profiles`؛ **`app.current_profile_id()`, `app.current_tenant_id()`** (نُقلتا من M12: اعتمادياتهما جاهزة وT6 تحتاج الأولى) | `03_identity_root` ✅ 28/28 |
-| M04 | `tenancy` | `groups`؛ `schools` + أعمدة مشتقة؛ `identity_scopes`؛ T9 | `04_tenancy` (I5, I7–I9) |
+| M04 ✅ | `tenancy` | `groups`؛ `schools` + أعمدة مشتقة؛ `identity_scopes` (+ FK Tenant للمدرسة)؛ T9 | `04_tenancy` ✅ 32/32 |
 | M05 | `platform_admin_identity` | `system_users`؛ `platform_admin_roles`؛ `platform_admin_assignments` | — |
 | M06 | `permission_catalog_tables` | `permissions`؛ `roles` + `owner_key`؛ `role_permissions`؛ `platform_admin_role_permissions` | `06_catalog_shape` |
 | M07 | `memberships` | `memberships`؛ `membership_roles` (I16)؛ `membership_scopes` (I13–I15) | `07_memberships` |
