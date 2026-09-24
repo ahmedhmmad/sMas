@@ -490,7 +490,7 @@ grant execute on function app.archive_student(uuid, text) to authenticated;
 
 | الدالة | ينشئ ذرياً | يفحص |
 |---|---|---|
-| `app.provision_student(...)` | profile + membership + دور `student` + (family) + student + **enrollment** | `student.create` + `enrollment.create` + `can_access_identity_scope` + `can_access_school` |
+| `app.provision_student(...)` | profile + membership + دور `student` + (family) + student + **enrollment** | `student.create` + `enrollment.create` + `can_access_school(target_school)`؛ **`identity_scope_id` مشتق من المدرسة الهدف، لا يُقبل من العميل (H1)** |
 | `app.provision_staff(...)` | staff + أول `staff_school_assignment` | `staff.create` + `staff.assign` + `can_access_school` |
 | `app.provision_guardian(student_id, ...)` | guardian + `student_guardians` + (family) | `guardian.create` + `guardian.link` + `student_in_scope` |
 | `app.provision_account(kind, id, auth_user_id)` | profile + membership + دور + (نطاق) لموظف/ولي أمر قائم | صلاحية المورد + علاقة في النطاق |

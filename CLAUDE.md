@@ -369,11 +369,17 @@ Platform Admin → Role → Permission + Platform-level scope
 | M09 | `people` | ✅ 61/61 | صيغة `full_name` في DD §0.4 غير قابلة للتنفيذ (`concat_ws` STABLE) ← بديل IMMUTABLE بنفس الناتج |
 | M10 | `enrollments` | ✅ 26/26 | I38 محتوى في G6 (لا يُعزل باسمه)؛ قيود G3 DEFERRABLE INITIALLY IMMEDIATE |
 | M11 | `audit` | ✅ 44/44 | T7 على 28 جدولاً؛ الفاعل مستقل عن `created_by`؛ `source` غير المعروف يصبح `api`؛ **متطلب M21:** إعادة `app.audit_action/reason` بعد الكتابة |
-| M12 | `authz_helpers` | ✅ 61/61 | 10 دوال بنص RLS_MODEL حرفياً؛ كل دالة مختبرة بقائمة كاملة لكل فاعل؛ تعمل تحت FORCE RLS. **بند مفتوح H1** أدناه |
+| M12 | `authz_helpers` | ✅ 61/61 | 10 دوال بنص RLS_MODEL حرفياً؛ كل دالة مختبرة بقائمة كاملة لكل فاعل؛ تعمل تحت FORCE RLS. كشفت H1 (محسوم أدناه) |
 | M13 | RLS verification | ⬜ | التالي |
 
-**⚠️ بند مفتوح H1 — يلزم قرار قبل M17 (سياسة `identity_scopes`) و M22 (`provision_student`):**
-`app.can_access_identity_scope()` بنصها المعتمد (RLS_MODEL §8.4) تشترط لنطاق هوية Group أن يملك الفاعل **نطاق المجموعة نفسها**. عضو بنطاق مدرسة داخل مجموعة (سكرتير SA1) يحصل على `false` لنطاق GA، مع أن `can_access_school(SA1) = true` — مثبت في `12_helpers`. وبما أن `provision_student` تشترطها، **لا يستطيع سكرتير مدرسة ضمن مجموعة تسجيل طالب جديد**؛ المدرسة المستقلة لا تتأثر. الدالة نُفذت كما هي؛ لم يُخترع حل.
+**✅ H1 محسوم (2026-09-24) — السماح، بلا Group Scope:**
+> **H1 — A secretary may register a new student in a school that belongs to a group. The secretary requires `student.create` with school scope; this does not grant group scope. When the target school belongs to a group, the student's identity scope is derived from the target school's group and is not client-selectable. The student's enrollment is created for the target school in the same controlled provisioning operation.**
+
+الأثر الملزم:
+- **M22 `provision_student`:** لا تستقبل `identity_scope_id` من العميل؛ تشتقه من المدرسة الهدف (`schools.scope_owner_id` ← `identity_scopes`). الفحص: `student.create` + `enrollment.create` + `can_access_school(target_school)`. `can_access_identity_scope` **لا تُستعمل** شرطاً للإنشاء.
+- **G3** يبقى الحارس الإعلاني: نطاق الطالب = مالك مدرسة التسجيل؛ أي نطاق آخر يُرفض بالـFK حتى لو تجاوز أحد الدالة.
+- **M12 لا تُعدَّل:** `can_access_identity_scope` باقية بدلالتها «سلطة على النطاق كله» لسياسة قراءة `identity_scopes` (M17)؛ السكرتير لا يحتاج رؤية صف النطاق لأن الاشتقاق يتم داخل الدالة.
+- **اختبارات M22:** سكرتير SA1 ينشئ طالباً في SA1 (نطاق GA) ✅؛ لا يملك `can_access_group(GA)` بعدها ✅؛ لا يستطيع الإنشاء في SB1 أو SS ❌؛ لا وسيلة لتمرير نطاق آخر.
 
 **قاعدة اختبار (من M08):** كل تحقق رفض يطابق **اسم القيد** المقصود لا رمز الخطأ وحده (`like 'ERR 23503%<constraint_name>%'`). تكرر ثلاث مرات أن رُفض الإدراج بقيد غير المقصود فنجح التحقق دون أن يثبت شيئاً.
 
@@ -491,6 +497,7 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | `audit_log.id` هو `bigint IDENTITY` وليس uuid، وبلا FK على `actor_id`/`entity_id` | ترتيب زمني طبيعي وحجم أصغر؛ وFK على الكيانات يخلق تبعية عكسية تكسر السجل عند الأرشفة |
 | 2026-09-22 | **O1** — `profiles.auth_user_id` فريد عالمياً؛ نفس Auth User لا يعبر Tenantين | شرط حتمية `app.current_tenant_id()` وصحة §1.1. التفاصيل: §1.1 + `DATA_DICTIONARY_v1.md` §2.7 |
 | 2026-09-22 | **O2** — `students.gender` و`birth_date` قابلان لـNULL؛ OCR ليس شرطاً ولا مصدراً نهائياً | اكتمال البيانات قاعدة أعمال في المرحلة 4 لا قيد صف. يلزم معالجة NULL صراحةً في قواعد التوزيع والتقارير |
+| 2026-09-24 | **H1** — A secretary may register a new student in a school that belongs to a group. The secretary requires `student.create` with school scope; this does not grant group scope. When the target school belongs to a group, the student's identity scope is derived from the target school's group and is not client-selectable. The student's enrollment is created for the target school in the same controlled provisioning operation. | كشفه `12_helpers`: `can_access_identity_scope(GA)` = false لسكرتير SA1. التطبيق في M22 (§5.2 من المواصفة) |
 | 2026-09-22 | **O3** — `temporary_id` بصيغة `TMP-{YEAR}-{SEQUENCE}`، توليد ذري، بلا إعادة استخدام | `nextval()` غير تعاملي فلا يُعيد رقماً بعد rollback؛ الفجوات مقبولة. التفاصيل: `DATA_DICTIONARY_v1.md` §2.17.1 |
 
 > كل صف يُضاف هنا يُنسخ أيضاً إلى سجل القرارات في `PLAN_v3.md` §9.
@@ -510,6 +517,7 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | ✅ **C3** — اعتماد `platform_admin_roles → platform_admin_role_permissions → permissions`؛ `is_platform_admin()` اختبار هوية فقط، و`has_permission()` توحّد المسارين. الكتالوج 73 مفتاحاً بعد K4 (`tenant.create`) | `docs/ROLE_PERMISSION_SEED_v1.md`, `AUTHORIZATION_MATRIX_v1.md`, `docs/DATA_DICTIONARY_v1.md`, `CLAUDE.md` |
 | 2026-09-22 | ✅ **A3** — RLS Model: 7 دوال، سياسات كل الجداول، حل تعارض FORCE RLS/recursion، 30 اختبار pgTAP، و6 بنود معلّقة | `docs/RLS_MODEL_v1.md`, `CLAUDE.md` |
 | 2026-09-23 | ✅ **A5** — اعتماد A1–A4 كـFoundation Design Baseline | — |
+| 2026-09-24 | ✅ **H1 محسوم** — السماح للسكرتير بنطاق المدرسة، النطاق مشتق من المدرسة الهدف لا من العميل | `CLAUDE.md`, `docs/PLAN_v3.md`, `docs/DB_IMPLEMENTATION_SPEC_v1.md` |
 | 2026-09-24 | ✅ **M12** — دوال العلاقة الثمانية + `can_see/can_manage_membership`؛ كشف H1 (نطاق هوية Group مغلق أمام عضو نطاق المدرسة)؛ 431/431 | `supabase/migrations/20260924234528_authz_helpers.sql`, `supabase/tests/12_helpers.test.sql`, `docs/DB_IMPLEMENTATION_SPEC_v1.md`, `CLAUDE.md` |
 | 2026-09-24 | 🔒 **M11 مغلقة** — 44/44، 370/370، CI أخضر (`e4f8790`)؛ الانحرافات الخمسة معتمدة؛ متطلب M21 وتبعية M18/M20 موثقان | `CLAUDE.md` |
 | 2026-09-24 | ✅ **M11** — `audit_log` (بلا FK)، T5 (صف + جملة)، T7 على 28 جدولاً بفاعل مستقل (tenant_user / platform_admin / system)؛ سحب UPDATE/DELETE/TRUNCATE من كل أدوار الـAPI؛ 370/370 | `supabase/migrations/20260924203358_audit.sql`, `supabase/tests/11_audit.test.sql`, `docs/DB_IMPLEMENTATION_SPEC_v1.md`, `CLAUDE.md` |

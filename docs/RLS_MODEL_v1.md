@@ -559,6 +559,8 @@ and exists (
 
 يُغلَّف في `app.can_access_identity_scope(uuid)` بنفس نمط دوال §3، ويُستعمل في `INSERT` و`UPDATE WITH CHECK` معاً.
 
+> **✅ H1 (2026-09-24) يحلّ محل هذا الفحص في الإنشاء:** `provision_student` لا تقبل `identity_scope_id` من العميل؛ تشتقه من المدرسة الهدف وتفحص `student.create` + `enrollment.create` + `can_access_school(target_school)`. الثغرة التي سُدّت أعلاه تبقى مسدودة لأن النطاق لم يعد مُدخلاً، و**G3** يرفض أي نطاق ≠ مالك مدرسة التسجيل. سبب التغيير: الفحص أعلاه كان يمنع سكرتير مدرسة ضمن مجموعة من التسجيل إلا بمنحه نطاق المجموعة — خرقاً لأقل صلاحية. `can_access_identity_scope` باقية لسياسة قراءة `identity_scopes` (§10.6).
+
 ### 8.5 ✅ `students.student_profile_id` — مغلق بقرار A4
 
 أُضيف بـ`NOT NULL UNIQUE` + FK مركّب `(student_profile_id, platform_tenant_id) → profiles (id, platform_tenant_id)`، فعلاقة الطالب بحسابه 1:1 إلزامية و`app.student_is_self()` قابلة للكتابة كما في §8.3.
