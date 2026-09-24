@@ -255,7 +255,10 @@ ALTER TABLE schools ADD CONSTRAINT schools_group_same_tenant_fk
 | `auth_user_id` | uuid | NOT NULL | — | FK → `auth.users(id)`، UNIQUE |
 | `display_name` | text | NOT NULL | — | |
 | `status` | text | NOT NULL | `'active'` | `active`, `suspended` |
-| الأعمدة المشتركة | | | | `created_by`/`updated_by` هنا تشير إلى `system_users(id)` لا `profiles(id)` |
+| `identity_kind` | text | NOT NULL | `'platform'` | G10 — ثابت؛ FK مركّب إلى `auth_identities` |
+| `created_at` / `updated_at` | timestamptz | NOT NULL | `now()` | |
+
+> **M05 (2026-09-24): لا `created_by`/`updated_by` في جداول Platform Admin الثلاثة.** الصيغة السابقة ربطتها بـ`system_users(id)`، لكن T6 يكتبها من `app.current_profile_id()` (معرّف profile في Tenant)، والكتابة هنا service role فقط (G8) حيث لا فاعل — فكانت ستبقى فارغة دائماً. الفاعل الموثوق في `audit_log` (T7).
 
 **القيود:** `UNIQUE (auth_user_id)`، `CHECK (status IN ('active','suspended'))`
 

@@ -3,7 +3,7 @@
 **المشروع:** نظام إدارة المدارس متعدد المستأجرين (Multi-Tenant SMS)
 **تاريخ الإنشاء:** 2026-09-22
 **آخر تحديث:** 2026-09-23
-**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (M01–M04 ✅؛ التالي M05 `platform_admin_identity`)
+**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (M01–M05 ✅؛ التالي M06 `permission_catalog_tables`)
 
 ---
 
@@ -174,6 +174,8 @@ npx supabase start -x studio,imgproxy,mailpit,edge-runtime,logflare,vector,supav
 ```
 
 لا إعادة تشغيل للـVM ولا مساس بحاويات المشاريع الأخرى على Podman.
+
+**`db reset` على Podman قد يستغرق عدة دقائق** — لا تُفسَّر المدة كتعليق. على Windows لا يُنهي `timeout` برنامج `supabase.exe` الأصلي؛ شغّله في الخلفية وانتظر إشعار انتهائه.
 
 ---
 
@@ -358,7 +360,8 @@ Platform Admin → Role → Permission + Platform-level scope
 | M02 | `app_trigger_functions` | ✅ 26/26 | إصلاح قطع `lpad` في `temporary_id`؛ T5 يغطي `TRUNCATE` |
 | M03 | `identity_root` | ✅ 28/28 | RLS يُفعَّل عند إنشاء كل جدول (لا في M13)؛ دالتا الهوية نُقلتا من M12 |
 | M04 | `tenancy` | ✅ 32/32 | أُضيف FK Tenant لـ`identity_scopes.school_id` (فجوة في DD §2.16.1) |
-| M05 | `platform_admin_identity` | ⬜ | التالي |
+| M05 | `platform_admin_identity` | ✅ 27/27 | لا `created_by`/`updated_by` في جداول المنصة (كانت ستبقى فارغة دائماً)؛ دوال السياق نُقلت من M12 |
+| M06 | `permission_catalog_tables` | ⬜ | التالي |
 
 - [ ] **C1.** `schema app` + الأنواع/الـenums المشتركة.
 - [ ] **C2.** Tenancy: `platform_tenants`, `groups`, `schools` (+ قيد: `schools.group_id` من نفس Tenant).
@@ -491,6 +494,7 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | ✅ **C3** — اعتماد `platform_admin_roles → platform_admin_role_permissions → permissions`؛ `is_platform_admin()` اختبار هوية فقط، و`has_permission()` توحّد المسارين. الكتالوج 73 مفتاحاً بعد K4 (`tenant.create`) | `docs/ROLE_PERMISSION_SEED_v1.md`, `AUTHORIZATION_MATRIX_v1.md`, `docs/DATA_DICTIONARY_v1.md`, `CLAUDE.md` |
 | 2026-09-22 | ✅ **A3** — RLS Model: 7 دوال، سياسات كل الجداول، حل تعارض FORCE RLS/recursion، 30 اختبار pgTAP، و6 بنود معلّقة | `docs/RLS_MODEL_v1.md`, `CLAUDE.md` |
 | 2026-09-23 | ✅ **A5** — اعتماد A1–A4 كـFoundation Design Baseline | — |
+| 2026-09-24 | ✅ **M05** — `system_users` (G10 من جهة المنصة)، `platform_admin_roles`، `platform_admin_assignments`؛ دوال `current_security_context` و`current_system_user_id` و`is_platform_admin`؛ 137/137 | `supabase/migrations/20260923224912_platform_admin_identity.sql`, `supabase/tests/05_platform_admin_identity.test.sql`, `docs/DATA_DICTIONARY_v1.md`, `docs/DB_IMPLEMENTATION_SPEC_v1.md`, `CLAUDE.md` |
 | 2026-09-24 | ✅ **M04** — `groups`، `schools` (`is_standalone`، `scope_owner_id`)، `identity_scopes`، T9؛ I1–I9 و G3 مُثبتة؛ 110/110 | `supabase/migrations/20260923224347_tenancy.sql`, `supabase/tests/04_tenancy.test.sql`, `docs/DATA_DICTIONARY_v1.md`, `docs/DB_IMPLEMENTATION_SPEC_v1.md`, `CLAUDE.md` |
 | 2026-09-24 | ✅ **M03** — `auth_identities` (G10)، `platform_tenants`، `profiles` (O1)، `app.current_profile_id/current_tenant_id`؛ RLS مفعّل ومفروض عند الإنشاء؛ 78/78 | `supabase/migrations/20260923223756_identity_root.sql`, `supabase/tests/03_identity_root.test.sql`, `docs/DATA_DICTIONARY_v1.md`, `docs/DB_IMPLEMENTATION_SPEC_v1.md`, `CLAUDE.md` |
 | 2026-09-24 | ✅ **M02** — T5 (يغطي `TRUNCATE` بـtrigger جملة)، T6 (ختم عام يتجاهل قيم العميل)، `temporary_id` (إصلاح قطع `lpad` بعد 999,999)؛ 50/50 | `supabase/migrations/20260923223202_app_trigger_functions.sql`, `supabase/tests/02_app_trigger_functions.test.sql`, `docs/DATA_DICTIONARY_v1.md`, `docs/DB_IMPLEMENTATION_SPEC_v1.md`, `CLAUDE.md` |
