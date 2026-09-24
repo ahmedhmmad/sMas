@@ -701,12 +701,12 @@ helpers ─► state fns ─► provisioning fns ─► reference data
 | M04 ✅ | `tenancy` | `groups`؛ `schools` + أعمدة مشتقة؛ `identity_scopes` (+ FK Tenant للمدرسة)؛ T9 | `04_tenancy` ✅ 32/32 |
 | M05 ✅ | `platform_admin_identity` | `system_users` (G10)؛ `platform_admin_roles`؛ `platform_admin_assignments`؛ **`current_security_context()`, `current_system_user_id()`, `is_platform_admin()`** (نُقلت من M12) | `05_platform_admin_identity` ✅ 27/27 |
 | M06 ✅ | `permission_catalog_tables` | `permissions`؛ `roles` + `owner_key`؛ `role_permissions`؛ `platform_admin_role_permissions`؛ **`has_platform_permission()`** (نُقلت من M12) | `06_permission_catalog_tables` ✅ 26/26 |
-| M07 | `memberships` | `memberships`؛ `membership_roles` (I16)؛ `membership_scopes` (I13–I15) | `07_memberships` |
+| M07 ✅ | `memberships` | `memberships`؛ `membership_roles` (I16)؛ `membership_scopes` (I13–I15)؛ **`has_permission()`, `can_access_tenant/group/school()`** (نُقلت من M12؛ F1 مُطبَّق) | `07_memberships` ✅ 46/46 |
 | M08 | `academic_structure` | `academic_years`؛ `terms` (I35)؛ `stages`؛ `grade_levels`؛ `sections` | `08_academic` (I33–I37) |
 | M09 | `people` | `staff`؛ `staff_school_assignments`؛ `families`؛ `students`؛ `guardians`؛ `student_guardians` | `09_people` (I22–I32) |
 | M10 | `enrollments` | `enrollments` (I38–I42) | `10_enrollments` |
 | M11 | `audit` | `audit_log`؛ T7؛ ربطه بـ27 جدولاً | `11_audit` (I44–I46) |
-| M12 | `authz_helpers` | دوال الهوية والصلاحية والنطاق والعلاقة و`can_see/can_manage_membership` | `12_helpers` |
+| M12 | `authz_helpers` | **المتبقي فقط:** دوال العلاقة (`student_in_scope`, `student_linked_to_guardian`, `student_is_self`, `staff_in_scope`, `guardian_in_scope`, `family_in_scope`, `can_access_identity_scope`, `current_guardian_id`) و`can_see/can_manage_membership` — دوال الهوية والصلاحية والنطاق أُنشئت في M03 و M05 و M06 و M07 حين جهزت اعتمادياتها | `12_helpers` |
 | M13 | `rls_enable` | **تحقق فقط:** كل الجداول مفعّلة ومفروضة منذ إنشائها (تنفيذياً: RLS يُفعَّل في migration كل جدول، لأن صلاحيات Supabase الافتراضية تمنح `anon` صلاحية ALL على جداول `public` فور إنشائها) | T2 من RLS §15 |
 | M14 | `policies_tenancy_platform` | | `14_isolation` (I1–I7) |
 | M15 | `policies_authz` | profiles، memberships، roles، scopes | `15_escalation` (E1–E8 + F1–F5) |
