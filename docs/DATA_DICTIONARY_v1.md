@@ -62,6 +62,16 @@ status text NOT NULL DEFAULT 'active'
 
 `full_name` محسوب ومخزَّن — لا يُكتب من التطبيق أبداً، ويُفهرس للبحث.
 
+> **🔴 تصحيح تنفيذي (M09، 2026-09-24):** الصيغة أعلاه **لا تُنفَّذ** — `concat_ws` مصنّفة `STABLE` فيرفضها Postgres في عمود محسوب (`generation expression is not immutable`، ثبت على PG 17.6). المُنفَّذ — الناتج نفسه بدوال `IMMUTABLE`:
+>
+> ```sql
+> GENERATED ALWAYS AS (btrim(regexp_replace(
+>   first_name || ' ' || coalesce(father_name, '') || ' ' ||
+>   coalesce(grandfather_name, '') || ' ' || family_name, '\s+', ' ', 'g'))) STORED
+> ```
+>
+> الاختبار `09_people` يقارن الناتج بالصيغة الأصلية على كل صف (أسماء ناقصة، مسافات زائدة): مطابق.
+
 ### 0.5 الهاتف
 
 `phone_e164 text` مع:

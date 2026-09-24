@@ -703,7 +703,7 @@ helpers ─► state fns ─► provisioning fns ─► reference data
 | M06 ✅ | `permission_catalog_tables` | `permissions`؛ `roles` + `owner_key`؛ `role_permissions`؛ `platform_admin_role_permissions`؛ **`has_platform_permission()`** (نُقلت من M12) | `06_permission_catalog_tables` ✅ 26/26 |
 | M07 ✅ | `memberships` | `memberships`؛ `membership_roles` (I16)؛ `membership_scopes` (I13–I15)؛ **`has_permission()`, `can_access_tenant/group/school()`** (نُقلت من M12؛ F1 مُطبَّق) | `07_memberships` ✅ 46/46 |
 | M08 ✅ | `academic_structure` | `academic_years`؛ `terms` (I35)؛ `stages`؛ `grade_levels`؛ `sections`؛ الأعمدة المشتركة على الخمسة (DD §0.3) | `08_academic_structure` ✅ 30/30 |
-| M09 | `people` | `staff`؛ `staff_school_assignments`؛ `families`؛ `students`؛ `guardians`؛ `student_guardians` | `09_people` (I22–I32) |
+| M09 ✅ | `people` | `staff`؛ `staff_school_assignments`؛ `families`؛ `students` (A4، G3)؛ `guardians`؛ `student_guardians` — `full_name` بدوال `IMMUTABLE` (DD §0.4) | `09_people` ✅ 61/61 |
 | M10 | `enrollments` | `enrollments` (I38–I42) | `10_enrollments` |
 | M11 | `audit` | `audit_log`؛ T7؛ ربطه بـ27 جدولاً | `11_audit` (I44–I46) |
 | M12 | `authz_helpers` | **المتبقي فقط:** دوال العلاقة (`student_in_scope`, `student_linked_to_guardian`, `student_is_self`, `staff_in_scope`, `guardian_in_scope`, `family_in_scope`, `can_access_identity_scope`, `current_guardian_id`) و`can_see/can_manage_membership` — دوال الهوية والصلاحية والنطاق أُنشئت في M03 و M05 و M06 و M07 حين جهزت اعتمادياتها | `12_helpers` |

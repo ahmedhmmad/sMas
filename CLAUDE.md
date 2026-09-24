@@ -3,7 +3,7 @@
 **المشروع:** نظام إدارة المدارس متعدد المستأجرين (Multi-Tenant SMS)
 **تاريخ الإنشاء:** 2026-09-22
 **آخر تحديث:** 2026-09-23
-**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (M01–M08 ✅؛ التالي M09 `people`)
+**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (M01–M09 ✅؛ التالي M10 `enrollments` — بعد مراجعة تقرير M09)
 
 ---
 
@@ -364,7 +364,8 @@ Platform Admin → Role → Permission + Platform-level scope
 | M06 | `permission_catalog_tables` | ✅ 26/26 | `has_platform_permission()` نُقلت من M12؛ `permissions` بلا `*_by` (يكتبه migrations فقط) |
 | M07 | `memberships` | ✅ 46/46 | `has_permission()` و`can_access_*` نُقلت من M12؛ **F1 مُثبت**: عضو المدرسة/المجموعة لا يملك نطاق Tenant |
 | M08 | `academic_structure` | ✅ 30/30 | T4 بديله الإعلاني يعمل؛ `EXCLUDE` عبر `btree_gist` في schema `extensions` يعمل على `uuid` |
-| M09 | `people` | ⬜ | التالي |
+| M09 | `people` | ✅ 61/61 | صيغة `full_name` في DD §0.4 غير قابلة للتنفيذ (`concat_ws` STABLE) ← بديل IMMUTABLE بنفس الناتج |
+| M10 | `enrollments` | ⬜ | بانتظار مراجعة تقرير M09 |
 
 **قاعدة اختبار (من M08):** كل تحقق رفض يطابق **اسم القيد** المقصود لا رمز الخطأ وحده (`like 'ERR 23503%<constraint_name>%'`). تكرر ثلاث مرات أن رُفض الإدراج بقيد غير المقصود فنجح التحقق دون أن يثبت شيئاً.
 
@@ -499,6 +500,7 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | ✅ **C3** — اعتماد `platform_admin_roles → platform_admin_role_permissions → permissions`؛ `is_platform_admin()` اختبار هوية فقط، و`has_permission()` توحّد المسارين. الكتالوج 73 مفتاحاً بعد K4 (`tenant.create`) | `docs/ROLE_PERMISSION_SEED_v1.md`, `AUTHORIZATION_MATRIX_v1.md`, `docs/DATA_DICTIONARY_v1.md`, `CLAUDE.md` |
 | 2026-09-22 | ✅ **A3** — RLS Model: 7 دوال، سياسات كل الجداول، حل تعارض FORCE RLS/recursion، 30 اختبار pgTAP، و6 بنود معلّقة | `docs/RLS_MODEL_v1.md`, `CLAUDE.md` |
 | 2026-09-23 | ✅ **A5** — اعتماد A1–A4 كـFoundation Design Baseline | — |
+| 2026-09-24 | ✅ **M09** — `staff`، `staff_school_assignments`، `families`، `students` (A4: بلا `school_id`/`group_id`، `identity_scope_id` و`student_profile_id` NOT NULL؛ G3: `(id, identity_scope_id)`)، `guardians`، `student_guardians`؛ I22–I32 بأسماء القيود؛ 300/300 | `supabase/migrations/20260924200821_people.sql`, `supabase/tests/09_people.test.sql`, `docs/DATA_DICTIONARY_v1.md`, `docs/DB_IMPLEMENTATION_SPEC_v1.md`, `CLAUDE.md` |
 | 2026-09-24 | ✅ **M08** — `academic_years` (I33، I34)، `terms` (I35 إعلاني عبر FK بتواريخ السنة، I36)، `stages`، `grade_levels`، `sections` (I37)؛ 239/239 | `supabase/migrations/20260924200246_academic_structure.sql`, `supabase/tests/08_academic_structure.test.sql`, `docs/DB_IMPLEMENTATION_SPEC_v1.md`, `CLAUDE.md` |
 | 2026-09-24 | ✅ **M07** — `memberships` (I12)، `membership_roles` (I16 إعلاني)، `membership_scopes` (I13–I15، NULLS NOT DISTINCT)؛ `has_permission()` (G10)، `can_access_tenant/group/school()` (F1)؛ 209/209 | `supabase/migrations/20260924195708_memberships.sql`, `supabase/tests/07_memberships.test.sql`, `docs/DB_IMPLEMENTATION_SPEC_v1.md`, `CLAUDE.md` |
 | 2026-09-24 | ✅ **M06** — `permissions` (I18)، `roles` + `owner_key` (I16، I17)، `role_permissions`، `platform_admin_role_permissions`؛ `has_platform_permission()` (G10، C3)؛ 163/163 | `supabase/migrations/20260924195208_permission_catalog_tables.sql`, `supabase/tests/06_permission_catalog_tables.test.sql`, `docs/DB_IMPLEMENTATION_SPEC_v1.md`, `CLAUDE.md` |
