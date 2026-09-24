@@ -700,7 +700,7 @@ helpers ─► state fns ─► provisioning fns ─► reference data
 | M03 ✅ | `identity_root` | `auth_identities` (G10)؛ `platform_tenants`؛ `profiles`؛ **`app.current_profile_id()`, `app.current_tenant_id()`** (نُقلتا من M12: اعتمادياتهما جاهزة وT6 تحتاج الأولى) | `03_identity_root` ✅ 28/28 |
 | M04 ✅ | `tenancy` | `groups`؛ `schools` + أعمدة مشتقة؛ `identity_scopes` (+ FK Tenant للمدرسة)؛ T9 | `04_tenancy` ✅ 32/32 |
 | M05 ✅ | `platform_admin_identity` | `system_users` (G10)؛ `platform_admin_roles`؛ `platform_admin_assignments`؛ **`current_security_context()`, `current_system_user_id()`, `is_platform_admin()`** (نُقلت من M12) | `05_platform_admin_identity` ✅ 27/27 |
-| M06 | `permission_catalog_tables` | `permissions`؛ `roles` + `owner_key`؛ `role_permissions`؛ `platform_admin_role_permissions` | `06_catalog_shape` |
+| M06 ✅ | `permission_catalog_tables` | `permissions`؛ `roles` + `owner_key`؛ `role_permissions`؛ `platform_admin_role_permissions`؛ **`has_platform_permission()`** (نُقلت من M12) | `06_permission_catalog_tables` ✅ 26/26 |
 | M07 | `memberships` | `memberships`؛ `membership_roles` (I16)؛ `membership_scopes` (I13–I15) | `07_memberships` |
 | M08 | `academic_structure` | `academic_years`؛ `terms` (I35)؛ `stages`؛ `grade_levels`؛ `sections` | `08_academic` (I33–I37) |
 | M09 | `people` | `staff`؛ `staff_school_assignments`؛ `families`؛ `students`؛ `guardians`؛ `student_guardians` | `09_people` (I22–I32) |
