@@ -702,7 +702,7 @@ helpers ─► state fns ─► provisioning fns ─► reference data
 | M05 ✅ | `platform_admin_identity` | `system_users` (G10)؛ `platform_admin_roles`؛ `platform_admin_assignments`؛ **`current_security_context()`, `current_system_user_id()`, `is_platform_admin()`** (نُقلت من M12) | `05_platform_admin_identity` ✅ 27/27 |
 | M06 ✅ | `permission_catalog_tables` | `permissions`؛ `roles` + `owner_key`؛ `role_permissions`؛ `platform_admin_role_permissions`؛ **`has_platform_permission()`** (نُقلت من M12) | `06_permission_catalog_tables` ✅ 26/26 |
 | M07 ✅ | `memberships` | `memberships`؛ `membership_roles` (I16)؛ `membership_scopes` (I13–I15)؛ **`has_permission()`, `can_access_tenant/group/school()`** (نُقلت من M12؛ F1 مُطبَّق) | `07_memberships` ✅ 46/46 |
-| M08 | `academic_structure` | `academic_years`؛ `terms` (I35)؛ `stages`؛ `grade_levels`؛ `sections` | `08_academic` (I33–I37) |
+| M08 ✅ | `academic_structure` | `academic_years`؛ `terms` (I35)؛ `stages`؛ `grade_levels`؛ `sections`؛ الأعمدة المشتركة على الخمسة (DD §0.3) | `08_academic_structure` ✅ 30/30 |
 | M09 | `people` | `staff`؛ `staff_school_assignments`؛ `families`؛ `students`؛ `guardians`؛ `student_guardians` | `09_people` (I22–I32) |
 | M10 | `enrollments` | `enrollments` (I38–I42) | `10_enrollments` |
 | M11 | `audit` | `audit_log`؛ T7؛ ربطه بـ27 جدولاً | `11_audit` (I44–I46) |
