@@ -873,6 +873,8 @@ CREATE UNIQUE INDEX enrollments_active_uq
   ON enrollments (student_id, school_id, academic_year_id)
   WHERE status = 'active';
 ```
+
+> **ملاحظة (M10، 2026-09-24): I38 محتوى بالكامل في G6.** التسجيل النشط فترته `[from, ∞)`، فأي تسجيلين نشطين للطالب نفسه يتداخلان دائماً، فيرفضهما `enrollments_no_overlap` أولاً. القيد باقٍ (المواصفة + فهرس بحث مفيد)، لكن لا حالة تخرقه وحده، فلا يُختبر باسمه منفرداً.
 - `CHECK (status IN ('active','withdrawn','transferred','completed'))`
 - `CHECK (effective_to IS NULL OR effective_to > effective_from)` — فترة نصف مفتوحة (B6)
 - `CHECK ((status = 'active') = (effective_to IS NULL))` — B6
