@@ -62,7 +62,7 @@ insert into public.sections (id, school_id, academic_year_id, grade_level_id, na
 insert into public.permissions (code, resource, operation, description)
   select c, split_part(c, '.', 1), split_part(c, '.', 2), 'test' from unnest(array[
     'academic_year.read','academic_year.create','academic_year.update',
-    'term.read','term.manage','stage.read','stage.manage','grade_level.read','grade_level.manage','section.read','section.manage']) c;
+    'term.read','term.manage','stage.read','stage.manage','grade_level.read','grade_level.manage','section.read','section.manage']) c on conflict (code) do nothing;
 insert into public.roles (id, platform_tenant_id, code, name, is_system) values
   ('71000000-0000-0000-0000-000000000001', null, 'acad_admin', 'Admin',   true),
   ('72000000-0000-0000-0000-000000000002', null, 'reader',     'Reader',  true),

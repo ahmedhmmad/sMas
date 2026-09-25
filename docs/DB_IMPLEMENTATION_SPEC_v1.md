@@ -729,7 +729,7 @@ helpers ─► state fns ─► provisioning fns ─► reference data
 | M21 ✅ | `state_functions` | §5.3 | `21_state` |
 | M21b ✅ | `tenant_suspension` | `current_profile_id` و`current_tenant_id` تُرجعان NULL لـTenant موقوف | `21b_tenant_suspension` ✅ 15/15 |
 | M22 ✅ | `provisioning_functions` | §5.2 | `22_provisioning` |
-| M23 | `reference_data` | الكتالوج والأدوار والخرائط | `23_catalog_drift` |
+| M23 ✅ | `reference_data` | الكتالوج والأدوار والخرائط | `23_catalog_drift` |
 
 **معيار الخروج من Gate C/D/E:** كل M01–M23 مطبَّقة على قاعدة نظيفة بـ`supabase db reset`، وكل ملفات pgTAP خضراء في CI.
 

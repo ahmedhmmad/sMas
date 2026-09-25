@@ -71,22 +71,17 @@ create function pg_temp.sec(p text) returns uuid language sql as $$ select id fr
 insert into public.permissions (code, resource, operation, description)
   select c, split_part(c, '.', 1), split_part(c, '.', 2), 'test' from unnest(array[
     'student.create','student.read','enrollment.create','enrollment.read','staff.create','staff.assign','staff.read',
-    'guardian.create','guardian.link','guardian.read','family.read','membership.create','tenant.read','tenant.create']) c;
+    'guardian.create','guardian.link','guardian.read','family.read','membership.create','tenant.read','tenant.create']) c on conflict (code) do nothing;
 create function pg_temp.perm(c text) returns uuid language sql as $$ select id from public.permissions where code = c $$;
 
--- أدوار النظام التي تسندها الدوال (البذر الحقيقي في M23) + دورا الفاعلين
+-- أدوار النظام التي تسندها الدوال (tenant_admin، student، guardian) مبذورة فعلاً في M23 — تُستعمل كما هي.
+-- دورا الفاعلين: zt_secretary (كل الصلاحيات عدا tenant.*؛ يغطي أدوار student و guardian المبذورة لـT8)، weak (بلا صلاحيات دور student)
 insert into public.roles (id, platform_tenant_id, code, name, is_system) values
-  ('70000000-0000-0000-0000-000000000001', null, 'tenant_admin', 'Tenant Admin', true),
-  ('70000000-0000-0000-0000-000000000002', null, 'student',      'Student',      true),
-  ('70000000-0000-0000-0000-000000000003', null, 'guardian',     'Guardian',     true),
-  ('70000000-0000-0000-0000-000000000004', null, 'secretary',    'Secretary',    true),
-  ('70000000-0000-0000-0000-000000000005', null, 'weak',         'Weak',         true);
+  ('70000000-0000-0000-0000-000000000004', null, 'zt_secretary', 'Secretary', true),
+  ('70000000-0000-0000-0000-000000000005', null, 'weak',         'Weak',      true);
 insert into public.role_permissions (role_id, permission_id)
-            select '70000000-0000-0000-0000-000000000001'::uuid, pg_temp.perm(c) from unnest(array['tenant.read','student.read']) c
-  union all select '70000000-0000-0000-0000-000000000002'::uuid, pg_temp.perm(c) from unnest(array['student.read','enrollment.read']) c
-  union all select '70000000-0000-0000-0000-000000000003'::uuid, pg_temp.perm(c) from unnest(array['student.read','guardian.read','family.read','enrollment.read']) c
-  union all select '70000000-0000-0000-0000-000000000004'::uuid, id from public.permissions where code not in ('tenant.read','tenant.create')
-  union all select '70000000-0000-0000-0000-000000000005'::uuid, pg_temp.perm(c) from unnest(array['student.create','enrollment.create']) c;   -- بلا student.read
+            select '70000000-0000-0000-0000-000000000004'::uuid, id from public.permissions where code not like 'tenant.%'
+  union all select '70000000-0000-0000-0000-000000000005'::uuid, pg_temp.perm(c) from unnest(array['student.create','enrollment.create']) c;   -- بلا صلاحيات دور student
 
 create function pg_temp.member(p_label text, p_role uuid, p_scope text) returns void
 language plpgsql as $$
@@ -235,7 +230,7 @@ select is((select v from r where k = 'ps.standalone'), 'e2000000-0000-0000-0000-
 select is((select v from r where k = 'ps.standalone_scope'), 'true', 'H1: a standalone school''s own identity scope');
 select ok((select v from r where k = 'ps.sb')        like 'ERR P0002%', 'provision_student: a section outside the actor''s scope → not found');
 select ok((select v from r where k = 'ps.nop')       like 'ERR 42501%forbidden%', 'provision_student: without student.create/enrollment.create');
-select ok((select v from r where k = 'ps.weak')      like 'ERR 42501%T8: role grants permissions the actor does not hold: enrollment.read, student.read%', 'T8 inside provisioning: assigning the student role needs its permissions');
+select ok((select v from r where k = 'ps.weak')      like 'ERR 42501%T8: role grants permissions the actor does not hold: enrollment.read, profile.read, school.read, student.read%', 'T8 inside provisioning: assigning the student role needs its permissions');
 select is((select v from r where k = 'ps.weak_trace'), '0/0/0', 'saga atomicity: a failed provisioning leaves no profile, identity or student (FastAPI then compensates the Auth user)');
 select ok((select v from r where k = 'ps.reused_auth') like 'ERR 23505%auth_identities%', 'O1/G10: an Auth user already bound elsewhere cannot receive a second profile');
 select is((select v from r where k = 'ps.reused_trace'), '0', '… and nothing is left behind');

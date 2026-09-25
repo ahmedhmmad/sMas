@@ -128,7 +128,7 @@ begin
 end $$;
 
 -- الصلاحيات والأدوار
-insert into public.permissions (code, resource, operation, description) values ('audit.read', 'audit', 'read', 'test'), ('student.read', 'student', 'read', 'test');
+insert into public.permissions (code, resource, operation, description) values ('audit.read', 'audit', 'read', 'test'), ('student.read', 'student', 'read', 'test') on conflict (code) do nothing;
 insert into public.roles (id, platform_tenant_id, code, name, is_system) values
   ('71000000-0000-0000-0000-000000000001', null, 'auditor', 'Auditor', true),
   ('72000000-0000-0000-0000-000000000002', null, 'reader',  'Reader',  true);

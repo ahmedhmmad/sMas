@@ -123,7 +123,7 @@
 
 ## 4. خريطة Role → Permission
 
-### 4.1 `tenant_admin` — 48 صلاحية
+### 4.1 `tenant_admin` — 71 صلاحية
 
 أعلى دور داخل Tenant. يملك كل شيء داخل Tenant **عدا** عمليات مشغِّل المنصة.
 
@@ -143,7 +143,7 @@
 
 **لا يملك:** `tenant.suspend` (K3).
 
-### 4.2 `group_manager` — 41 صلاحية
+### 4.2 `group_manager` — 62 صلاحية
 
 مثل `tenant_admin` داخل Group، **ناقصاً إنشاء البنى فوق مستواه**.
 
@@ -158,7 +158,7 @@
 
 **يملك:** `group.read`, `group.export`, `school.create/read/update/archive/export` (داخل مجموعته — `PLAN_v3.md` §7.9)، و`role.read`, `role.assign`, `scope.assign`، وكل صلاحيات Students/Guardians/Staff/Academic/Enrollment الواردة في 4.1، و`audit.read`, `audit.sensitive_read`.
 
-### 4.3 `school_admin` — 43 صلاحية
+### 4.3 `school_admin` — 59 صلاحية
 
 **الفروق عن `tenant_admin`:**
 
@@ -172,7 +172,7 @@
 
 > `security.manage` على مستوى المدرسة يغطي إعدادات مثل نمط أول دخول لولي الأمر A/B/C (`PLAN_v3.md` §7.8).
 
-### 4.4 `secretary` — 16 صلاحية
+### 4.4 `secretary` — 19 صلاحية
 
 القبول والتسجيل وبيانات الطلاب وأولياء الأمور.
 
@@ -233,7 +233,7 @@
 
 > **انحراف موثق عن Matrix §6:** الجدول هناك يعطي المعلم `Audit: R ضمن Scope`. **لم يُبذَر.** `audit.read` تكشف تصرفات مستخدمين آخرين داخل المدرسة (تعديلات الإدارة على الدرجات والمالية والصلاحيات)، وهذا يتجاوز حاجة المعلم التشغيلية ويخالف مبدأ أقل قدر من البيانات (`PLAN_v3.md` §8). يحتاج قراراً صريحاً إن أُريد منحه.
 
-### 4.7 `counselor` — 11 صلاحية
+### 4.7 `counselor` — 10 صلاحيات
 
 | المجموعة | الصلاحيات |
 |---|---|
@@ -260,7 +260,7 @@
 
 كشف الباص يحتاج الطلاب المرتبطين **بخطه** فقط. العلاقة التي تُضيّق ذلك (`bus_routes` / `student_bus_assignments`) غير موجودة قبل المرحلة 7. منحه `student.read` الآن يعني — بحكم school scope — قراءة **كل طلاب المدرسة**، وهو بالضبط ما تمنعه القاعدة الحاكمة في §1. تُضاف صلاحياته مع migration المرحلة 7.
 
-### 4.9 `guardian` — 5 صلاحيات
+### 4.9 `guardian` — 6 صلاحيات
 
 الوصول يُثبَت بالعلاقة لا بالـScope (Matrix §9).
 
@@ -295,17 +295,21 @@
 
 ## 5. ملخص التوزيع
 
+> **✅ تصحيح M23 (2026-09-26):** الأعداد هنا وفي عناوين §4 كانت متقادمة (سابقة لـK2 و G1) ولا تطابق القوائم الصريحة. **القوائم هي المرجع** (قرار 2026-09-26) — وهي مطابقة حرفياً لكتالوج Matrix §4 (73 = قائمة `tenant_admin` الـ71 + `tenant.create` + `tenant.suspend`). `group_manager` و`school_admin` بقاعدتي الطرح في §4.2 و§4.3. المجموع 255 ربطاً؛ `23_reference_data` يثبت كل مجموعة حرفياً.
+>
+> **نتيجة T8 على الأدوار المبذورة (موثّقة، لا قرار جديد):** `group_manager` **لا يستطيع إسناد `school_admin`** — لأن الأخير يحمل `security.manage`/`security.export` التي لا يملكها. `tenant_admin` يسند الأدوار التسعة الأخرى كلها؛ `group_manager` و`school_admin` يسندان `secretary`, `accountant`, `teacher`, `counselor`, `bus_supervisor`, `guardian`, `student`.
+
 | الدور | عدد الصلاحيات | `sensitive_read` | `export` |
 |---|---:|:---:|:---:|
-| `tenant_admin` | 48 | ✅ student + guardian | ✅ كامل |
-| `group_manager` | 41 | ✅ student + guardian | ✅ عدا security |
-| `school_admin` | 43 | ✅ student + guardian | ✅ كامل |
-| `secretary` | 16 | ❌ | ❌ |
+| `tenant_admin` | 71 | ✅ student + guardian | ✅ كامل |
+| `group_manager` | 62 | ✅ student + guardian | ✅ عدا security |
+| `school_admin` | 59 | ✅ student + guardian | ✅ كامل |
+| `secretary` | 19 | ❌ | ❌ |
 | `accountant` | 11 | ❌ | ❌ |
 | `teacher` | 11 | ❌ | ❌ |
-| `counselor` | 11 | ✅ student فقط | ❌ |
+| `counselor` | 10 | ✅ student فقط | ❌ |
 | `bus_supervisor` | 2 | ❌ | ❌ |
-| `guardian` | 5 | ❌ | ❌ |
+| `guardian` | 6 | ❌ | ❌ |
 | `student` | 4 | ❌ | ❌ |
 
 **G1 (2026-09-23):** `profile.update` لم تعد لأي دور غير `tenant_admin`/`group_manager`/`school_admin`. معناها الآن «تعديل profiles الآخرين ضمن نطاق يحتوي عضويتهم» (`can_manage_membership`)، ولا يوجد تعديل ذاتي. `profile.read` باقية للجميع ومعناها «رؤية profiles ضمن النطاق»؛ ولي الأمر والطالب بلا نطاقات فلا يرون إلا أنفسهم عبر مسار الذات الذي لا يحتاج صلاحية.

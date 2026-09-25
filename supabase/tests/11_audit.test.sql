@@ -79,7 +79,7 @@ insert into public.families (id, platform_tenant_id, family_name) values ('fa000
 delete from public.families where id = 'fa000000-0000-0000-0000-000000000001';
 
 -- مفاتيح مركّبة
-insert into public.permissions (id, code, resource, operation, description) values ('91000000-0000-0000-0000-000000000001', 'student.read', 'student', 'read', 'x');
+insert into public.permissions (id, code, resource, operation, description) values ('91000000-0000-0000-0000-000000000001', 'zt_student.read', 'zt_student', 'read', 'x');
 insert into public.roles (id, platform_tenant_id, code, name, is_system) values
   ('71000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'custom', 'Custom', false),
   ('72000000-0000-0000-0000-000000000002', null, 'sys', 'System', true);

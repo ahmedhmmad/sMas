@@ -53,14 +53,14 @@ insert into public.schools (id, platform_tenant_id, group_id, school_code, name,
 insert into public.permissions (code, resource, operation, description)
   select c, split_part(c, '.', 1), split_part(c, '.', 2), 'test' from unnest(array[
     'profile.read','profile.update','membership.read','role.assign','scope.assign',
-    'role.read','role.create','role.update','permission.read','student.read']) c;
+    'role.read','role.create','role.update','permission.read','student.read']) c on conflict (code) do nothing;
 create function pg_temp.perm(c text) returns uuid language sql as $$ select id from public.permissions where code = c $$;
 
 -- أدوار النظام: tadmin (كل ما سبق)، sadmin (إدارة عضويات)، teacher (profile.read فقط)، acct (student.read)، rolemgr (إدارة الأدوار)
 insert into public.roles (id, platform_tenant_id, code, name, is_system) values
   ('71000000-0000-0000-0000-000000000001', null, 'tadmin',  'TA',      true),
   ('72000000-0000-0000-0000-000000000002', null, 'sadmin',  'SA',      true),
-  ('73000000-0000-0000-0000-000000000003', null, 'teacher', 'Teacher', true),
+  ('73000000-0000-0000-0000-000000000003', null, 'zt_teacher', 'Teacher', true),
   ('74000000-0000-0000-0000-000000000004', null, 'acct',    'Acct',    true),
   ('75000000-0000-0000-0000-000000000005', null, 'rolemgr', 'RoleMgr', true);
 insert into public.role_permissions (role_id, permission_id)
@@ -293,14 +293,14 @@ select is((select v from r where k = 'mscopes.tch'), 'tch',                     
 select is((select v from r where k = 'mscopes.grd'), '<null>',                                        'membership_scopes: a guardian has none and sees none');
 
 -- ---------- roles / role_permissions / permissions ----------
-select is((select v from r where k = 'roles.ta'),   'acct,c1,rolemgr,sadmin,tadmin,teacher', 'roles: system roles + own tenant custom roles; not c2 (T2)');
-select is((select v from r where k = 'roles.t2a'),  'acct,c2,rolemgr,sadmin,tadmin,teacher', 'roles: T2 sees system roles + c2 only');
+select is((select v from r where k = 'roles.ta'),   'accountant,acct,bus_supervisor,c1,counselor,group_manager,guardian,rolemgr,sadmin,school_admin,secretary,student,tadmin,teacher,tenant_admin,zt_teacher', 'roles: the 10 seeded system roles + test system roles + own custom c1; not c2 (T2)');
+select is((select v from r where k = 'roles.t2a'),  'accountant,acct,bus_supervisor,c2,counselor,group_manager,guardian,rolemgr,sadmin,school_admin,secretary,student,tadmin,teacher,tenant_admin,zt_teacher', 'roles: T2 sees system roles + c2 only, never c1');
 select is((select v from r where k = 'roles.tch'),  '<null>',                                'roles: without role.read → nothing');
 select is((select v from r where k = 'roles.pa'),   '<null>',                                'roles: platform admin sees nothing (E8)');
-select is((select v from r where k = 'rperms.ta'),  'acct,c1,rolemgr,sadmin,tadmin,teacher', 'role_permissions: follow roles visibility');
-select is((select v from r where k = 'rperms.t2a'), 'acct,c2,rolemgr,sadmin,tadmin,teacher', 'role_permissions: T2 never sees c1 mappings');
+select is((select v from r where k = 'rperms.ta'),  'accountant,acct,bus_supervisor,c1,counselor,group_manager,guardian,rolemgr,sadmin,school_admin,secretary,student,tadmin,teacher,tenant_admin,zt_teacher', 'role_permissions: follow roles visibility');
+select is((select v from r where k = 'rperms.t2a'), 'accountant,acct,bus_supervisor,c2,counselor,group_manager,guardian,rolemgr,sadmin,school_admin,secretary,student,tadmin,teacher,tenant_admin,zt_teacher', 'role_permissions: T2 never sees c1 mappings');
 select is((select v from r where k = 'rperms.tch'), '<null>',                                'role_permissions: nothing without role.read');
-select is((select v from r where k = 'perms.ta'),   '10',                                    'permissions: whole catalog with permission.read');
+select is((select v from r where k = 'perms.ta'),   '73',                                    'permissions: the whole 73-key catalog (M23) with permission.read');
 select is((select v from r where k = 'perms.tch'),  '0',                                     'permissions: nothing without permission.read');
 select is((select v from r where k = 'perms.pa'),   '0',                                     'permissions: platform context has no policy here (E8)');
 

@@ -77,7 +77,7 @@ insert into public.permissions (code, resource, operation, description)
     'tenant.suspend','group.archive','school.archive','membership.end','student.archive',
     'staff.update','staff.archive','staff.assign','guardian.update','guardian.unlink',
     'academic_year.activate','academic_year.close','enrollment.archive','enrollment.transfer',
-    'role.update','fee.read']) c;
+    'role.update','fee.read']) c on conflict (code) do nothing;
 insert into public.roles (id, platform_tenant_id, code, name, is_system) values
   ('71000000-0000-0000-0000-000000000001', null, 'tadmin', 'TA', true),
   ('72000000-0000-0000-0000-000000000002', null, 'sadmin', 'SA', true);

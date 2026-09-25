@@ -42,7 +42,7 @@ insert into public.academic_years (school_id, name, start_date, end_date, status
   ('52000000-0000-0000-0000-000000000002', 'Y', '2026-09-01', '2027-06-30', 'active');
 
 insert into public.permissions (code, resource, operation, description)
-  select c, split_part(c, '.', 1), split_part(c, '.', 2), 'test' from unnest(array['tenant.read','school.read','academic_year.read','tenant.suspend']) c;
+  select c, split_part(c, '.', 1), split_part(c, '.', 2), 'test' from unnest(array['tenant.read','school.read','academic_year.read','tenant.suspend']) c on conflict (code) do nothing;
 insert into public.roles (id, platform_tenant_id, code, name, is_system) values ('71000000-0000-0000-0000-000000000001', null, 'reader', 'R', true);
 insert into public.role_permissions select '71000000-0000-0000-0000-000000000001', id from public.permissions where code <> 'tenant.suspend';
 

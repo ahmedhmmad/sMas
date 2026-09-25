@@ -80,8 +80,8 @@ insert into public.membership_scopes (membership_id, platform_tenant_id, scope_t
 
 -- الأدوار والصلاحيات
 insert into public.permissions (id, code, resource, operation, description) values
-  ('f1000000-0000-0000-0000-000000000001', 'student.read',   'student', 'read',   'x'),
-  ('f2000000-0000-0000-0000-000000000002', 'student.export', 'student', 'export', 'x');
+  ('f1000000-0000-0000-0000-000000000001', 'zt_student.read',   'zt_student', 'read',   'x'),
+  ('f2000000-0000-0000-0000-000000000002', 'zt_student.export', 'zt_student', 'export', 'x');
 insert into public.roles (id, platform_tenant_id, code, name, is_system, status) values
   ('71000000-0000-0000-0000-000000000001', null,                                   'reader',     'Reader',     true,  'active'),
   ('72000000-0000-0000-0000-000000000002', null,                                   'exporter',   'Exporter',   true,  'inactive'),
@@ -113,15 +113,15 @@ select pg_temp.rec('ms.cross_tenant_school', $q$insert into public.membership_sc
 
 -- ============ has_permission (G10) ============
 select pg_temp.as_('c3000000-0000-0000-0000-000000000003');
-select pg_temp.rec('hp.sa_read',     $q$select app.has_permission('student.read')::text$q$);
-select pg_temp.rec('hp.sa_export',   $q$select app.has_permission('student.export')::text$q$);   -- الدور غير نشط
+select pg_temp.rec('hp.sa_read',     $q$select app.has_permission('zt_student.read')::text$q$);
+select pg_temp.rec('hp.sa_export',   $q$select app.has_permission('zt_student.export')::text$q$);   -- الدور غير نشط
 select pg_temp.rec('hp.sa_unknown',  $q$select app.has_permission('no.such')::text$q$);
 select pg_temp.as_('c5000000-0000-0000-0000-000000000005');
-select pg_temp.rec('hp.ended_read',  $q$select app.has_permission('student.read')::text$q$);
+select pg_temp.rec('hp.ended_read',  $q$select app.has_permission('zt_student.read')::text$q$);
 select pg_temp.as_('c7000000-0000-0000-0000-000000000007');
-select pg_temp.rec('hp.platform_read', $q$select app.has_permission('student.read')::text$q$);
+select pg_temp.rec('hp.platform_read', $q$select app.has_permission('zt_student.read')::text$q$);
 select pg_temp.as_(null);
-select pg_temp.rec('hp.service_read',  $q$select app.has_permission('student.read')::text$q$);
+select pg_temp.rec('hp.service_read',  $q$select app.has_permission('zt_student.read')::text$q$);
 
 -- ============ can_access_* (F1) ============
 create function pg_temp.scope_matrix(p_key text, p_sub uuid) returns void

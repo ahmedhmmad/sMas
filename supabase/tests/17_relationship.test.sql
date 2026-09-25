@@ -74,12 +74,12 @@ insert into public.permissions (code, resource, operation, description)
   select c, split_part(c, '.', 1), split_part(c, '.', 2), 'test' from unnest(array[
     'student.read','student.update','guardian.read','guardian.update','guardian.link',
     'staff.read','staff.update','staff.assign','family.read','family.update',
-    'enrollment.read','enrollment.create','enrollment.update']) c;
+    'enrollment.read','enrollment.create','enrollment.update']) c on conflict (code) do nothing;
 insert into public.roles (id, platform_tenant_id, code, name, is_system) values
   ('71000000-0000-0000-0000-000000000001', null, 'admin',    'Admin',    true),
-  ('72000000-0000-0000-0000-000000000002', null, 'teacher',  'Teacher',  true),
-  ('73000000-0000-0000-0000-000000000003', null, 'guardian', 'Guardian', true),
-  ('74000000-0000-0000-0000-000000000004', null, 'student',  'Student',  true),
+  ('72000000-0000-0000-0000-000000000002', null, 'zt_teacher', 'Teacher',   true),
+  ('73000000-0000-0000-0000-000000000003', null, 'zt_guardian','Guardian', true),
+  ('74000000-0000-0000-0000-000000000004', null, 'zt_student', 'Student',   true),
   ('75000000-0000-0000-0000-000000000005', null, 'bus',      'Bus',      true);
 insert into public.role_permissions (role_id, permission_id)
   select '71000000-0000-0000-0000-000000000001'::uuid, id from public.permissions

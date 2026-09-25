@@ -73,7 +73,7 @@ grant select on scope_lbl to public;
 -- الصلاحيات (البذر الحقيقي في M23) ودوران: full (كل صلاحيات M14) و reader (القراءة فقط)
 insert into public.permissions (code, resource, operation, description)
   select r || '.' || o, r, o, 'test'
-  from unnest(array['tenant','group','school']) r, unnest(array['read','create','update']) o;
+  from unnest(array['tenant','group','school']) r, unnest(array['read','create','update']) o on conflict (code) do nothing;
 insert into public.roles (id, platform_tenant_id, code, name, is_system) values
   ('71000000-0000-0000-0000-000000000001', null, 'full',   'Full',   true),
   ('72000000-0000-0000-0000-000000000002', null, 'reader', 'Reader', true);
@@ -120,7 +120,7 @@ select pg_temp.member('t2a',     '20000000-0000-0000-0000-000000000002', '710000
 
 -- Platform Admins: pa (دور بمفاتيح البذر ذات الصلة)، pa0 (دور بلا صلاحيات)، parev (إسناد مسحوب)
 insert into public.platform_admin_roles (id, code, name) values
-  ('81000000-0000-0000-0000-000000000001', 'platform_admin', 'Platform Admin'),
+  ('81000000-0000-0000-0000-000000000001', 'zt_platform_admin', 'Platform Admin'),
   ('82000000-0000-0000-0000-000000000002', 'empty_role',     'Empty');
 insert into public.platform_admin_role_permissions (platform_admin_role_id, permission_id)
   select '81000000-0000-0000-0000-000000000001', id from public.permissions

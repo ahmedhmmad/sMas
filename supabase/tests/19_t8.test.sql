@@ -47,7 +47,7 @@ insert into public.schools (id, platform_tenant_id, group_id, school_code, name,
 insert into public.permissions (code, resource, operation, description)
   select c, split_part(c, '.', 1), split_part(c, '.', 2), 'test' from unnest(array[
     'student.read','student.update','student.archive','profile.read','role.assign','scope.assign',
-    'role.read','role.update','tenant.update','fee.read','membership.read']) c;
+    'role.read','role.update','tenant.update','fee.read','membership.read']) c on conflict (code) do nothing;
 create function pg_temp.perm(c text) returns uuid language sql as $$ select id from public.permissions where code = c $$;
 
 -- أدوار النظام:
@@ -62,7 +62,7 @@ insert into public.roles (id, platform_tenant_id, code, name, is_system, status)
   ('71000000-0000-0000-0000-000000000001', null, 'tadmin',  'TA',  true, 'active'),
   ('72000000-0000-0000-0000-000000000002', null, 'sadmin',  'SA',  true, 'active'),
   ('73000000-0000-0000-0000-000000000003', null, 'tadm2',   'TA2', true, 'active'),
-  ('74000000-0000-0000-0000-000000000004', null, 'teacher', 'T',   true, 'active'),
+  ('74000000-0000-0000-0000-000000000004', null, 'zt_teacher', 'T',   true, 'active'),
   ('75000000-0000-0000-0000-000000000005', null, 'rolex',   'X',   true, 'active'),
   ('76000000-0000-0000-0000-000000000006', null, 'roley',   'Y',   true, 'active'),
   ('77000000-0000-0000-0000-000000000007', null, 'rolez',   'Z',   true, 'inactive');

@@ -30,9 +30,9 @@ insert into public.platform_tenants (id, tenant_code, name) values
   ('20000000-0000-0000-0000-000000000002', 'T2', 'Tenant Two');
 
 insert into public.permissions (id, code, resource, operation, description) values
-  ('f1000000-0000-0000-0000-000000000001', 'tenant.read',   'tenant',  'read',   'read tenant'),
-  ('f2000000-0000-0000-0000-000000000002', 'tenant.create', 'tenant',  'create', 'create tenant'),
-  ('f3000000-0000-0000-0000-000000000003', 'student.read',  'student', 'read',   'read student');
+  ('f1000000-0000-0000-0000-000000000001', 'zt_tenant.read',   'zt_tenant',  'read',   'read tenant'),
+  ('f2000000-0000-0000-0000-000000000002', 'zt_tenant.create', 'zt_tenant',  'create', 'create tenant'),
+  ('f3000000-0000-0000-0000-000000000003', 'zt_student.read',  'zt_student', 'read',   'read student');
 
 -- permissions — I18
 select pg_temp.rec('p.parts_mismatch', $q$insert into public.permissions (code, resource, operation, description) values ('student.read','student','update','x') returning 'ok'$q$);
@@ -41,12 +41,12 @@ select pg_temp.rec('p.dup',            $q$insert into public.permissions (code, 
 
 -- roles — I17 وتفرد الأكواد
 insert into public.roles (id, platform_tenant_id, code, name, is_system) values
-  ('71000000-0000-0000-0000-000000000001', null,                                   'teacher', 'Teacher',        true),
+  ('71000000-0000-0000-0000-000000000001', null,                                   'zt_teacher', 'Teacher',        true),
   ('72000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000001', 'teacher', 'Custom T1',      false),
   ('73000000-0000-0000-0000-000000000003', '20000000-0000-0000-0000-000000000002', 'teacher', 'Custom T2',      false);
 select pg_temp.rec('r.system_not_flagged', $q$insert into public.roles (platform_tenant_id, code, name, is_system) values (null,'x','x',false) returning 'ok'$q$);
 select pg_temp.rec('r.custom_flagged',     $q$insert into public.roles (platform_tenant_id, code, name, is_system) values ('10000000-0000-0000-0000-000000000001','y','y',true) returning 'ok'$q$);
-select pg_temp.rec('r.dup_system_code',    $q$insert into public.roles (platform_tenant_id, code, name, is_system) values (null,'teacher','x',true) returning 'ok'$q$);
+select pg_temp.rec('r.dup_system_code',    $q$insert into public.roles (platform_tenant_id, code, name, is_system) values (null,'zt_teacher','x',true) returning 'ok'$q$);
 select pg_temp.rec('r.dup_custom_code',    $q$insert into public.roles (platform_tenant_id, code, name, is_system) values ('10000000-0000-0000-0000-000000000001','teacher','x',false) returning 'ok'$q$);
 select pg_temp.rec('r.bad_code',           $q$insert into public.roles (platform_tenant_id, code, name, is_system) values ('10000000-0000-0000-0000-000000000001','Head Teacher','x',false) returning 'ok'$q$);
 
@@ -74,7 +74,7 @@ insert into public.system_users (id, auth_user_id, display_name) values
   ('d2000000-0000-0000-0000-000000000002', 'c2000000-0000-0000-0000-000000000002', 'Support'),
   ('d3000000-0000-0000-0000-000000000003', 'c3000000-0000-0000-0000-000000000003', 'Revoked');
 insert into public.platform_admin_roles (id, code, name) values
-  ('e1000000-0000-0000-0000-000000000001', 'platform_admin',   'Platform Admin'),
+  ('e1000000-0000-0000-0000-000000000001', 'zt_platform_admin', 'Platform Admin'),
   ('e2000000-0000-0000-0000-000000000002', 'platform_support', 'Platform Support');
 insert into public.platform_admin_role_permissions values
   ('e1000000-0000-0000-0000-000000000001', 'f1000000-0000-0000-0000-000000000001'),
@@ -85,13 +85,13 @@ insert into public.platform_admin_assignments (system_user_id, platform_admin_ro
   ('d2000000-0000-0000-0000-000000000002', 'e2000000-0000-0000-0000-000000000002', 'active',  null),
   ('d3000000-0000-0000-0000-000000000003', 'e1000000-0000-0000-0000-000000000001', 'revoked', now());
 
-select pg_temp.hpp('hpp.admin_create',    'c1000000-0000-0000-0000-000000000001', 'tenant.create');
-select pg_temp.hpp('hpp.admin_student',   'c1000000-0000-0000-0000-000000000001', 'student.read');
-select pg_temp.hpp('hpp.support_read',    'c2000000-0000-0000-0000-000000000002', 'tenant.read');
-select pg_temp.hpp('hpp.support_create',  'c2000000-0000-0000-0000-000000000002', 'tenant.create');
-select pg_temp.hpp('hpp.revoked_create',  'c3000000-0000-0000-0000-000000000003', 'tenant.create');
-select pg_temp.hpp('hpp.tenant_read',     'c4000000-0000-0000-0000-000000000004', 'tenant.read');
-select pg_temp.hpp('hpp.service_read',    null,                                   'tenant.read');
+select pg_temp.hpp('hpp.admin_create',    'c1000000-0000-0000-0000-000000000001', 'zt_tenant.create');
+select pg_temp.hpp('hpp.admin_student',   'c1000000-0000-0000-0000-000000000001', 'zt_student.read');
+select pg_temp.hpp('hpp.support_read',    'c2000000-0000-0000-0000-000000000002', 'zt_tenant.read');
+select pg_temp.hpp('hpp.support_create',  'c2000000-0000-0000-0000-000000000002', 'zt_tenant.create');
+select pg_temp.hpp('hpp.revoked_create',  'c3000000-0000-0000-0000-000000000003', 'zt_tenant.create');
+select pg_temp.hpp('hpp.tenant_read',     'c4000000-0000-0000-0000-000000000004', 'zt_tenant.read');
+select pg_temp.hpp('hpp.service_read',    null,                                   'zt_tenant.read');
 select pg_temp.hpp('hpp.unknown_code',    'c1000000-0000-0000-0000-000000000001', 'no.such');
 
 -- RLS

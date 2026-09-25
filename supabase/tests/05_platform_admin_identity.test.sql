@@ -48,7 +48,7 @@ insert into public.system_users (id, auth_user_id, display_name, status) values
   ('d5000000-0000-0000-0000-000000000005', 'c5000000-0000-0000-0000-000000000005', 'No role',   'active');
 
 insert into public.platform_admin_roles (id, code, name) values
-  ('e1000000-0000-0000-0000-000000000001', 'platform_admin', 'Platform Admin');
+  ('e1000000-0000-0000-0000-000000000001', 'zt_platform_admin', 'Platform Admin');
 
 insert into public.platform_admin_assignments (system_user_id, platform_admin_role_id, status, revoked_at) values
   ('d1000000-0000-0000-0000-000000000001', 'e1000000-0000-0000-0000-000000000001', 'active',  null),
