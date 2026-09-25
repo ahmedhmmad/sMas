@@ -355,7 +355,7 @@ PA = سياق Platform (`app.has_platform_permission(...)`) — G10. النص ا
 | `roles` | `platform_tenant_id, code, name, description` | `name, description, status` |
 | `role_permissions` | الكل | — |
 | `staff` | — | الاسم الرباعي، `national_id, phone_e164, email, gender, birth_date, hire_date` |
-| `staff_school_assignments` | كل أعمدة الأعمال | `job_title, is_primary, status, effective_to` |
+| `staff_school_assignments` | كل أعمدة الأعمال | `job_title, is_primary` — **✅ M17b (2026-09-25):** `status`, `effective_to` حُذفا؛ الانتقالات في M21. مطبَّق مبكراً على هذا الجدول |
 | `families` | — | `family_code, family_name, address` |
 | `students` | — | الاسم الرباعي، `gender, birth_date, nationality, family_id, official_id, official_id_type` |
 | `guardians` | — | الاسم الرباعي، `alt_phone_e164, email, national_id, residence_country` |
@@ -716,6 +716,7 @@ helpers ─► state fns ─► provisioning fns ─► reference data
 | M15 ✅ | `policies_authz` | profiles، memberships، membership_roles، membership_scopes، roles، permissions، role_permissions (17 سياسة)؛ `app.membership_id_of()`؛ منح/سحب النطاق يشترط `can_manage_membership` | `15_escalation` ✅ 104/104 — E3، E6، E8، E9، E11، E12، E13، E14 (خطوة 1)؛ **مؤجل بقصد:** E1، E2، E7 → M17؛ E4، E14 خطوة 2 → M19 (T8)؛ E5 → M23؛ E15، E16 → M18 |
 | M16 ✅ | `policies_academic` | `academic_years`، `terms`، `stages`، `grade_levels`، `sections` (15 سياسة)؛ مفاتيح `academic_years` من الكتالوج (`read/create/update`، لا `.manage`)؛ activate/close في M21 | `16_academic` ✅ 40/40 |
 | M17 ✅ | `policies_people_enrollment` | `staff`, `staff_school_assignments`, `families`, `students`, `guardians`, `student_guardians`, `enrollments` — **لا `identity_scopes`** (سياستها نهائية في M14)؛ 17 سياسة؛ enrollments INSERT و UPDATE تشترطان أيضاً `app.student_in_scope(student_id)` (H2) | `17_relationship` ✅ 97/97 — R1–R4، R5 TODO (D1)، E1، E2، E7 |
+| M17b ✅ | `staff_assignment_columns` | صلاحية أعمدة UPDATE على `staff_school_assignments` = `job_title, is_primary` فقط (تطبيق مبكر لـ§4.6) — يمنع إعادة فتح تكليف منتهٍ (H2) | `17_relationship` ✅ 102/102 |
 | M18 | `policies_audit` | F10/F11 | `18_audit_visibility` |
 | M19 | `authz_integrity` | T8 — **ثلاثة متطلبات معتمدة (2026-09-25):** (1) منع role escalation عبر `membership_roles`؛ (2) منع permission escalation عبر `role_permissions`؛ (3) منح النطاق: **عند منح Scope لعضو، يجب ألا يؤدي المنح إلى تمكين العضو المستهدف من أي Permission داخل ذلك الـScope تتجاوز Permissions المانح الفعلية داخل نفس الـScope.** | `19_t8` (E4، E14 خطوة 2، ومنح النطاق) |
 | M20 | `privileges` | سجل §4.6؛ REVOKE من `anon`؛ EXECUTE على الدوال — **فحص EXECUTE يميّز فئتين (2026-09-25):** RLS helpers ← يجب أن تستدعيها سياسة؛ controlled functions ← يجب أن تكون في allowlist M20. قاعدة «كل EXECUTE تستدعيه سياسة» (حارس M15) **تُستبدل هنا** ولا تبقى invariant دائماً | `20_column_grants` |

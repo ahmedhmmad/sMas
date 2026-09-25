@@ -271,6 +271,13 @@ select pg_temp.run('u.sa2_staff_fmv', 'sa2', pg_temp.upd('staff', 'first_name', 
 select pg_temp.run('w.sa1_asg_fend_SA1', 'sa1', format($q$insert into public.staff_school_assignments (staff_id, school_id, platform_tenant_id, job_title, effective_from) values (%L, %L, '10000000-0000-0000-0000-000000000001', 'Teacher', '2026-10-01') returning 'ok'$q$, pg_temp.eid('staff','fend'), pg_temp.sid('SA1')));
 select pg_temp.run('w.sa1_asg_fend_SA2', 'sa1', format($q$insert into public.staff_school_assignments (staff_id, school_id, platform_tenant_id, job_title, effective_from) values (%L, %L, '10000000-0000-0000-0000-000000000001', 'Teacher', '2026-10-01') returning 'ok'$q$, pg_temp.eid('staff','fend'), pg_temp.sid('SA2')));
 select pg_temp.run('u.sa1_asg_SA2', 'sa1', pg_temp.upd('staff_school_assignments', 'job_title', format('school_id = %L', pg_temp.sid('SA2'))));
+-- M17b (قرار 2026-09-25): لا إعادة فتح ولا إنهاء لتكليف بـUPDATE مباشر — انتقالات حالة في M21
+select pg_temp.run('u.sa1_reactivate_fmv', 'sa1', format($q$update public.staff_school_assignments set status = 'active', effective_to = null where staff_id = %L and school_id = %L returning 'ok'$q$, pg_temp.eid('staff','fmv'), pg_temp.sid('SA1')));
+select pg_temp.run('u.sa1_end_fa1',        'sa1', format($q$update public.staff_school_assignments set status = 'ended', effective_to = '2027-01-01' where staff_id = %L returning 'ok'$q$, pg_temp.eid('staff','fa1')));
+select pg_temp.run('u.sa1_asg_job',        'sa1', pg_temp.upd('staff_school_assignments', 'job_title', format('staff_id = %L', pg_temp.eid('staff','fa1'))));
+select pg_temp.run('staff.sa1_after',      'sa1', $q$select string_agg(e.label, ',' order by e.label collate "C") from public.staff x join ent e on e.kind = 'staff' and e.id = x.id$q$);
+select pg_temp.rec('col.privs', $q$select string_agg(c || '=' || has_column_privilege('authenticated', 'public.staff_school_assignments', c, 'UPDATE'), ',' order by c)
+  from unnest(array['effective_to','is_primary','job_title','status']) c$q$);
 select pg_temp.run('u.sa1_fam_a', 'sa1', pg_temp.upd('families', 'family_name', format('id = %L', pg_temp.eid('family','fama'))));
 select pg_temp.run('u.sa1_fam_m', 'sa1', pg_temp.upd('families', 'family_name', format('id = %L', pg_temp.eid('family','famm'))));
 select pg_temp.run('u.gp_fam_a',  'gp',  pg_temp.upd('families', 'family_name', format('id = %L', pg_temp.eid('family','fama'))));
@@ -290,7 +297,7 @@ select pg_temp.run('d.all', 'ta', $q$
   select ((select count(*) from a) + (select count(*) from b) + (select count(*) from c) + (select count(*) from d)
         + (select count(*) from e) + (select count(*) from f) + (select count(*) from g))::text$q$);
 
-select plan(97);
+select plan(102);
 
 -- ---------- students: المسارات الثلاثة + H2 ----------
 select is((select v from r where k = 'students.ta'),     'sa,sb,sc,sm,sx', 'students: tenant scope → every enrolled T1 student; not sn (no enrollment, R3), not T2');
@@ -394,6 +401,12 @@ select is((select v from r where k = 'u.sa2_staff_fmv'), '1', 'H2 staff update: 
 select is((select v from r where k = 'w.sa1_asg_fend_SA1'), 'ok', 'assignment insert: own school with staff.assign');
 select ok((select v from r where k = 'w.sa1_asg_fend_SA2') like 'ERR 42501%row-level security%staff_school_assignments%', 'assignment insert: never a sibling school');
 select is((select v from r where k = 'u.sa1_asg_SA2'), '0', 'assignment update: another school''s rows are invisible');
+select ok((select v from r where k = 'u.sa1_reactivate_fmv') like 'ERR 42501%permission denied%staff_school_assignments%', 'M17b: the former school cannot reopen an ended assignment by direct UPDATE (H2)');
+select ok((select v from r where k = 'u.sa1_end_fa1')        like 'ERR 42501%permission denied%staff_school_assignments%', 'M17b: ending an assignment is a state transition too — no direct UPDATE of status/effective_to');
+select is((select v from r where k = 'u.sa1_asg_job'),      '1',   'M17b: ordinary columns remain editable (job_title)');
+select is((select v from r where k = 'staff.sa1_after'),    'fa1,fend', 'M17b: after the rejected attempt SA1 still does not reach fmv (fend is reached through the NEW SA1 assignment inserted above)');
+select is((select v from r where k = 'col.privs'), 'effective_to=false,is_primary=true,job_title=true,status=false',
+          'M17b: authenticated may UPDATE only job_title and is_primary on staff_school_assignments');
 select is((select v from r where k = 'u.sa1_fam_a'), '1', 'families update: family of a current student');
 select is((select v from r where k = 'u.sa1_fam_m'), '0', 'H2 families update: not the family of a moved student');
 select is((select v from r where k = 'u.gp_fam_a'),  '0', 'families update: a guardian reads but cannot update');
