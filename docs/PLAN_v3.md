@@ -793,6 +793,7 @@
 | 2026-09-21 | اعتماد ERD + Data Dictionary + Authorization Matrix + RLS Model كمتطلبات إلزامية قبل بناء وحدات الأعمال |
 | 2026-09-21 | اعتماد Audit للعمليات الحساسة، export مستقل، transactions/idempotency/concurrency، وعدم تعديل migrations المنفذة |
 | 2026-09-24 | **تعدد علاقات الـprofile:** A profile may have multiple legitimate relationships/roles within the same Tenant, including student, employee, and guardian. No database invariant prohibits these combinations. Authorization remains determined independently by role, permission, and scope. (`Profile` = الشخص/الحساب داخل الـTenant، لا نوع المستخدم؛ حساب الطالب «المستقل» في §7.19 لا يستلزم profile ثانياً لنفس الشخص) |
+| 2026-09-25 | **تكليف الموظف (M17، خيار b):** INSERT لتكليف جديد مشروع (توظيف متزامن) بـ`staff.assign` + `can_access_school(target_school)` — حتى لموظف انتهى تكليفه السابق في المدرسة نفسها؛ الوصول نتيجة طبيعية لعلاقة جديدة مصرح بها. إنهاء/إعادة فتح تكليف قائم = انتقال حالة (M21). أي قاعدة «موافقة المدرسة الأخرى» قرار أعمال مستقل لاحق |
 | 2026-09-25 | **`staff_school_assignments.status` و`effective_to` ليسا أعمدة يكتبها العميل؛ الإنهاء وإعادة الفتح عبر دوال انتقال حالة في M21 (auth.uid()، الصلاحية، سلطة النطاق، FOR UPDATE، انتقالات صريحة، تدقيق)** (M17b) |
 | 2026-09-25 | **enrollments INSERT و UPDATE تشترطان أيضاً `app.student_in_scope(student_id)`** (M17، H2): لا انتزاع للطالب بتسجيل لاحق؛ النقل عبر دالة `enrollment.transfer` (M21) |
 | 2026-09-25 | **منح/سحب النطاق يشترط `can_manage_membership`** (M15) |
