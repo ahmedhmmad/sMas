@@ -26,7 +26,7 @@ insert into expected values
   ('audit_log',                 '', ''),
   ('auth_identities',           '', ''),
   ('enrollments',               'academic_year_id,effective_from,enrollment_no,grade_level_id,identity_scope_id,platform_tenant_id,school_id,scope_owner_id,section_id,student_id', 'enrollment_no'),
-  ('families',                  '', 'address,family_code,family_name'),
+  ('families',                  '', 'address,family_name'),   -- M20b: family_code غير قابل للتعديل (قاعدة الثوابت)
   ('grade_levels',              'name,school_id,sequence_no,stage_id,status', 'name,school_id,sequence_no,stage_id,status'),
   ('groups',                    'group_code,name,platform_tenant_id', 'name'),
   ('guardians',                 '', 'alt_phone_e164,email,family_name,father_name,first_name,grandfather_name,national_id,residence_country'),
@@ -80,6 +80,7 @@ select pg_temp.rec('b.enr_school',       $q$update public.enrollments set school
 select pg_temp.rec('b.ay_status',        $q$update public.academic_years set status = 'active'$q$);                  -- activate/close: M21
 select pg_temp.rec('b.memberships',      $q$update public.memberships set status = 'ended'$q$);
 select pg_temp.rec('b.sg_status',        $q$update public.student_guardians set status = 'ended'$q$);                -- unlink: M21
+select pg_temp.rec('b.family_code',      $q$update public.families set family_code = 'X'$q$);                         -- M20b
 select pg_temp.rec('b.archive',          $q$update public.students set archived_at = now()$q$);
 select pg_temp.rec('b.tenant_insert',    $q$insert into public.platform_tenants (tenant_code, name) values ('TX', 'TX')$q$);   -- bootstrap_tenant
 select pg_temp.rec('b.truncate',         $q$truncate public.groups$q$);
@@ -110,7 +111,7 @@ select pg_temp.rec('x.uncategorized', $q$select coalesce(string_agg(p.oid::regpr
 select pg_temp.rec('x.allowlist_missing', $q$select coalesce(string_agg(f::text, ','), 'none') from controlled_allowlist
   where not has_function_privilege('authenticated', f, 'EXECUTE')$q$);
 
-select plan(29 + 1 + 23 + 7 + 5);
+select plan(29 + 1 + 24 + 7 + 5 + 1);
 
 -- ---------- السجل: كل جدول بالاسم ----------
 select is(coalesce(a.ins, '<missing>') || ' | ' || coalesce(a.upd, '<missing>'), e.ins || ' | ' || e.upd,
@@ -134,6 +135,7 @@ select ok((select v from r where k = 'b.enr_school')       like 'ERR 42501%permi
 select ok((select v from r where k = 'b.ay_status')        like 'ERR 42501%permission denied%academic_years%',           'academic_years.status (activate/close) is a state transition');
 select ok((select v from r where k = 'b.memberships')      like 'ERR 42501%permission denied%memberships%',              'memberships are not client-writable');
 select ok((select v from r where k = 'b.sg_status')        like 'ERR 42501%permission denied%student_guardians%',        'student_guardians.status (unlink) is a state transition');
+select ok((select v from r where k = 'b.family_code')      like 'ERR 42501%permission denied%families%',                 'M20b: families.family_code is a code — never client-writable');
 select ok((select v from r where k = 'b.archive')          like 'ERR 42501%permission denied%students%',                 'archived_at is not client-writable (archive = state transition)');
 select ok((select v from r where k = 'b.tenant_insert')    like 'ERR 42501%permission denied%platform_tenants%',         'platform_tenants insert only through bootstrap_tenant (§5.2)');
 select ok((select v from r where k = 'b.truncate')         like 'ERR 42501%permission denied%groups%',                   'TRUNCATE (which RLS does not cover) is denied to authenticated');
@@ -171,6 +173,11 @@ select is((select count(*)::int from pg_proc p where p.pronamespace = 'app'::reg
             and exists (select 1 from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) x where x.grantee = 0 and x.privilege_type = 'EXECUTE')), 0,
           'PUBLIC executes no function in app');
 select ok(not has_function_privilege('authenticated', 'app.auth_uid()', 'EXECUTE'), 'app.auth_uid() stays owner-only (R2)');
+select is((select count(*)::int from pg_policies where schemaname = 'public' and cmd = 'INSERT'
+            and not exists (select 1 from pg_class c join pg_attribute a on a.attrelid = c.oid and a.attnum > 0
+                            where c.relname = pg_policies.tablename and c.relnamespace = 'public'::regnamespace
+                              and has_column_privilege('authenticated', c.oid, a.attnum, 'INSERT'))), 0,
+          'M20b: no INSERT policy on a table where authenticated cannot insert any column (policies match the privilege contract)');
 
 select * from finish();
 rollback;

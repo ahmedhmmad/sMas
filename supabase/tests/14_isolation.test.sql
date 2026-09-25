@@ -417,7 +417,7 @@ select is((select v from r where k = 'policies'), '<null>', 'every policy is TO 
 select is((select v from r where k = 'delete_policies'), '0', 'no DELETE policy on the M14 tables (§5.2)');
 
 select policies_are('public', 'platform_tenants', array['platform_tenants_tenant_select','platform_tenants_tenant_update',
-  'platform_tenants_platform_select','platform_tenants_platform_insert','platform_tenants_platform_update'], 'platform_tenants: exactly the M14 policies');
+  'platform_tenants_platform_select','platform_tenants_platform_update'], 'platform_tenants: exactly the M14 policies minus platform_insert (dropped in M20b — bootstrap_tenant is the only path)');
 select policies_are('public', 'groups', array['groups_tenant_select','groups_tenant_insert','groups_tenant_update',
   'groups_platform_select','groups_platform_insert','groups_platform_update'], 'groups: exactly the M14 policies');
 select policies_are('public', 'schools', array['schools_tenant_select','schools_tenant_insert','schools_tenant_update',

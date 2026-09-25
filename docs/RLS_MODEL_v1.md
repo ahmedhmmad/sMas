@@ -940,8 +940,7 @@ select using (system_user_id = (select app.current_system_user_id()));
 create policy platform_tenants_admin_select on platform_tenants for select
   using (app.has_platform_permission('tenant.read'));
 
-create policy platform_tenants_admin_insert on platform_tenants for insert
-  with check (app.has_platform_permission('tenant.create'));
+-- ✅ M20b (2026-09-25): سياسة INSERT حُذفت — لا أعمدة INSERT لـauthenticated (§4.6)؛ الإنشاء عبر bootstrap_tenant (§5.2) حصراً
 
 create policy platform_tenants_admin_update on platform_tenants for update
   using      (app.has_platform_permission('tenant.update'))

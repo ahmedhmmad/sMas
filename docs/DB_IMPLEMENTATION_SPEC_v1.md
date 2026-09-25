@@ -358,7 +358,7 @@ PA = سياق Platform (`app.has_platform_permission(...)`) — G10. النص ا
 | `role_permissions` | الكل | — |
 | `staff` | — | الاسم الرباعي، `national_id, phone_e164, email, gender, birth_date, hire_date` |
 | `staff_school_assignments` | كل أعمدة الأعمال | `job_title, is_primary` — **✅ M17b (2026-09-25):** `status`, `effective_to` حُذفا؛ الانتقالات في M21. مطبَّق مبكراً على هذا الجدول |
-| `families` | — | `family_code, family_name, address` |
+| `families` | — | `family_name, address` — **✅ M20b:** `family_code` حُذف (قاعدة الثوابت: كل الأكواد لا يعدّلها المستخدم) |
 | `students` | — | الاسم الرباعي، `gender, birth_date, nationality, family_id, official_id, official_id_type` |
 | `guardians` | — | الاسم الرباعي، `alt_phone_e164, email, national_id, residence_country` |
 | `student_guardians` | كل أعمدة الأعمال عدا `status, effective_to` | `relationship_type, is_primary, receives_whatsapp, can_pickup` |
@@ -722,6 +722,7 @@ helpers ─► state fns ─► provisioning fns ─► reference data
 | M18 ✅ | `policies_audit` | F10/F11 — سياستا SELECT (سياق Tenant وسياق Platform منفصلتان، G10)؛ المسار (2) بدلالة H2؛ التحويل إلى uuid داخل `CASE`. SELECT لـ`authenticated` في M20 | `18_audit_visibility` ✅ 24/24 — E15، E16 |
 | M19 ✅ | `authz_integrity` | T8 — **ثلاثة متطلبات معتمدة (2026-09-25):** (1) منع role escalation عبر `membership_roles`؛ (2) منع permission escalation عبر `role_permissions`؛ (3) منح النطاق: **عند منح Scope لعضو، يجب ألا يؤدي المنح إلى تمكين العضو المستهدف من أي Permission داخل ذلك الـScope تتجاوز Permissions المانح الفعلية داخل نفس الـScope.** | `19_t8` ✅ 31/31 (E4، E14 خطوة 2، F5 كاملاً، منح النطاق) — trigger AFTER |
 | M20 ✅ | `privileges` | سجل §4.6؛ REVOKE من `anon`؛ EXECUTE على الدوال — **فحص EXECUTE يميّز فئتين (2026-09-25):** RLS helpers ← يجب أن تستدعيها سياسة؛ controlled functions ← يجب أن تكون في allowlist M20. قاعدة «كل EXECUTE تستدعيه سياسة» (حارس M15) **تُستبدل هنا** ولا تبقى invariant دائماً. **وتسحب صراحةً `TRUNCATE`, `TRIGGER`, `REFERENCES` من `anon` و`authenticated`** (RLS لا تحمي TRUNCATE؛ منح Supabase الافتراضي) | `20_column_grants` ✅ 65/65 — السجل حرفياً لكل جدول (29)، رفض سلوكي لـ21 عموداً/عملية محظورة، امتيازات افتراضية آمنة، EXECUTE بفئتين (allowlist فارغة حتى M21/M22) |
+| M20b ✅ | `privileges_followup` | حذف `platform_tenants_platform_insert` (bootstrap_tenant هو المسار الوحيد)؛ سحب UPDATE `families.family_code` | `20_column_grants` ✅ 67/67 |
 | M21 | `state_functions` | §5.3 | `21_state` |
 | M22 | `provisioning_functions` | §5.2 | `22_provisioning` |
 | M23 | `reference_data` | الكتالوج والأدوار والخرائط | `23_catalog_drift` |
