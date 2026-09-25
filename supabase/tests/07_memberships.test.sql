@@ -223,7 +223,8 @@ select ok((select bool_and(array_to_string(proconfig, ',') like 'search_path=%')
 select is((select v from r where k = 'rls.memberships'), '1', 'RLS (M15 self branch): without membership.read only its own membership is visible');
 select is((select v from r where k = 'rls.scopes'),      '1', 'RLS (M15 self branch): without membership.read only its own scope rows are visible');
 
--- الـCASCADE: حذف العضوية يحذف أدوارها ونطاقاتها
+-- الـCASCADE: حذف العضوية يحذف أدوارها ونطاقاتها — عملية إدارية بسياق service (claims ممسوحة؛ T8 مُعفى — G7)
+select pg_temp.as_(null);
 delete from public.memberships where id = 'e5000000-0000-0000-0000-000000000005';
 select is((select count(*)::int from public.membership_roles  where membership_id = 'e5000000-0000-0000-0000-000000000005'), 0, 'CASCADE: membership_roles removed with the membership');
 select is((select count(*)::int from public.membership_scopes where membership_id = 'e5000000-0000-0000-0000-000000000005'), 0, 'CASCADE: membership_scopes removed with the membership');

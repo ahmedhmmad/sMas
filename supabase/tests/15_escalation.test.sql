@@ -189,7 +189,7 @@ select pg_temp.run('w.sa1_assign_gm',    'sa1', pg_temp.assign_sql('gm',    '730
 select pg_temp.run('w.tch_assign_fresh', 'tch', pg_temp.assign_sql('fresh', '74000000-0000-0000-0000-000000000004'));
 select pg_temp.run('w.gm_assign_multi',  'gm',  pg_temp.assign_sql('multi', '74000000-0000-0000-0000-000000000004'));
 select pg_temp.run('w.ta_assign_multi',  'ta',  pg_temp.assign_sql('multi', '74000000-0000-0000-0000-000000000004'));
-select pg_temp.run('w.sa1_assign_grd',   'sa1', pg_temp.assign_sql('grd',   '74000000-0000-0000-0000-000000000004'));
+select pg_temp.run('w.sa1_assign_grd',   'sa1', pg_temp.assign_sql('grd',   '72000000-0000-0000-0000-000000000002'));   -- دور ضمن صلاحيات الفاعل (T8، M19)
 
 -- membership_scopes — F1، E3، ومنح النطاق لعضوية لا يديرها الفاعل (قرار 2026-09-25)
 select pg_temp.run('w.sa1_scope_tenant_fresh', 'sa1', pg_temp.scope_sql('fresh', 'tenant', null));

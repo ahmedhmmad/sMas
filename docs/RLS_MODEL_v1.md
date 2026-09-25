@@ -781,6 +781,8 @@ using (
 
 ### 10.2.1 Trigger T8 — المواصفة الكاملة (F5)
 
+> **✅ M19 (2026-09-25):** نُفّذ `app.tg_authz_integrity()` كـtrigger **AFTER** (لا BEFORE: BEFORE يسبق `WITH CHECK` فيحجب رفض RLS برسالة T8)، بالمتطلبات الثلاثة المعتمدة — الثالث: `membership_scopes` INSERT يرفض إن كانت أي صلاحية في أدوار الهدف (فعّالة أو معطّلة) خارج `has_permission()` للفاعل. الرفض `42501` برسالة `T8: …` تسمّي الصلاحيات. سحب النطاق غير مفحوص بـT8 (لا يوسّع سلطة).
+
 | الحدث | الجدول | الشرط |
 |---|---|---|
 | INSERT, DELETE | `membership_roles` | `perms(role_id) ⊆ perms(actor)` |
