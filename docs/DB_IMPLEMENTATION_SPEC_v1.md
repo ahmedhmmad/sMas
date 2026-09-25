@@ -714,11 +714,11 @@ helpers ─► state fns ─► provisioning fns ─► reference data
 | M13 ✅ | `rls_enable` | **تحقق فقط:** كل الجداول مفعّلة ومفروضة منذ إنشائها (تنفيذياً: RLS يُفعَّل في migration كل جدول، لأن صلاحيات Supabase الافتراضية تمنح `anon` صلاحية ALL على جداول `public` فور إنشائها) | `13_rls_enable` ✅ 61/61 — قائمة اسمية بـ**29** جدولاً (الـ28 في §4.5 + `auth_identities` من G10)؛ الـmigration بوابة تفشل النشر عند جدول بلا ENABLE/FORCE، أو جدول في `app`، أو سياسة قبل M14 |
 | M14 ✅ | `policies_tenancy_platform` | `platform_tenants`، `groups`، `schools`، `identity_scopes`، `system_users`، `platform_admin_assignments`؛ كل السياسات `TO authenticated`؛ **EXECUTE** على الدوال التي تستدعيها السياسات يُمنح مع السياسات (قرار 2026-09-25)؛ WITH CHECK في UPDATE يضيف عزل Tenant على قيم الصف الجديد | `14_isolation` ✅ 96/96 |
 | M15 ✅ | `policies_authz` | profiles، memberships، membership_roles، membership_scopes، roles، permissions، role_permissions (17 سياسة)؛ `app.membership_id_of()`؛ منح/سحب النطاق يشترط `can_manage_membership` | `15_escalation` ✅ 104/104 — E3، E6، E8، E9، E11، E12، E13، E14 (خطوة 1)؛ **مؤجل بقصد:** E1، E2، E7 → M17؛ E4، E14 خطوة 2 → M19 (T8)؛ E5 → M23؛ E15، E16 → M18 |
-| M16 | `policies_academic` | | |
+| M16 ✅ | `policies_academic` | `academic_years`، `terms`، `stages`، `grade_levels`، `sections` (15 سياسة)؛ مفاتيح `academic_years` من الكتالوج (`read/create/update`، لا `.manage`)؛ activate/close في M21 | `16_academic` ✅ 40/40 |
 | M17 | `policies_people_enrollment` | `staff`, `staff_school_assignments`, `families`, `students`, `guardians`, `student_guardians`, `enrollments` — **لا `identity_scopes`** (سياستها نهائية في M14) | `17_relationship` (R1–R5) |
 | M18 | `policies_audit` | F10/F11 | `18_audit_visibility` |
-| M19 | `authz_integrity` | T8 | `19_t8` |
-| M20 | `privileges` | سجل §4.6؛ REVOKE من `anon`؛ EXECUTE على الدوال | `20_column_grants` |
+| M19 | `authz_integrity` | T8 — **ثلاثة متطلبات معتمدة (2026-09-25):** (1) منع role escalation عبر `membership_roles`؛ (2) منع permission escalation عبر `role_permissions`؛ (3) منح النطاق: **عند منح Scope لعضو، يجب ألا يؤدي المنح إلى تمكين العضو المستهدف من أي Permission داخل ذلك الـScope تتجاوز Permissions المانح الفعلية داخل نفس الـScope.** | `19_t8` (E4، E14 خطوة 2، ومنح النطاق) |
+| M20 | `privileges` | سجل §4.6؛ REVOKE من `anon`؛ EXECUTE على الدوال — **فحص EXECUTE يميّز فئتين (2026-09-25):** RLS helpers ← يجب أن تستدعيها سياسة؛ controlled functions ← يجب أن تكون في allowlist M20. قاعدة «كل EXECUTE تستدعيه سياسة» (حارس M15) **تُستبدل هنا** ولا تبقى invariant دائماً | `20_column_grants` |
 | M21 | `state_functions` | §5.3 | `21_state` |
 | M22 | `provisioning_functions` | §5.2 | `22_provisioning` |
 | M23 | `reference_data` | الكتالوج والأدوار والخرائط | `23_catalog_drift` |

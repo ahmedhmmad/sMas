@@ -793,7 +793,9 @@
 | 2026-09-21 | اعتماد ERD + Data Dictionary + Authorization Matrix + RLS Model كمتطلبات إلزامية قبل بناء وحدات الأعمال |
 | 2026-09-21 | اعتماد Audit للعمليات الحساسة، export مستقل، transactions/idempotency/concurrency، وعدم تعديل migrations المنفذة |
 | 2026-09-24 | **تعدد علاقات الـprofile:** A profile may have multiple legitimate relationships/roles within the same Tenant, including student, employee, and guardian. No database invariant prohibits these combinations. Authorization remains determined independently by role, permission, and scope. (`Profile` = الشخص/الحساب داخل الـTenant، لا نوع المستخدم؛ حساب الطالب «المستقل» في §7.19 لا يستلزم profile ثانياً لنفس الشخص) |
-| 2026-09-25 | **منح/سحب النطاق يشترط `can_manage_membership`** (M15)؛ تغطية T8 لمنح النطاق سؤال مفتوح لـM19 |
+| 2026-09-25 | **منح/سحب النطاق يشترط `can_manage_membership`** (M15) |
+| 2026-09-25 | **T8 يشمل منح النطاق (M19):** **عند منح Scope لعضو، يجب ألا يؤدي المنح إلى تمكين العضو المستهدف من أي Permission داخل ذلك الـScope تتجاوز Permissions المانح الفعلية داخل نفس الـScope.** |
+| 2026-09-25 | **EXECUTE بفئتين (M20):** RLS helpers تستدعيها سياسة؛ controlled functions في allowlist M20 |
 | 2026-09-25 | **`app.membership_id_of()`** (M15): لا سياسة تستعلم `memberships` مباشرة |
 | 2026-09-25 | **PA catalog:** `platform_admin_roles` و`platform_admin_role_permissions` — service فقط، بلا سياسة عميل (C3، G8) |
 | 2026-09-25 | **EXECUTE مع السياسات:** كل migration سياسات تمنح `authenticated` EXECUTE على الدوال التي تستدعيها؛ `anon` لا شيء |

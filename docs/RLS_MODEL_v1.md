@@ -441,7 +441,8 @@ using (
 | `platform_tenants` | `can_access_tenant(id) AND has_permission('tenant.read')` | Platform Admin فقط (§11) | `can_access_tenant(id) AND has_permission('tenant.update')` |
 | `groups` | `can_access_group(id) AND has_permission('group.read')` | `can_access_tenant(platform_tenant_id) AND has_permission('group.create')` | `can_access_group(id) AND has_permission('group.update')` + WITH CHECK مطابق |
 | `schools` | `can_access_school(id) AND has_permission('school.read')` | `(can_access_group(group_id) OR can_access_tenant(platform_tenant_id)) AND has_permission('school.create')` | `can_access_school(id) AND has_permission('school.update')` + WITH CHECK مطابق |
-| `academic_years`, `stages`, `grade_levels`, `sections` | `can_access_school(school_id) AND has_permission('<res>.read')` | `… AND has_permission('<res>.manage')` | نفسه + WITH CHECK |
+| `stages`, `grade_levels`, `sections` | `can_access_school(school_id) AND has_permission('<res>.read')` | `… AND has_permission('<res>.manage')` | نفسه + WITH CHECK |
+| `academic_years` (✅ M16: مفاتيح الكتالوج) | `… AND has_permission('academic_year.read')` | `… AND has_permission('academic_year.create')` | `… AND has_permission('academic_year.update')` + WITH CHECK؛ activate/close بدوال M21 |
 | `terms` | `can_access_school(school_id) AND has_permission('term.read')` | `… AND has_permission('term.manage')` | نفسه + WITH CHECK |
 | `staff_school_assignments` | `can_access_school(school_id) AND has_permission('staff.read')` | `… AND has_permission('staff.assign')` | نفسه + WITH CHECK |
 
