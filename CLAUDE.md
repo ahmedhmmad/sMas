@@ -3,7 +3,7 @@
 **المشروع:** نظام إدارة المدارس متعدد المستأجرين (Multi-Tenant SMS)
 **تاريخ الإنشاء:** 2026-09-22
 **آخر تحديث:** 2026-09-23
-**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (M01–M22 🔒، M23 ✅ بانتظار المراجعة — آخر migration في Gate C)
+**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (**Gate C 🔒 مكتمل: M01–M23**؛ التالي Gate E)
 
 ---
 
@@ -522,6 +522,7 @@ Platform Admin → Role → Permission + Platform-level scope
 | 3 | قوالب الشهادات الفعلية (المدرسة والروضة) | 6 | مفتوح |
 | 4 | مزود OCR سحابي أم محلي (دقة/خصوصية/تكلفة) | 4 | مفتوح |
 | 5 | تفاصيل الاشتراكات والباقات والفوترة | 13 | مفتوح |
+| 7 | **هل يستطيع `group_manager` تعيين `school_admin`؟** الواقع الحالي (البذر + T8): **لا** — `school_admin` يحمل `security.manage`/`security.export` و`group_manager` لا يملكهما. ليس خطأ تقنياً في M23 بل تطبيق صحيح لـT8. إن كان المطلوب أن يعيّنه، فلا يُمنح `security.*` ببساطة (توسيع سلطة) — يلزم تصميم أدق ضمن الكتالوج المجمَّد أو تعديل صريح لنموذج الأدوار | إدارة المجموعات (2–3) | مفتوح — قرار تجاري |
 | 6 | **Future enrollment / pre-registration** — القاعدة الحالية (H2، M12b): *Current school = school of the enrollment having the greatest `effective_from`, regardless of status*؛ فتسجيل مستقبلي في SA2 يُنشأ في مارس لبدء سبتمبر ينقل النطاق التشغيلي فوراً من SA1. يلزم تعريف الفترة الانتقالية (current / future enrollment، registration، effective date، operational school) وأثرها على RLS وإدارة الحساب وولي الأمر. **لا حل مؤقت في M12b** | 4 | مفتوح — design item |
 
 **محسوم ولا يُعاد فتحه:** tenancy، RLS ownership، حساب الطالب، حساب ولي الأمر، الحضور اليومي، قواعد النتائج في v1.
@@ -575,6 +576,7 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | ✅ **C3** — اعتماد `platform_admin_roles → platform_admin_role_permissions → permissions`؛ `is_platform_admin()` اختبار هوية فقط، و`has_permission()` توحّد المسارين. الكتالوج 73 مفتاحاً بعد K4 (`tenant.create`) | `docs/ROLE_PERMISSION_SEED_v1.md`, `AUTHORIZATION_MATRIX_v1.md`, `docs/DATA_DICTIONARY_v1.md`, `CLAUDE.md` |
 | 2026-09-22 | ✅ **A3** — RLS Model: 7 دوال، سياسات كل الجداول، حل تعارض FORCE RLS/recursion، 30 اختبار pgTAP، و6 بنود معلّقة | `docs/RLS_MODEL_v1.md`, `CLAUDE.md` |
 | 2026-09-23 | ✅ **A5** — اعتماد A1–A4 كـFoundation Design Baseline | — |
+| 2026-09-26 | 🔒 **M23 و Gate C مغلقان (M01–M23)** — 1155/1155، CI أخضر (`586b80d`)؛ تصحيح أعداد §4/§5 توثيقي لا تغيير في النموذج؛ ملاحظة تصميم مفتوحة: `group_manager` ← `school_admin` (§6 بند 7) | `CLAUDE.md`, `docs/PLAN_v3.md` |
 | 2026-09-26 | ✅ **M23** — البيانات المرجعية | `supabase/migrations/20260926002524_reference_data.sql`, `supabase/tests/23_reference_data.test.sql`, `supabase/tests/{05,06,07,11,14..22}_*.test.sql`, `docs/ROLE_PERMISSION_SEED_v1.md`, `docs/*`, `CLAUDE.md` |
 | 2026-09-26 | 🔒 **M22 مغلقة** | `CLAUDE.md` |
 | 2026-09-26 | ✅ **M22** — دوال الإنشاء + bootstrap_tenant | `supabase/migrations/20260926000152_provisioning_functions.sql`, `supabase/tests/22_provisioning.test.sql`, `supabase/tests/20_column_grants.test.sql`, `docs/*`, `CLAUDE.md` |
