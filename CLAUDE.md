@@ -3,7 +3,7 @@
 **المشروع:** نظام إدارة المدارس متعدد المستأجرين (Multi-Tenant SMS)
 **تاريخ الإنشاء:** 2026-09-22
 **آخر تحديث:** 2026-09-23
-**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (**Gate C 🔒 مكتمل: M01–M23**؛ Gate E: E1–E4 ✅ بانتظار المراجعة؛ التالي E5)
+**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (**Gate C 🔒 مكتمل: M01–M23**؛ Gate E: E1–E4 🔒، E5 ✅ بانتظار المراجعة؛ التالي E6)
 
 ---
 
@@ -176,6 +176,8 @@ npx supabase start -x studio,imgproxy,mailpit,edge-runtime,logflare,vector,supav
 ```
 
 لا إعادة تشغيل للـVM ولا مساس بحاويات المشاريع الأخرى على Podman.
+
+**الاختبارات: `npx supabase db reset --no-seed` ثم `npx supabase test db`** (B8 §8.3 — لا اعتماد على الـseed). `db reset` بلا العلم يطبق `seed.sql` للتطوير (كلمة مرور حسابات التطوير: `DevOnly-Seed-2026`، محلية فقط).
 
 **`db reset` على Podman قد يستغرق عدة دقائق** — لا تُفسَّر المدة كتعليق. على Windows لا يُنهي `timeout` برنامج `supabase.exe` الأصلي؛ شغّله في الخلفية وانتظر إشعار انتهائه.
 
@@ -457,7 +459,7 @@ Platform Admin → Role → Permission + Platform-level scope
       **أبرزها:** عضو مدرسة (أ) لا يصل إلى مدرسة (ب) **داخل نفس Tenant** (§1.1 بند 5)؛ `Permission بلا Scope` لا يمنح وصولاً والعكس؛ `read` لا يمنح `export`؛ `current_tenant_id()` تُرجع Tenant واحداً بالضبط (O1).
 - [x] **E3.** القيود INV-I1..I43 — كل رفض مطابق باسم القيد (G1: شُدِّد 74 تحققاً؛ G2: الـFK المركّب للعضوية لم يكن مُختبراً فعلاً — أُصلح).
 - [x] **E4.** التدقيق I44–I46 + حقول B7 كلها ✅؛ قراءات/تصدير FastAPI ➖ F4.
-- [ ] **E5.** Seed: Tenant واحد + Group بمدرستين + مدرسة مستقلة، ومستخدمون من كل الأدوار.
+- [x] **E5.** `supabase/seed.sql` — Tenant `DEV` + Group GA (SA، SB) + SS مستقلة + مستخدم لكل دور من العشرة + Platform Admin. **يمر بمسار التطبيق نفسه:** دوال الإنشاء (M22) و CRUD تحت RLS بدور `authenticated` ودوال M21 — استثناءان فقط بلا مسار تطبيق: حسابات Auth (Admin API في Production) وإقلاع Platform Admin (G8). يتحقق من نفسه (البنية، دور ونطاق كل مستخدم، لا بيانات مرجعية جديدة، لا صف Tenant بفاعل `system`). مُثبت end-to-end: تسجيل دخول حقيقي + قراءة عبر PostgREST لكل دور. **الاختبارات تعمل على `db reset --no-seed`؛ CI يطبق الـseed خطوةً منفصلة.**
 - [ ] **E6.** سياسة النسخ الاحتياطي + اختبار استرجاع موثّق (شرط قبل أي بيانات حقيقية).
 
 ### Gate F — التطبيقات (هيكل فقط)
@@ -522,6 +524,7 @@ Platform Admin → Role → Permission + Platform-level scope
 | 3 | قوالب الشهادات الفعلية (المدرسة والروضة) | 6 | مفتوح |
 | 4 | مزود OCR سحابي أم محلي (دقة/خصوصية/تكلفة) | 4 | مفتوح |
 | 5 | تفاصيل الاشتراكات والباقات والفوترة | 13 | مفتوح |
+| 8 | **ولي الأمر والطالب لا يريان صف المدرسة** (يملكان `school.read` بلا نطاق) — ظهر في تحقق E5 end-to-end؛ بوابة ولي الأمر تحتاج اسم مدرسة الابن | 9 | ملاحظة — لا فجوة الآن |
 | 7 | **هل يستطيع `group_manager` تعيين `school_admin`؟** الواقع الحالي (البذر + T8): **لا** — `school_admin` يحمل `security.manage`/`security.export` و`group_manager` لا يملكهما. ليس خطأ تقنياً في M23 بل تطبيق صحيح لـT8. إن كان المطلوب أن يعيّنه، فلا يُمنح `security.*` ببساطة (توسيع سلطة) — يلزم تصميم أدق ضمن الكتالوج المجمَّد أو تعديل صريح لنموذج الأدوار | إدارة المجموعات (2–3) | مفتوح — قرار تجاري |
 | 6 | **Future enrollment / pre-registration** — القاعدة الحالية (H2، M12b): *Current school = school of the enrollment having the greatest `effective_from`, regardless of status*؛ فتسجيل مستقبلي في SA2 يُنشأ في مارس لبدء سبتمبر ينقل النطاق التشغيلي فوراً من SA1. يلزم تعريف الفترة الانتقالية (current / future enrollment، registration، effective date، operational school) وأثرها على RLS وإدارة الحساب وولي الأمر. **لا حل مؤقت في M12b** | 4 | مفتوح — design item |
 
@@ -576,6 +579,8 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | ✅ **C3** — اعتماد `platform_admin_roles → platform_admin_role_permissions → permissions`؛ `is_platform_admin()` اختبار هوية فقط، و`has_permission()` توحّد المسارين. الكتالوج 73 مفتاحاً بعد K4 (`tenant.create`) | `docs/ROLE_PERMISSION_SEED_v1.md`, `AUTHORIZATION_MATRIX_v1.md`, `docs/DATA_DICTIONARY_v1.md`, `CLAUDE.md` |
 | 2026-09-22 | ✅ **A3** — RLS Model: 7 دوال، سياسات كل الجداول، حل تعارض FORCE RLS/recursion، 30 اختبار pgTAP، و6 بنود معلّقة | `docs/RLS_MODEL_v1.md`, `CLAUDE.md` |
 | 2026-09-23 | ✅ **A5** — اعتماد A1–A4 كـFoundation Design Baseline | — |
+| 2026-09-26 | ✅ **E5** — seed التطوير عبر مسار التطبيق، ذاتي التحقق؛ CI: اختبارات بلا seed ثم تطبيق الـseed | `supabase/seed.sql`, `.github/workflows/ci.yml`, `CLAUDE.md` |
+| 2026-09-26 | 🔒 **E1–E4 مغلقة** — مصفوفة التتبع مرجع ما تثبته الاختبارات؛ R5 يبقى ⏳ D1 | `CLAUDE.md` |
 | 2026-09-26 | ✅ **Gate E — E1–E4 traceability** — مصفوفة تتبع كاملة؛ 4 فجوات أُغلقت باختبارات فقط (G1 مطابقة أسماء القيود، G2 FK العضوية عبر Tenant، G3 read≠export، G4 T3 تغطية SELECT)؛ 1157/1157 | `docs/TRACEABILITY_E1_E4.md`, `supabase/tests/{02..08,10,11,13,17,21,22}_*.test.sql`, `CLAUDE.md` |
 | 2026-09-26 | 🔒 **M23 و Gate C مغلقان (M01–M23)** — 1155/1155، CI أخضر (`586b80d`)؛ تصحيح أعداد §4/§5 توثيقي لا تغيير في النموذج؛ ملاحظة تصميم مفتوحة: `group_manager` ← `school_admin` (§6 بند 7) | `CLAUDE.md`, `docs/PLAN_v3.md` |
 | 2026-09-26 | ✅ **M23** — البيانات المرجعية | `supabase/migrations/20260926002524_reference_data.sql`, `supabase/tests/23_reference_data.test.sql`, `supabase/tests/{05,06,07,11,14..22}_*.test.sql`, `docs/ROLE_PERMISSION_SEED_v1.md`, `docs/*`, `CLAUDE.md` |

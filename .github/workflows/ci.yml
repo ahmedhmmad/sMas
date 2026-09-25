@@ -31,7 +31,12 @@ jobs:
         run: npx supabase start -x studio,imgproxy,mailpit,edge-runtime,logflare,vector,supavisor,realtime,storage-api,postgres-meta
 
       - name: Apply migrations from scratch
-        run: npx supabase db reset
+        # الاختبارات لا تعتمد على seed.sql (B8 §8.3) — قاعدة بيانات نظيفة
+        run: npx supabase db reset --no-seed
 
       - name: pgTAP
         run: npx supabase test db
+
+      - name: Development seed (self-verifying, E5)
+        # seed.sql يمر بمسار التطبيق نفسه ويتحقق من نفسه في آخره؛ أي انحراف يُفشل الخطوة
+        run: npx supabase db reset
