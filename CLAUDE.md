@@ -3,7 +3,7 @@
 **المشروع:** نظام إدارة المدارس متعدد المستأجرين (Multi-Tenant SMS)
 **تاريخ الإنشاء:** 2026-09-22
 **آخر تحديث:** 2026-09-23
-**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (**Gate C 🔒 مكتمل: M01–M23**؛ Gate E: E1–E5 🔒، E6 التقني ✅ بانتظار المراجعة — سياسة Production TBD)
+**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (**Gate C 🔒 مكتمل: M01–M23**؛ **Gate E 🔒 مغلق تقنياً: E1–E6** — Production Backup Policy TBD؛ التالي Gate F)
 
 ---
 
@@ -460,7 +460,8 @@ Platform Admin → Role → Permission + Platform-level scope
 - [x] **E3.** القيود INV-I1..I43 — كل رفض مطابق باسم القيد (G1: شُدِّد 74 تحققاً؛ G2: الـFK المركّب للعضوية لم يكن مُختبراً فعلاً — أُصلح).
 - [x] **E4.** التدقيق I44–I46 + حقول B7 كلها ✅؛ قراءات/تصدير FastAPI ➖ F4.
 - [x] **E5.** `supabase/seed.sql` — Tenant `DEV` + Group GA (SA، SB) + SS مستقلة + مستخدم لكل دور من العشرة + Platform Admin. **يمر بمسار التطبيق نفسه:** دوال الإنشاء (M22) و CRUD تحت RLS بدور `authenticated` ودوال M21 — استثناءان فقط بلا مسار تطبيق: حسابات Auth (Admin API في Production) وإقلاع Platform Admin (G8). يتحقق من نفسه (البنية، دور ونطاق كل مستخدم، لا بيانات مرجعية جديدة، لا صف Tenant بفاعل `system`). مُثبت end-to-end: تسجيل دخول حقيقي + قراءة عبر PostgREST لكل دور. **الاختبارات تعمل على `db reset --no-seed`؛ CI يطبق الـseed خطوةً منفصلة.**
-- [ ] **E6.** سياسة النسخ الاحتياطي + اختبار استرجاع موثّق (شرط قبل أي بيانات حقيقية).
+- [x] **E6.** سياسة النسخ الاحتياطي + اختبار استرجاع موثّق (شرط قبل أي بيانات حقيقية).
+      🔒 **E6 Technical Database Backup/Restore: CLOSED** — لا يثبت استعادة خادم PostgreSQL كامل إلى خادم جديد.
       ✅ **الاختبار التقني** — `docs/E6_BACKUP_RESTORE.md`: backup كامل (`pg_dump -Fc --create`) ← قاعدة جديدة بخصائص القاعدة من الـdump ← restore بلا migrations ← بصمة 883 سطراً diff 0 (بنية + بيانات + Auth + سجل migrations) ← الحزمة 1157/1157 على النسخة المستعادة؛ 7 ضوابط سلبية؛ خطوتان في CI (`scripts/restore-test.sh`). ⬜ **السياسة:** Production target / RPO / RTO / Retention / Backup frequency / WAL-PITR / Encryption-access — **TBD** حتى اختيار هدف النشر؛ الاستعادة إلى cluster جديد (الأدوار العامة، `app_owner`) لم تُختبر (L1).
 
 ### Gate F — التطبيقات (هيكل فقط)
@@ -580,6 +581,7 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | ✅ **C3** — اعتماد `platform_admin_roles → platform_admin_role_permissions → permissions`؛ `is_platform_admin()` اختبار هوية فقط، و`has_permission()` توحّد المسارين. الكتالوج 73 مفتاحاً بعد K4 (`tenant.create`) | `docs/ROLE_PERMISSION_SEED_v1.md`, `AUTHORIZATION_MATRIX_v1.md`, `docs/DATA_DICTIONARY_v1.md`, `CLAUDE.md` |
 | 2026-09-22 | ✅ **A3** — RLS Model: 7 دوال، سياسات كل الجداول، حل تعارض FORCE RLS/recursion، 30 اختبار pgTAP، و6 بنود معلّقة | `docs/RLS_MODEL_v1.md`, `CLAUDE.md` |
 | 2026-09-23 | ✅ **A5** — اعتماد A1–A4 كـFoundation Design Baseline | — |
+| 2026-09-26 | 🔒 **E6 التقني و Gate E مغلقان (E1–E6)** — CI أخضر (`c985a0d`، https://github.com/ahmedhmmad/sMas/actions/runs/36200782679)؛ **Production Backup Policy: TBD** (RPO، RTO، retention، frequency، PITR، مكان الحفظ، encryption/access، restore procedure، واستعادة إلى خادم جديد بالكامل بأدواره مثل `app_owner`) — حد نطاق لا فشل؛ لا إعادة فتح لـE1–E5 | `CLAUDE.md`, `docs/E6_BACKUP_RESTORE.md`, `docs/PLAN_v3.md` |
 | 2026-09-26 | ✅ **E6 (التقني)** — اختبار الاستعادة من backup كامل: البصمة + الحزمة على النسخة المستعادة + CI؛ كشف ف1 (خصائص القاعدة لا يحملها `pg_dump` بلا `--create` ← `public` بلا CREATE) و ف2 (`07` I12 طابق القيد الخطأ بمصادفة ترتيب الفهارس ← عُزل)؛ السياسة TBD | `scripts/restore-test.sh`, `scripts/db-fingerprint.sql`, `docs/E6_BACKUP_RESTORE.md`, `supabase/tests/07_memberships.test.sql`, `docs/TRACEABILITY_E1_E4.md`, `.github/workflows/ci.yml`, `CLAUDE.md` |
 | 2026-09-26 | 🔒 **E5 مغلقة** | `CLAUDE.md` |
 | 2026-09-26 | ✅ **E5** — seed التطوير عبر مسار التطبيق، ذاتي التحقق؛ CI: اختبارات بلا seed ثم تطبيق الـseed | `supabase/seed.sql`, `.github/workflows/ci.yml`, `CLAUDE.md` |

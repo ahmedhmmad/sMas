@@ -1,6 +1,8 @@
 # Gate E6 — النسخ الاحتياطي واختبار الاستعادة
 
-**الحالة:** اختبار الاستعادة التقني ✅ (2026-09-26) · **سياسة Production: TBD** (لا قيم مخترعة — §4)
+**الحالة:** 🔒 **E6 Technical Database Backup/Restore: CLOSED** (2026-09-26، CI `c985a0d`) · **Production Backup Policy: TBD** (§4)
+
+> **النطاق:** استعادة **قاعدة بيانات** من backup كامل داخل خادم قائم. لا يثبت **استعادة خادم PostgreSQL كامل إلى خادم جديد** (L1) — ذلك جزء من سياسة Production.
 **الأدوات:** `scripts/restore-test.sh`، `scripts/db-fingerprint.sql` · **CI:** خطوتان (§2.3)
 
 > E6 شرط قبل أي بيانات حقيقية (`PLAN_v3.md` §3 بند 20). ما أُنجز هنا يثبت أن **backup كامل يعيد بناء الحالة**؛
@@ -115,6 +117,9 @@
 | Backup frequency | **TBD** |
 | WAL/PITR policy | **TBD** |
 | Encryption/access policy | **TBD** |
+| مكان حفظ النسخ | **TBD** |
+| Restore procedure (Production) | **TBD** |
+| اختبار استعادة إلى **خادم جديد بالكامل** بما فيه الأدوار على مستوى الخادم (`app_owner`، أدوار Supabase) | **TBD** — L1 |
 
 ---
 
