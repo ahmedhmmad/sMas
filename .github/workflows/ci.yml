@@ -37,6 +37,14 @@ jobs:
       - name: pgTAP
         run: npx supabase test db
 
+      - name: Restore test — clean schema (E6)
+        # backup كامل ← قاعدة جديدة ← restore ← بصمة مطابقة ← الحزمة كاملة على النسخة المستعادة
+        run: bash scripts/restore-test.sh --run-tests
+
       - name: Development seed (self-verifying, E5)
         # seed.sql يمر بمسار التطبيق نفسه ويتحقق من نفسه في آخره؛ أي انحراف يُفشل الخطوة
         run: npx supabase db reset
+
+      - name: Restore test — seeded data (E6)
+        # البيانات: عدد وhash كل جدول + حسابات Auth + التسلسلات تطابق المصدر بعد الاستعادة
+        run: bash scripts/restore-test.sh

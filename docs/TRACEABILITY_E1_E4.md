@@ -154,7 +154,7 @@ rollback;
 | I9 | مدرسة داخل Group بلا نطاق خاص | `04` `is.scope_for_grouped_school`، `is.join_group_with_scope` (`identity_scopes_school_standalone_fk`) | ✅ |
 | I10 | `auth_user_id` فريد (O1) | `03`، `14` (`profiles_auth_user_uq`) | ✅ |
 | I11 | Tenant أو Platform لا الاثنان (G10) | `03` `g10.*`، `05` `g10.*`، `14` `i7.*` | ✅ |
-| I12 | Profile ↔ Membership 1:1 | `07` `m.second_membership` (`memberships_tenant_profile_uq`) | ✅ |
+| I12 | Profile ↔ Membership 1:1 | `07` `m.second_membership` (`memberships_profile_uq`، معزول — E6 ف2) | ✅ |
 | I13 | شكل النطاق | `07` `ms.bad_shape` (`membership_scopes_shape_chk`) | ✅ |
 | I14 | لا تكرار نطاق (NULLS NOT DISTINCT) | `07` `ms.dup_tenant`، `ms.dup_group` (`membership_scopes_uq`) | ✅ |
 | I15 | النطاق من Tenant العضوية | `07` `ms.cross_tenant_school` (`membership_scopes_school_fk`) | ✅ |
@@ -218,6 +218,7 @@ rollback;
 | **G2** | E3 / Matrix #14 | `07` `m.cross_tenant` ادّعى «عضوية لا تربط profile بـTenant آخر»، والذي أطلقه فعلاً `memberships_profile_uq` (للـprofile عضوية سلفاً) — الـFK المركّب لم يُختبر | fixture بـprofile بلا عضوية؛ الرفض الآن `memberships_profile_fk` |
 | **G3** | Matrix #8 / P3 | لا تحقق أن `read` لا يعني `export` | `17` `p3.tch` (طبقة الصلاحية؛ القناة في F4) |
 | **G4** | RLS T3 | لا تحقق أن كل جدول بسياسة SELECT | `13` T3 مع الاستثناءات الثلاثة الموثقة بالاسم |
+| **G5** | E3 / I12 (كُشف في E6) | `07` طابق `memberships_tenant_profile_uq`، والـinvariant `memberships_profile_uq`؛ القيدان يُخرقان معاً دائماً وأيهما يُبلَّغ يتبع ترتيب إنشاء الفهارس — نجح على المصدر وفشل على النسخة المستعادة | عزل I12 بإسقاط القيد الأوسع داخل subtransaction تُلغى (`docs/E6_BACKUP_RESTORE.md` §3 ف2) |
 
 ## ما يبقى خارج الإغلاق — بقرار لا بنقص
 

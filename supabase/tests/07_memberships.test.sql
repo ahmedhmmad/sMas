@@ -99,7 +99,24 @@ insert into public.membership_roles (membership_id, role_id, platform_tenant_id,
   ('e5000000-0000-0000-0000-000000000005', '71000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000000');
 
 -- ============ القيود ============
-select pg_temp.rec('m.second_membership', $q$insert into public.memberships (platform_tenant_id, profile_id) values ('10000000-0000-0000-0000-000000000001','b1000000-0000-0000-0000-000000000001') returning 'ok'$q$);
+-- I12 = memberships_profile_uq. العضوية الثانية تخرق أيضاً memberships_tenant_profile_uq (مفتاح أوسع يتضمنه)،
+-- وأيهما يُبلَّغ أولاً يتبع ترتيب إنشاء الفهارس لا الدلالة: الـmigrations تنشئ tenant_profile_uq أولاً،
+-- والاستعادة من pg_dump بترتيب الأسماء (ظهر في E6). لذا يُعزل I12: يُسقط القيد الأوسع داخل الـsubtransaction
+-- نفسها (تُلغى مع الرفض)، فلا يرفض الإدراج إلا القيد المقصود.
+do $$
+begin
+  begin
+    alter table public.memberships drop constraint memberships_tenant_profile_uq;
+    insert into public.memberships (platform_tenant_id, profile_id)
+      values ('10000000-0000-0000-0000-000000000001', 'b1000000-0000-0000-0000-000000000001');
+    insert into r values ('m.second_membership', 'ok');
+    raise exception 'undo' using errcode = 'P0001';
+  exception when others then
+    if sqlerrm <> 'undo' then
+      insert into r values ('m.second_membership', 'ERR ' || sqlstate || ': ' || sqlerrm);
+    end if;
+  end;
+end $$;
 -- profile بلا عضوية (فلا يسبق قيدُ التفرد الـFK) من T1 في عضوية داخل T2
 select pg_temp.rec('m.cross_tenant',      $q$insert into public.memberships (platform_tenant_id, profile_id) values ('20000000-0000-0000-0000-000000000002','b8000000-0000-0000-0000-000000000008') returning 'ok'$q$);
 select pg_temp.rec('m.end_no_ts',         $q$update public.memberships set status = 'ended' where id = 'e2000000-0000-0000-0000-000000000002' returning 'ok'$q$);
@@ -163,7 +180,7 @@ select ok((select bool_and(relrowsecurity and relforcerowsecurity) from pg_class
           'RLS enabled and forced on the three membership tables');
 
 -- القيود
-select ok((select v from r where k = 'm.second_membership') like 'ERR 23505%memberships_tenant_profile_uq%', 'I12: one membership per profile');
+select ok((select v from r where k = 'm.second_membership') like 'ERR 23505%memberships_profile_uq%', 'I12: one membership per profile');
 select ok((select v from r where k = 'm.cross_tenant') like 'ERR 23503%memberships_profile_fk%', 'membership cannot bind a profile to another tenant (composite tenant FK)');
 select ok((select v from r where k = 'm.end_no_ts')         like 'ERR 23514%memberships_ended_chk%', 'ended status requires ended_at');
 select ok((select v from r where k = 'mr.foreign_honest')   like 'ERR 23514%membership_roles_owner_chk%', 'I16: other-tenant custom role rejected (CHECK)');
