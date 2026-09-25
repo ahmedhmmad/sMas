@@ -509,6 +509,7 @@ Platform Admin → Role → Permission + Platform-level scope
 | 3 | قوالب الشهادات الفعلية (المدرسة والروضة) | 6 | مفتوح |
 | 4 | مزود OCR سحابي أم محلي (دقة/خصوصية/تكلفة) | 4 | مفتوح |
 | 5 | تفاصيل الاشتراكات والباقات والفوترة | 13 | مفتوح |
+| 6 | **Future enrollment / pre-registration** — القاعدة الحالية (H2، M12b): *Current school = school of the enrollment having the greatest `effective_from`, regardless of status*؛ فتسجيل مستقبلي في SA2 يُنشأ في مارس لبدء سبتمبر ينقل النطاق التشغيلي فوراً من SA1. يلزم تعريف الفترة الانتقالية (current / future enrollment، registration، effective date، operational school) وأثرها على RLS وإدارة الحساب وولي الأمر. **لا حل مؤقت في M12b** | 4 | مفتوح — design item |
 
 **محسوم ولا يُعاد فتحه:** tenancy، RLS ownership، حساب الطالب، حساب ولي الأمر، الحضور اليومي، قواعد النتائج في v1.
 
@@ -543,6 +544,7 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | ✅ **C3** — اعتماد `platform_admin_roles → platform_admin_role_permissions → permissions`؛ `is_platform_admin()` اختبار هوية فقط، و`has_permission()` توحّد المسارين. الكتالوج 73 مفتاحاً بعد K4 (`tenant.create`) | `docs/ROLE_PERMISSION_SEED_v1.md`, `AUTHORIZATION_MATRIX_v1.md`, `docs/DATA_DICTIONARY_v1.md`, `CLAUDE.md` |
 | 2026-09-22 | ✅ **A3** — RLS Model: 7 دوال، سياسات كل الجداول، حل تعارض FORCE RLS/recursion، 30 اختبار pgTAP، و6 بنود معلّقة | `docs/RLS_MODEL_v1.md`, `CLAUDE.md` |
 | 2026-09-23 | ✅ **A5** — اعتماد A1–A4 كـFoundation Design Baseline | — |
+| 2026-09-25 | H2 مغلق قراراً وتنفيذاً (بانتظار CI)؛ future enrollment مسجل كـdesign item للمرحلة 4 (§6 بند 6) | `CLAUDE.md` |
 | 2026-09-25 | ✅ **M12b** — H2 منفذ: أحدث تسجيل، ارتباط نشط، تكليف نشط؛ 12b 14/14 | `supabase/migrations/20260925144149_authz_helpers_current_scope.sql`, `supabase/tests/12b_current_scope.test.sql`, `supabase/tests/12_helpers.test.sql`, `docs/RLS_MODEL_v1.md`, `docs/DB_IMPLEMENTATION_SPEC_v1.md`, `CLAUDE.md` |
 | 2026-09-25 | ✅ **H2 محسوم** — المدرسة السابقة لا تدير حساب الطالب ولا ولي أمره بتسجيل تاريخي | `CLAUDE.md`, `docs/PLAN_v3.md`, `docs/RLS_MODEL_v1.md` |
 | 2026-09-24 | ✅ **H1 محسوم** — السماح للسكرتير بنطاق المدرسة، النطاق مشتق من المدرسة الهدف لا من العميل | `CLAUDE.md`, `docs/PLAN_v3.md`, `docs/DB_IMPLEMENTATION_SPEC_v1.md` |
