@@ -63,6 +63,8 @@ as $$
 $$;
 ```
 
+> **✅ M21b (2026-09-25):** الدالتان تشترطان أيضاً `platform_tenants.status = 'active'` (join) — الـTenant الموقوف يفقد كل مسار Tenant. يجب أن تكون الاثنتان: `has_permission`/`can_access_*` تقرأ `current_profile_id`.
+
 **حتمية الدالتين مضمونة بقرار O1** (`UNIQUE (profiles.auth_user_id)`). بدونه تعيد الدالة أكثر من صف ويفشل الاستعلام أو يعيد قيمة عشوائية — ولهذا رُفع O1 إلى شرط جذر في `CLAUDE.md` §1.1.
 
 `status = 'active'` جزء من الشرط: تعليق الـprofile يُسقط الوصول فوراً دون حذف بيانات.

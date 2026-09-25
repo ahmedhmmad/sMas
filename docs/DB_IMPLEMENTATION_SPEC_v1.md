@@ -727,6 +727,7 @@ helpers ─► state fns ─► provisioning fns ─► reference data
 | M20 ✅ | `privileges` | سجل §4.6؛ REVOKE من `anon`؛ EXECUTE على الدوال — **فحص EXECUTE يميّز فئتين (2026-09-25):** RLS helpers ← يجب أن تستدعيها سياسة؛ controlled functions ← يجب أن تكون في allowlist M20. قاعدة «كل EXECUTE تستدعيه سياسة» (حارس M15) **تُستبدل هنا** ولا تبقى invariant دائماً. **وتسحب صراحةً `TRUNCATE`, `TRIGGER`, `REFERENCES` من `anon` و`authenticated`** (RLS لا تحمي TRUNCATE؛ منح Supabase الافتراضي) | `20_column_grants` ✅ 65/65 — السجل حرفياً لكل جدول (29)، رفض سلوكي لـ21 عموداً/عملية محظورة، امتيازات افتراضية آمنة، EXECUTE بفئتين (allowlist فارغة حتى M21/M22) |
 | M20b ✅ | `privileges_followup` | حذف `platform_tenants_platform_insert` (bootstrap_tenant هو المسار الوحيد)؛ سحب UPDATE `families.family_code` | `20_column_grants` ✅ 67/67 |
 | M21 ✅ | `state_functions` | §5.3 | `21_state` |
+| M21b ✅ | `tenant_suspension` | `current_profile_id` و`current_tenant_id` تُرجعان NULL لـTenant موقوف | `21b_tenant_suspension` ✅ 15/15 |
 | M22 | `provisioning_functions` | §5.2 | `22_provisioning` |
 | M23 | `reference_data` | الكتالوج والأدوار والخرائط | `23_catalog_drift` |
 
