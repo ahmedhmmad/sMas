@@ -519,7 +519,10 @@ grant execute on function app.archive_student(uuid, text) to authenticated;
 | `app.archive_guardian` | ✅ G8 |
 | `app.activate_academic_year` / `app.close_academic_year` | `academic_year.activate` / `.close` |
 | `app.unlink_guardian` | `guardian.unlink` |
-| `app.close_enrollment(id, status, effective_to, reason)` | `enrollment.archive` (withdrawn/completed) أو `enrollment.transfer` |
+| `app.close_enrollment(id, status, effective_to, reason)` | `enrollment.archive` (withdrawn/completed فقط — **✅ M21:** `transferred` عبر النقل الذري وحده) |
+| `app.transfer_enrollment(id, target_section, date, reason, [enrollment_no])` ✅ M21 | `enrollment.transfer` + نطاق على المدرستين + الطالب في النطاق الحالي؛ ذرية |
+| `app.end_staff_assignment(id, effective_to, reason)` ✅ M21 (M17b) | `staff.assign` + نطاق المدرسة؛ لا إعادة فتح |
+| `app.set_role_status(id, status, reason)` ✅ M21 (M19) | `role.update` + نطاق tenant + صلاحيات الدور ⊆ الفاعل في الاتجاهين |
 
 `reason` إلزامي في دوال الأرشفة والإغلاق ويُمرَّر إلى T7.
 
@@ -723,7 +726,7 @@ helpers ─► state fns ─► provisioning fns ─► reference data
 | M19 ✅ | `authz_integrity` | T8 — **ثلاثة متطلبات معتمدة (2026-09-25):** (1) منع role escalation عبر `membership_roles`؛ (2) منع permission escalation عبر `role_permissions`؛ (3) منح النطاق: **عند منح Scope لعضو، يجب ألا يؤدي المنح إلى تمكين العضو المستهدف من أي Permission داخل ذلك الـScope تتجاوز Permissions المانح الفعلية داخل نفس الـScope.** | `19_t8` ✅ 31/31 (E4، E14 خطوة 2، F5 كاملاً، منح النطاق) — trigger AFTER |
 | M20 ✅ | `privileges` | سجل §4.6؛ REVOKE من `anon`؛ EXECUTE على الدوال — **فحص EXECUTE يميّز فئتين (2026-09-25):** RLS helpers ← يجب أن تستدعيها سياسة؛ controlled functions ← يجب أن تكون في allowlist M20. قاعدة «كل EXECUTE تستدعيه سياسة» (حارس M15) **تُستبدل هنا** ولا تبقى invariant دائماً. **وتسحب صراحةً `TRUNCATE`, `TRIGGER`, `REFERENCES` من `anon` و`authenticated`** (RLS لا تحمي TRUNCATE؛ منح Supabase الافتراضي) | `20_column_grants` ✅ 65/65 — السجل حرفياً لكل جدول (29)، رفض سلوكي لـ21 عموداً/عملية محظورة، امتيازات افتراضية آمنة، EXECUTE بفئتين (allowlist فارغة حتى M21/M22) |
 | M20b ✅ | `privileges_followup` | حذف `platform_tenants_platform_insert` (bootstrap_tenant هو المسار الوحيد)؛ سحب UPDATE `families.family_code` | `20_column_grants` ✅ 67/67 |
-| M21 | `state_functions` | §5.3 | `21_state` |
+| M21 ✅ | `state_functions` | §5.3 | `21_state` |
 | M22 | `provisioning_functions` | §5.2 | `22_provisioning` |
 | M23 | `reference_data` | الكتالوج والأدوار والخرائط | `23_catalog_drift` |
 

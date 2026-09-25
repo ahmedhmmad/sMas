@@ -3,7 +3,7 @@
 **المشروع:** نظام إدارة المدارس متعدد المستأجرين (Multi-Tenant SMS)
 **تاريخ الإنشاء:** 2026-09-22
 **آخر تحديث:** 2026-09-23
-**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (M01–M20b 🔒؛ التالي M21 `state_functions`)
+**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (M01–M20b 🔒، M21 ✅ بانتظار المراجعة؛ التالي M22 `provisioning_functions`)
 
 ---
 
@@ -381,7 +381,8 @@ Platform Admin → Role → Permission + Platform-level scope
 | M19 | `authz_integrity` | ✅ 31/31 (903/903) | T8 AFTER على الجداول الثلاثة؛ المتطلبات الثلاثة بضوابط إيجابية وضابط سلبي (بلا T8 تنجح كلها)؛ فصل الطبقات RLS/T8 مُثبت؛ سحب الدور والصلاحية مفحوص، سحب النطاق لا |
 | M20 | `privileges` | ✅ 65/65 (967/967) | سجل §4.6 حرفياً + M17b + M19؛ `anon` لا شيء؛ لا TRUNCATE/TRIGGER/REFERENCES؛ DELETE على جداول G2 فقط؛ SELECT على `audit_log`؛ امتيازات افتراضية آمنة؛ EXECUTE بفئتين يحل محل حارس M15؛ اختبارات 03/11/14–19 حُدِّثت لحقيقة ما بعد M20 |
 | M20b | `privileges_followup` | ✅ (ضمن 20: 67/67) | حذف سياسة INSERT الميتة لـPlatform Admin على `platform_tenants`؛ `families.family_code` غير قابل للتعديل؛ حارس: لا سياسة INSERT على جدول بلا أعمدة INSERT |
-| M21 | `state_functions` | ⬜ | التالي |
+| M21 | `state_functions` | ✅ 84/84 (1053/1053) | 15 دالة متحكَّم بها بالمتطلبات السبعة؛ النقل ذري (فشل في المنتصف لا يترك أثراً)؛ سياق التدقيق يُعاد فارغاً بعد كل كتابة (مُثبت)؛ allowlist M20 = 15؛ أداتان داخليتان بلا EXECUTE لأحد |
+| M22 | `provisioning_functions` | ⬜ | التالي |
 
 **✅ H1 محسوم (2026-09-24) — السماح، بلا Group Scope:**
 > **H1 — A secretary may register a new student in a school that belongs to a group. The secretary requires `student.create` with school scope; this does not grant group scope. When the target school belongs to a group, the student's identity scope is derived from the target school's group and is not client-selectable. The student's enrollment is created for the target school in the same controlled provisioning operation.**
@@ -533,6 +534,8 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | `audit_log.id` هو `bigint IDENTITY` وليس uuid، وبلا FK على `actor_id`/`entity_id` | ترتيب زمني طبيعي وحجم أصغر؛ وFK على الكيانات يخلق تبعية عكسية تكسر السجل عند الأرشفة |
 | 2026-09-22 | **O1** — `profiles.auth_user_id` فريد عالمياً؛ نفس Auth User لا يعبر Tenantين | شرط حتمية `app.current_tenant_id()` وصحة §1.1. التفاصيل: §1.1 + `DATA_DICTIONARY_v1.md` §2.7 |
 | 2026-09-22 | **O2** — `students.gender` و`birth_date` قابلان لـNULL؛ OCR ليس شرطاً ولا مصدراً نهائياً | اكتمال البيانات قاعدة أعمال في المرحلة 4 لا قيد صف. يلزم معالجة NULL صراحةً في قواعد التوزيع والتقارير |
+| 2026-09-25 | **النقل (M21):** فاعل واحد يملك `enrollment.transfer` ونطاقاً على المدرستين معاً (والطالب في نطاقه الحالي — H2) — نطاقه على الاثنتين يقوم مقام موافقتهما؛ عملية ذرية: القديم `transferred` عند d والجديد من d. سير الطلب/الموافقة بين مدرستين (PLAN §7.10) مؤجل للمرحلة 4 بجدوله. `close_enrollment` لا تقبل `transferred` | لا جدول طلبات في Foundation |
+| 2026-09-25 | **تكليف الموظف (M21):** إنهاء فقط؛ العودة = تكليف جديد (قرار b)؛ لا إعادة فتح لفترة مغلقة. **حالات الموظف:** `active ↔ on_leave`، `active|on_leave → ended` (يُغلق تكليفاته النشطة في العملية نفسها)، `ended → archived`؛ لا عودة من ended/archived (إعادة التوظيف سجل جديد عبر `provision_staff`) | الموظف المنتهي بلا تكليف نشط لا تصله مدرسة (H2) — الأرشفة بنطاق tenant |
 | 2026-09-25 | **Secure-by-default (M20):** ابتداءً من M20، كل migration تنشئ جدولاً جديداً يجب أن تمنح `authenticated` الصلاحيات المطلوبة صراحةً، ولا تعتمد على default grants: جدول جديد ← RLS + FORCE ← منح صريح فقط ← لا صلاحيات كتابة ضمنية. M20 = baseline privilege contract | منح Supabase الافتراضي كان يعطي `anon` و`authenticated` كل شيء على كل جدول جديد |
 | 2026-09-25 | **`families.family_code` ثابت (M20b)** — قاعدة الثوابت تتقدم على صف §4.6؛ أي تغيير إداري لاحق قرار مستقل بمسار متحكَّم به | تعارض داخل §4.6 |
 | 2026-09-25 | **`roles.status` (M19):** لا UPDATE مباشر لـ`authenticated` (يُسحب من سجل §4.6 في M20)؛ تفعيل/تعطيل الدور المخصص انتقال حالة في M21 يتحقق من: السياق، `role.update`، أن الدور مخصص ومملوك للـTenant، **وعند التفعيل أن صلاحيات الدور ⊆ صلاحيات الفاعل**، `FOR UPDATE`، انتقال صريح، تدقيق. لا مفتاح جديد في الكتالوج | إعادة تفعيل دور يحوي صلاحيات لا يملكها المفعّل تتجاوز T8 (نمط M17b نفسه) |
@@ -566,6 +569,7 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | ✅ **C3** — اعتماد `platform_admin_roles → platform_admin_role_permissions → permissions`؛ `is_platform_admin()` اختبار هوية فقط، و`has_permission()` توحّد المسارين. الكتالوج 73 مفتاحاً بعد K4 (`tenant.create`) | `docs/ROLE_PERMISSION_SEED_v1.md`, `AUTHORIZATION_MATRIX_v1.md`, `docs/DATA_DICTIONARY_v1.md`, `CLAUDE.md` |
 | 2026-09-22 | ✅ **A3** — RLS Model: 7 دوال، سياسات كل الجداول، حل تعارض FORCE RLS/recursion، 30 اختبار pgTAP، و6 بنود معلّقة | `docs/RLS_MODEL_v1.md`, `CLAUDE.md` |
 | 2026-09-23 | ✅ **A5** — اعتماد A1–A4 كـFoundation Design Baseline | — |
+| 2026-09-25 | ✅ **M21** — دوال انتقال الحالة | `supabase/migrations/20260925225414_state_functions.sql`, `supabase/tests/21_state_functions.test.sql`, `supabase/tests/20_column_grants.test.sql`, `docs/*`, `CLAUDE.md` |
 | 2026-09-25 | 🔒 **M20 و M20b مغلقتان** — تفسير «أعمدة الأعمال» معتمد؛ secure-by-default قاعدة تنفيذية؛ `family_code` ثابت؛ حذف السياسة الميتة | `supabase/migrations/20260925222337_privileges_followup.sql`, `supabase/tests/{14,20}_*.test.sql`, `docs/*`, `CLAUDE.md` |
 | 2026-09-25 | ✅ **M20** — طبقة الامتيازات الفعلية | `supabase/migrations/20260925205401_privileges.sql`, `supabase/tests/20_column_grants.test.sql`, `supabase/tests/{03,11,14,15,16,17,18,19}_*.test.sql`, `docs/*`, `CLAUDE.md` |
 | 2026-09-25 | 🔒 **M19 مغلقة** — 31/31، 903/903، CI أخضر (`9a1bcf7`)؛ T8 بلا تعديل؛ قرار `roles.status` → M20/M21 | `CLAUDE.md`, `docs/*` |
