@@ -81,9 +81,9 @@ select pg_temp.rec('tmp.n1000000', 'select app.next_temporary_id()');
 select plan(26);
 
 -- T5
-select ok((select v from r where k = 't5.service_update')   like 'ERR 42501%', 'T5: UPDATE rejected even for service_role');
-select ok((select v from r where k = 't5.service_delete')   like 'ERR 42501%', 'T5: DELETE rejected even for service_role');
-select ok((select v from r where k = 't5.service_truncate') like 'ERR 42501%', 'T5: TRUNCATE rejected even for service_role (statement trigger)');
+select ok((select v from r where k = 't5.service_update')   like 'ERR 42501%rows are immutable%', 'T5: UPDATE rejected even for service_role');
+select ok((select v from r where k = 't5.service_delete')   like 'ERR 42501%rows are immutable%', 'T5: DELETE rejected even for service_role');
+select ok((select v from r where k = 't5.service_truncate') like 'ERR 42501%rows are immutable%', 'T5: TRUNCATE rejected even for service_role (statement trigger)');
 select is((select v from r where k = 't5.service_insert'), 'ok',               'T5: INSERT still allowed');
 select is((select v from r where k = 't5.rows_after'), '3',                     'T5: no existing row was changed or removed');
 select throws_ok($$update public.t5_target set v = 'z'$$, '42501', null,        'T5: UPDATE rejected for postgres (table owner)');

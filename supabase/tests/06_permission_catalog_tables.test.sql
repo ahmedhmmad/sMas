@@ -109,16 +109,16 @@ select ok((select bool_and(relrowsecurity and relforcerowsecurity) from pg_class
           'RLS enabled and forced on the four catalog tables');
 
 -- I18
-select ok((select v from r where k = 'p.parts_mismatch') like 'ERR 23514%', 'I18: code must equal resource.operation');
-select ok((select v from r where k = 'p.bad_format')     like 'ERR 23514%', 'permission code format enforced');
-select ok((select v from r where k = 'p.dup')            like 'ERR 23505%', 'permission code unique');
+select ok((select v from r where k = 'p.parts_mismatch') like 'ERR 23514%permissions_code_parts_chk%', 'I18: code must equal resource.operation');
+select ok((select v from r where k = 'p.bad_format')     like 'ERR 23514%permissions_code_format_chk%', 'permission code format enforced');
+select ok((select v from r where k = 'p.dup')            like 'ERR 23505%permissions_code_uq%', 'permission code unique');
 
 -- I17 وتفرد الأكواد
-select ok((select v from r where k = 'r.system_not_flagged') like 'ERR 23514%', 'I17: tenant-less role must be is_system');
-select ok((select v from r where k = 'r.custom_flagged')     like 'ERR 23514%', 'I17: tenant role cannot be is_system');
-select ok((select v from r where k = 'r.dup_system_code')    like 'ERR 23505%', 'system role code unique');
-select ok((select v from r where k = 'r.dup_custom_code')    like 'ERR 23505%', 'custom role code unique within tenant');
-select ok((select v from r where k = 'r.bad_code')           like 'ERR 23514%', 'role code format enforced');
+select ok((select v from r where k = 'r.system_not_flagged') like 'ERR 23514%roles_is_system_chk%', 'I17: tenant-less role must be is_system');
+select ok((select v from r where k = 'r.custom_flagged')     like 'ERR 23514%roles_is_system_chk%', 'I17: tenant role cannot be is_system');
+select ok((select v from r where k = 'r.dup_system_code')    like 'ERR 23505%roles_system_code_uq%', 'system role code unique');
+select ok((select v from r where k = 'r.dup_custom_code')    like 'ERR 23505%roles_tenant_code_uq%', 'custom role code unique within tenant');
+select ok((select v from r where k = 'r.bad_code')           like 'ERR 23514%roles_code_chk%', 'role code format enforced');
 select is((select count(*)::int from public.roles where code = 'teacher'), 2,
           'same code allowed: system template + custom in another tenant (after T1 custom deleted)');
 
@@ -130,8 +130,8 @@ select is((select owner_key::text from public.roles where id = '73000000-0000-00
 select col_is_unique('public', 'roles', array['id', 'owner_key'], 'I16: (id, owner_key) unique — FK target for membership_roles');
 
 -- سلوك الحذف
-select ok((select v from r where k = 'rp.dup')              like 'ERR 23505%', 'role_permissions: no duplicate grant');
-select ok((select v from r where k = 'rp.delete_used_perm') like 'ERR 23503%', 'permission in use cannot be deleted (RESTRICT)');
+select ok((select v from r where k = 'rp.dup')              like 'ERR 23505%role_permissions_pkey%', 'role_permissions: no duplicate grant');
+select ok((select v from r where k = 'rp.delete_used_perm') like 'ERR 23503%role_permissions_permission_fk%', 'permission in use cannot be deleted (RESTRICT)');
 select is((select v from r where k = 'rp.cascade_rows'), '0',                    'deleting a role removes its role_permissions (CASCADE)');
 
 -- has_platform_permission (G10، C3)

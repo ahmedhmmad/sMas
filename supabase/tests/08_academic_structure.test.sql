@@ -96,38 +96,38 @@ select ok((select bool_and(a.attnotnull) from pg_attribute a
           'school_id NOT NULL on every school-level table (PLAN §3.3 rule 1)');
 
 -- academic_years
-select ok((select v from r where k = 'ay.second_active') like 'ERR 23505%', 'I33: one active year per school');
+select ok((select v from r where k = 'ay.second_active') like 'ERR 23505%academic_years_active_uq%', 'I33: one active year per school');
 select is((select count(*)::int from public.academic_years where status = 'active'), 2, 'I33: other schools keep their own active year');
-select ok((select v from r where k = 'ay.overlap')       like 'ERR 23P01%', 'I34: overlapping years rejected (EXCLUDE via btree_gist)');
-select ok((select v from r where k = 'ay.touching_end')  like 'ERR 23P01%', 'I34: inclusive bounds — a year starting on the previous end date overlaps');
-select ok((select v from r where k = 'ay.bad_dates')     like 'ERR 23514%', 'end_date after start_date');
-select ok((select v from r where k = 'ay.dup_name')      like 'ERR 23505%', 'year name unique within school');
+select ok((select v from r where k = 'ay.overlap')       like 'ERR 23P01%academic_years_no_overlap%', 'I34: overlapping years rejected (EXCLUDE via btree_gist)');
+select ok((select v from r where k = 'ay.touching_end')  like 'ERR 23P01%academic_years_no_overlap%', 'I34: inclusive bounds — a year starting on the previous end date overlaps');
+select ok((select v from r where k = 'ay.bad_dates')     like 'ERR 23514%academic_years_dates_chk%', 'end_date after start_date');
+select ok((select v from r where k = 'ay.dup_name')      like 'ERR 23505%academic_years_school_name_uq%', 'year name unique within school');
 select is((select count(*)::int from public.academic_years where name = '2026/2027'), 2, 'same year name allowed in another school');
 
 -- terms
 select is((select count(*)::int from public.terms where academic_year_id = 'a1000000-0000-0000-0000-000000000001'), 3,
           'number of terms is data, not a constant (three terms here)');
-select ok((select v from r where k = 't.outside_year')  like 'ERR 23514%', 'I35: term outside the year rejected');
-select ok((select v from r where k = 't.forged_bounds') like 'ERR 23503%', 'I35: forged year bounds rejected by the FK');
+select ok((select v from r where k = 't.outside_year')  like 'ERR 23514%terms_within_year_chk%', 'I35: term outside the year rejected');
+select ok((select v from r where k = 't.forged_bounds') like 'ERR 23503%terms_year_fk%', 'I35: forged year bounds rejected by the FK');
 select ok((select v from r where k = 't.other_school')  like 'ERR 23503%terms_year_fk%', 'term cannot attach to a year of another school');
-select ok((select v from r where k = 't.overlap')       like 'ERR 23P01%', 'I36: overlapping terms rejected');
-select ok((select v from r where k = 't.dup_seq')       like 'ERR 23505%', 'term sequence unique within the year');
+select ok((select v from r where k = 't.overlap')       like 'ERR 23P01%terms_no_overlap%', 'I36: overlapping terms rejected');
+select ok((select v from r where k = 't.dup_seq')       like 'ERR 23505%terms_year_sequence_uq%', 'term sequence unique within the year');
 select is((select v from r where k = 't.extend_year'), 'ok',                 'extending the year succeeds');
 select is((select v from r where k = 't.bounds_after_extend'), '2027-07-31', 'ON UPDATE CASCADE carried the new year end into every term');
-select ok((select v from r where k = 't.shrink_year') like 'ERR 23514%',     'shrinking the year below a term is rejected (T4 replaced)');
+select ok((select v from r where k = 't.shrink_year') like 'ERR 23514%terms_within_year_chk%',     'shrinking the year below a term is rejected (T4 replaced)');
 
 -- stages / grade_levels
-select ok((select v from r where k = 'gl.stage_other_school') like 'ERR 23503%', 'I37: grade level cannot use a stage of another school');
-select ok((select v from r where k = 'st.dup_seq') like 'ERR 23505%', 'stage sequence unique within school');
-select ok((select v from r where k = 'st.bad_seq') like 'ERR 23514%', 'stage sequence positive');
+select ok((select v from r where k = 'gl.stage_other_school') like 'ERR 23503%grade_levels_stage_fk%', 'I37: grade level cannot use a stage of another school');
+select ok((select v from r where k = 'st.dup_seq') like 'ERR 23505%stages_school_seq_uq%', 'stage sequence unique within school');
+select ok((select v from r where k = 'st.bad_seq') like 'ERR 23514%stages_sequence_chk%', 'stage sequence positive');
 
 -- sections
 select is((select count(*)::int from public.sections where name = 'A'), 3, 'section name reused across grades and years');
-select ok((select v from r where k = 'sec.dup_name')           like 'ERR 23505%', 'section name unique within (school, year, grade)');
-select ok((select v from r where k = 'sec.year_other_school')  like 'ERR 23503%', 'I37: section cannot use a year of another school');
-select ok((select v from r where k = 'sec.grade_other_school') like 'ERR 23503%', 'I37: section cannot use a grade of another school');
-select ok((select v from r where k = 'sec.zero_capacity')      like 'ERR 23514%', 'capacity positive when set');
-select ok((select v from r where k = 'sec.bad_gender')         like 'ERR 23514%', 'gender policy restricted');
+select ok((select v from r where k = 'sec.dup_name')           like 'ERR 23505%sections_name_uq%', 'section name unique within (school, year, grade)');
+select ok((select v from r where k = 'sec.year_other_school')  like 'ERR 23503%sections_year_fk%', 'I37: section cannot use a year of another school');
+select ok((select v from r where k = 'sec.grade_other_school') like 'ERR 23503%sections_grade_level_fk%', 'I37: section cannot use a grade of another school');
+select ok((select v from r where k = 'sec.zero_capacity')      like 'ERR 23514%sections_capacity_chk%', 'capacity positive when set');
+select ok((select v from r where k = 'sec.bad_gender')         like 'ERR 23514%sections_gender_chk%', 'gender policy restricted');
 select col_is_unique('public', 'sections', array['id', 'school_id', 'academic_year_id', 'grade_level_id'],
           'sections (id, school, year, grade) unique — single FK target for enrollments (T3 replaced)');
 

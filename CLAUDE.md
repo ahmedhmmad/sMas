@@ -3,7 +3,7 @@
 **المشروع:** نظام إدارة المدارس متعدد المستأجرين (Multi-Tenant SMS)
 **تاريخ الإنشاء:** 2026-09-22
 **آخر تحديث:** 2026-09-23
-**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (**Gate C 🔒 مكتمل: M01–M23**؛ التالي Gate E)
+**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (**Gate C 🔒 مكتمل: M01–M23**؛ Gate E: E1–E4 ✅ بانتظار المراجعة؛ التالي E5)
 
 ---
 
@@ -451,12 +451,12 @@ Platform Admin → Role → Permission + Platform-level scope
 
 ### Gate E — الاختبارات والبيانات
 
-- [ ] **E1.** قالب اختبار pgTAP للعزل بين مدرستين.
-- [ ] **E2.** اختبارات عزل: Tenant / Group / School / Guardian / Teacher.
+- [x] **E1.** قالب اختبار العزل — موثّق في `docs/TRACEABILITY_E1_E4.md` §E1 (النمط المستعمل في 14–22 بقواعده الست).
+- [x] **E2.** اختبارات عزل — مصفوفة تتبع لـMatrix §16 (15) و RLS §15 (I/P/R/E/T): كلها ✅ عدا #12/R5 ⏳ D1؛ P3 القناة ➖ F4.
       **المرجع الملزم:** قائمة الاختبارات الـ15 في `AUTHORIZATION_MATRIX_v1.md` §16 — تُنفَّذ كلها، لا انتقاء منها.
       **أبرزها:** عضو مدرسة (أ) لا يصل إلى مدرسة (ب) **داخل نفس Tenant** (§1.1 بند 5)؛ `Permission بلا Scope` لا يمنح وصولاً والعكس؛ `read` لا يمنح `export`؛ `current_tenant_id()` تُرجع Tenant واحداً بالضبط (O1).
-- [ ] **E3.** اختبارات القيود: enrollment uniqueness، academic year active، official ID، guardian phone، الأكواد.
-- [ ] **E4.** اختبارات audit trigger (التسجيل + منع الحذف/التعديل).
+- [x] **E3.** القيود INV-I1..I43 — كل رفض مطابق باسم القيد (G1: شُدِّد 74 تحققاً؛ G2: الـFK المركّب للعضوية لم يكن مُختبراً فعلاً — أُصلح).
+- [x] **E4.** التدقيق I44–I46 + حقول B7 كلها ✅؛ قراءات/تصدير FastAPI ➖ F4.
 - [ ] **E5.** Seed: Tenant واحد + Group بمدرستين + مدرسة مستقلة، ومستخدمون من كل الأدوار.
 - [ ] **E6.** سياسة النسخ الاحتياطي + اختبار استرجاع موثّق (شرط قبل أي بيانات حقيقية).
 
@@ -576,6 +576,7 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | ✅ **C3** — اعتماد `platform_admin_roles → platform_admin_role_permissions → permissions`؛ `is_platform_admin()` اختبار هوية فقط، و`has_permission()` توحّد المسارين. الكتالوج 73 مفتاحاً بعد K4 (`tenant.create`) | `docs/ROLE_PERMISSION_SEED_v1.md`, `AUTHORIZATION_MATRIX_v1.md`, `docs/DATA_DICTIONARY_v1.md`, `CLAUDE.md` |
 | 2026-09-22 | ✅ **A3** — RLS Model: 7 دوال، سياسات كل الجداول، حل تعارض FORCE RLS/recursion، 30 اختبار pgTAP، و6 بنود معلّقة | `docs/RLS_MODEL_v1.md`, `CLAUDE.md` |
 | 2026-09-23 | ✅ **A5** — اعتماد A1–A4 كـFoundation Design Baseline | — |
+| 2026-09-26 | ✅ **Gate E — E1–E4 traceability** — مصفوفة تتبع كاملة؛ 4 فجوات أُغلقت باختبارات فقط (G1 مطابقة أسماء القيود، G2 FK العضوية عبر Tenant، G3 read≠export، G4 T3 تغطية SELECT)؛ 1157/1157 | `docs/TRACEABILITY_E1_E4.md`, `supabase/tests/{02..08,10,11,13,17,21,22}_*.test.sql`, `CLAUDE.md` |
 | 2026-09-26 | 🔒 **M23 و Gate C مغلقان (M01–M23)** — 1155/1155، CI أخضر (`586b80d`)؛ تصحيح أعداد §4/§5 توثيقي لا تغيير في النموذج؛ ملاحظة تصميم مفتوحة: `group_manager` ← `school_admin` (§6 بند 7) | `CLAUDE.md`, `docs/PLAN_v3.md` |
 | 2026-09-26 | ✅ **M23** — البيانات المرجعية | `supabase/migrations/20260926002524_reference_data.sql`, `supabase/tests/23_reference_data.test.sql`, `supabase/tests/{05,06,07,11,14..22}_*.test.sql`, `docs/ROLE_PERMISSION_SEED_v1.md`, `docs/*`, `CLAUDE.md` |
 | 2026-09-26 | 🔒 **M22 مغلقة** | `CLAUDE.md` |

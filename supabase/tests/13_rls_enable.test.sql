@@ -24,7 +24,7 @@ create temp view actual as
   where c.relnamespace = 'public'::regnamespace
     and c.relkind in ('r', 'p');
 
-select plan(1 + 1 + 29 + 29 + 1);
+select plan(1 + 1 + 29 + 29 + 1 + 1);
 
 select is((select count(*)::int from expected), 29, 'the expected Foundation list has 29 tables');
 
@@ -39,6 +39,13 @@ select ok(coalesce(a.forced, false), format('%s: ROW LEVEL SECURITY forced (appl
 
 select is((select count(*)::int from pg_class where relnamespace = 'app'::regnamespace and relkind in ('r', 'p')), 0,
           'schema app holds no tables (functions and sequences only)');
+
+-- RLS §15.5 T3: لا جدول بلا سياسة SELECT (منع النسيان الصامت — F6)، عدا الاستثناءات الموثقة بقرار:
+--   auth_identities (G10، M13)، platform_admin_roles و platform_admin_role_permissions (service فقط، قرار 2026-09-25)
+select is((select string_agg(e.t, ',' order by e.t) from expected e
+            where not exists (select 1 from pg_policies p where p.schemaname = 'public' and p.tablename = e.t and p.cmd in ('SELECT','ALL'))),
+          'auth_identities,platform_admin_role_permissions,platform_admin_roles',
+          'T3: every Foundation table has a SELECT policy except the three documented exceptions');
 
 select * from finish();
 rollback;

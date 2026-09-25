@@ -239,6 +239,8 @@ begin
   perform pg_temp.run('fam.'      || p_label, p_label, $q$select string_agg(e.label, ',' order by e.label collate "C") from public.families x join ent e on e.kind = 'family' and e.id = x.id$q$);
 end $$;
 select pg_temp.lists(l) from unnest(array['ta','gm','sa1','sa2','sb1','tch','bus','noperm','gp','sa','t2a','pa','anon']) l;
+-- P3 / Matrix §16 «Read does not imply Export»: طبقة الصلاحية في DB. قناة التصدير نفسها في FastAPI (RLS §12.2، Gate F4)
+select pg_temp.run('p3.tch', 'tch', $q$select app.has_permission('student.read')::text || '|' || app.has_permission('student.export')::text$q$);
 
 -- ============ الكتابة ============
 create function pg_temp.upd(p_table text, p_col text, p_where text) returns text language sql as $$
@@ -305,7 +307,9 @@ select pg_temp.run('d.all', 'ta', $q$
   select ((select count(*) from a) + (select count(*) from b) + (select count(*) from c) + (select count(*) from d)
         + (select count(*) from e) + (select count(*) from f) + (select count(*) from g))::text$q$);
 
-select plan(102);
+select plan(103);
+
+select is((select v from r where k = 'p3.tch'), 'true|false', 'P3: holding student.read does not imply student.export (export channel enforced in FastAPI, Gate F4)');
 
 -- ---------- students: المسارات الثلاثة + H2 ----------
 select is((select v from r where k = 'students.ta'),     'sa,sb,sc,sm,sx', 'students: tenant scope → every enrolled T1 student; not sn (no enrollment, R3), not T2');

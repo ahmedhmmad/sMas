@@ -228,13 +228,13 @@ select is((select v from r where k = 'ps.shape'),    'true|true|active:SA1|stude
           'H1 + shape: identity scope = the target school''s group; temporary_id generated (O3); active enrollment; student role; new family; exactly one profile');
 select is((select v from r where k = 'ps.standalone'), 'e2000000-0000-0000-0000-000000000002', 'provision_student: standalone school');
 select is((select v from r where k = 'ps.standalone_scope'), 'true', 'H1: a standalone school''s own identity scope');
-select ok((select v from r where k = 'ps.sb')        like 'ERR P0002%', 'provision_student: a section outside the actor''s scope → not found');
+select ok((select v from r where k = 'ps.sb')        like 'ERR P0002%not found%', 'provision_student: a section outside the actor''s scope → not found');
 select ok((select v from r where k = 'ps.nop')       like 'ERR 42501%forbidden%', 'provision_student: without student.create/enrollment.create');
 select ok((select v from r where k = 'ps.weak')      like 'ERR 42501%T8: role grants permissions the actor does not hold: enrollment.read, profile.read, school.read, student.read%', 'T8 inside provisioning: assigning the student role needs its permissions');
 select is((select v from r where k = 'ps.weak_trace'), '0/0/0', 'saga atomicity: a failed provisioning leaves no profile, identity or student (FastAPI then compensates the Auth user)');
 select ok((select v from r where k = 'ps.reused_auth') like 'ERR 23505%auth_identities%', 'O1/G10: an Auth user already bound elsewhere cannot receive a second profile');
 select is((select v from r where k = 'ps.reused_trace'), '0', '… and nothing is left behind');
-select ok((select v from r where k = 'ps.hidden_family') like 'ERR P0002%', 'provision_student: a family outside the actor''s scope → not found');
+select ok((select v from r where k = 'ps.hidden_family') like 'ERR P0002%not found%', 'provision_student: a family outside the actor''s scope → not found');
 select ok((select v from r where k = 'ps.direct')    like 'ERR 42501%permission denied%students%', 'no bypass: direct INSERT into students is denied (G4, M20)');
 
 -- ---------- provision_staff ----------
@@ -242,21 +242,21 @@ select is((select v from r where k = 'pf.ok'),       'c1000000-0000-0000-0000-00
 select is((select v from r where k = 'pf.again'),    'c1000000-0000-0000-0000-000000000001', 'provision_staff: idempotent');
 select ok((select v from r where k = 'pf.conflict')  like 'ERR 23505%conflict: staff%', 'provision_staff: same id, different data → conflict');
 select is((select v from r where k = 'pf.visible'),  '1', 'provision_staff: visible to its creator (active assignment)');
-select ok((select v from r where k = 'pf.sb')        like 'ERR P0002%', 'provision_staff: a school outside the scope → not found');
+select ok((select v from r where k = 'pf.sb')        like 'ERR P0002%not found%', 'provision_staff: a school outside the scope → not found');
 
 -- ---------- provision_guardian ----------
 select is((select v from r where k = 'pg.ok'),       'd1000000-0000-0000-0000-000000000001', 'provision_guardian: guardian + link to a current student');
 select is((select v from r where k = 'pg.again'),    'd1000000-0000-0000-0000-000000000001', 'provision_guardian: idempotent');
 select is((select v from r where k = 'pg.visible'),  '1', 'provision_guardian: visible to its creator (active link)');
-select ok((select v from r where k = 'pg.sb')        like 'ERR P0002%', 'provision_guardian: a student outside the scope → not found');
-select ok((select v from r where k = 'pg.phone')     like 'ERR 23505%', 'provision_guardian: the phone is unique within the tenant (I25)');
+select ok((select v from r where k = 'pg.sb')        like 'ERR P0002%not found%', 'provision_guardian: a student outside the scope → not found');
+select ok((select v from r where k = 'pg.phone')     like 'ERR 23505%guardians_tenant_phone_uq%', 'provision_guardian: the phone is unique within the tenant (I25)');
 
 -- ---------- provision_account ----------
 select is((select v from r where k = 'pa.guardian'), 'true', 'provision_account: guardian account');
 select is((select v from r where k = 'pa.again'),    'true', 'provision_account: idempotent for the same Auth user');
 select ok((select v from r where k = 'pa.conflict')  like 'ERR 23505%already has an account%', 'provision_account: a second account for the same guardian → conflict');
 select is((select v from r where k = 'pa.staff'),    'true', 'provision_account: staff account');
-select ok((select v from r where k = 'pa.sb')        like 'ERR P0002%', 'provision_account: a guardian outside the scope → not found');
+select ok((select v from r where k = 'pa.sb')        like 'ERR P0002%not found%', 'provision_account: a guardian outside the scope → not found');
 select ok((select v from r where k = 'pa.kind')      like 'ERR 22023%kind must be staff or guardian%', 'provision_account: students get their account only through provision_student');
 select is((select v from r where k = 'pa.shape'),    'true|guardian|0|0', 'shape: guardian linked to its profile with the guardian role; staff account with no role and no scope (granted later under T8)');
 

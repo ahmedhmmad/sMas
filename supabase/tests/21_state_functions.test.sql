@@ -351,33 +351,33 @@ select ok((select v from r where k = 'y.sb1')        like 'ERR P0002%not found%'
 -- ---------- Membership ----------
 select is((select v from r where k = 'm.fresh'), 'ok', 'end_membership: a managed membership');
 select ok((select v from r where k = 'm.again') like 'ERR 22023%invalid transition ended -> ended%', 'end_membership: ended is terminal');
-select ok((select v from r where k = 'm.self')  like 'ERR P0002%', 'end_membership: no self-management (F5)');
-select ok((select v from r where k = 'm.gm')    like 'ERR P0002%', 'end_membership: not above the actor''s scope (F4)');
+select ok((select v from r where k = 'm.self')  like 'ERR P0002%not found%', 'end_membership: no self-management (F5)');
+select ok((select v from r where k = 'm.gm')    like 'ERR P0002%not found%', 'end_membership: not above the actor''s scope (F4)');
 select ok((select v from r where k = 'm.nop')   like 'ERR 42501%forbidden%', 'end_membership: without membership.end');
 
 -- ---------- Enrollment close ----------
 select ok((select v from r where k = 'e.transferred') like 'ERR 22023%transfer: app.transfer_enrollment%', 'close_enrollment: transferred only through the atomic transfer — no intermediate state');
 select ok((select v from r where k = 'e.baddate')     like 'ERR 22023%effective_to must be after effective_from%', 'close_enrollment: B6 half-open period');
-select ok((select v from r where k = 'e.sb1')         like 'ERR P0002%', 'close_enrollment: another school → not found');
+select ok((select v from r where k = 'e.sb1')         like 'ERR P0002%not found%', 'close_enrollment: another school → not found');
 select is((select v from r where k = 'e.complete'),   'ok', 'close_enrollment: active → completed');
-select ok((select v from r where k = 'e.again')       like 'ERR P0002%' or (select v from r where k = 'e.again') like 'ERR 22023%', 'close_enrollment: a closed enrollment cannot be closed again');
+select ok((select v from r where k = 'e.again')       like 'ERR P0002%not found%' or (select v from r where k = 'e.again') like 'ERR 22023%', 'close_enrollment: a closed enrollment cannot be closed again');
 
 -- ---------- Transfer ----------
 select ok((select v from r where k = 'x.sa1')      like 'ERR P0002%not found%', 'transfer: the current school alone cannot transfer — it needs scope over the target too (decision 2026-09-25)');
 select ok((select v from r where k = 'x.same')     like 'ERR 23514%transfer requires a different school%', 'transfer: same school rejected');
 select ok((select v from r where k = 'x.group')    like 'ERR 23514%outside the student''s identity scope%', 'transfer: no automatic transfer outside the group (PLAN §7.10, G3)');
-select ok((select v from r where k = 'x.closed')   like 'ERR P0002%' or (select v from r where k = 'x.closed') like 'ERR 22023%', 'transfer: only an active enrollment');
+select ok((select v from r where k = 'x.closed')   like 'ERR P0002%not found%' or (select v from r where k = 'x.closed') like 'ERR 22023%', 'transfer: only an active enrollment');
 select ok((select v from r where k = 'x.baddate')  like 'ERR 22023%transfer date must be after%', 'transfer: date after the current start');
 select ok((select v from r where k = 'x.midfail')  like 'ERR 23505%', 'transfer: a failure after closing the old row (duplicate enrollment_no) aborts the whole operation');
 select is((select v from r where k = 'x.midfail_state'), 'active:-:1', 'transfer atomicity: after the mid-operation failure s1 still has exactly one, active, open enrollment');
 select is((select v from r where k = 'x.ok'),       'ok', 'transfer: group manager over both schools');
 select is((select v from r where k = 'x.state'),    'SA1:transferred:2026-09-01:2026-12-01,SA2:active:2026-12-01:-', 'transfer: old closed at d, new opened from d — no gap, no overlap (B6, G6)');
 select is((select v from r where k = 'x.h2_sa1'),   'false', 'H2: after the transfer the old school no longer has operational scope');
-select ok((select v from r where k = 'x.old_close') like 'ERR P0002%', 'H2: the old school cannot act on the transferred row afterwards');
+select ok((select v from r where k = 'x.old_close') like 'ERR P0002%not found%', 'H2: the old school cannot act on the transferred row afterwards');
 
 -- ---------- Student ----------
 select ok((select v from r where k = 's.active') like 'ERR 23514%active enrollment%', 'archive_student: an actively enrolled student cannot be archived');
-select ok((select v from r where k = 's.sb1')    like 'ERR P0002%', 'archive_student: another group → not found');
+select ok((select v from r where k = 's.sb1')    like 'ERR P0002%not found%', 'archive_student: another group → not found');
 select ok((select v from r where k = 's.nop')    like 'ERR 42501%forbidden%', 'archive_student: without student.archive');
 select is((select v from r where k = 's.ok'),    'ok', 'archive_student: year-end completed student (latest enrollment in SA1)');
 select ok((select v from r where k = 's.again')  like 'ERR 22023%invalid transition archived -> archived%', 'archive_student: archived is terminal');
@@ -385,13 +385,13 @@ select ok((select v from r where k = 's.again')  like 'ERR 22023%invalid transit
 -- ---------- Guardian ----------
 select is((select v from r where k = 'gd.archive'), 'ok', 'archive_guardian: guardian.update (G8)');
 select ok((select v from r where k = 'gd.again')    like 'ERR 22023%invalid transition archived -> archived%', 'archive_guardian: terminal');
-select ok((select v from r where k = 'gd.sb1')      like 'ERR P0002%', 'archive_guardian: another group → not found');
+select ok((select v from r where k = 'gd.sb1')      like 'ERR P0002%not found%', 'archive_guardian: another group → not found');
 select ok((select v from r where k = 'ul.baddate')  like 'ERR 22023%effective_to must be after%', 'unlink_guardian: B6 period');
 select is((select v from r where k = 'ul.ok'),      'ok', 'unlink_guardian: active → ended');
 select ok((select v from r where k = 'ul.again')    like 'ERR 22023%invalid transition ended -> ended%', 'unlink_guardian: terminal');
 
 -- ---------- Staff ----------
-select ok((select v from r where k = 'a.sb1')     like 'ERR P0002%', 'end_staff_assignment: another school''s assignment → not found');
+select ok((select v from r where k = 'a.sb1')     like 'ERR P0002%not found%', 'end_staff_assignment: another school''s assignment → not found');
 select is((select v from r where k = 'a.ok'),     'ok', 'end_staff_assignment: active → ended');
 select ok((select v from r where k = 'a.again')   like 'ERR 22023%invalid transition ended -> ended%', 'end_staff_assignment: no reopening — ended is terminal (decision 2026-09-25)');
 select is((select v from r where k = 'f.leave'),  'ok', 'set_staff_status: active → on_leave');
@@ -400,14 +400,14 @@ select ok((select v from r where k = 'f.skip')    like 'ERR 22023%invalid transi
 select ok((select v from r where k = 'f.end_f3')  like 'ERR 23514%active assignments outside the actor''s scope%', 'set_staff_status: cannot end a member still active in a school outside the actor''s scope');
 select is((select v from r where k = 'f.end'),    'ok', 'set_staff_status: active → ended');
 select is((select v from r where k = 'f.end_asg'),'ended:2027-01-01', 'ending the staff member closes its active assignments in the same operation');
-select ok((select v from r where k = 'f.arch_sa1')like 'ERR P0002%', 'H2: with no active assignment the school no longer reaches the ended staff member');
+select ok((select v from r where k = 'f.arch_sa1')like 'ERR P0002%not found%', 'H2: with no active assignment the school no longer reaches the ended staff member');
 select is((select v from r where k = 'f.arch_ta'),'ok', 'set_staff_status: tenant scope archives the ended staff member');
 select ok((select v from r where k = 'f.revive')  like 'ERR 22023%invalid transition archived -> active%', 'set_staff_status: no return from archived (decision 2026-09-25)');
 
 -- ---------- Role (M19) ----------
 select ok((select v from r where k = 'ro.sa1')  like 'ERR 42501%forbidden%', 'set_role_status: without role.update');
 select ok((select v from r where k = 'ro.bad')  like 'ERR 42501%T8: role status change would affect permissions the actor does not hold: fee.read%', 'M19: activating a role with a permission the actor lacks is rejected');
-select ok((select v from r where k = 'ro.sys')  like 'ERR P0002%', 'set_role_status: system roles are out of reach');
+select ok((select v from r where k = 'ro.sys')  like 'ERR P0002%not found%', 'set_role_status: system roles are out of reach');
 select is((select v from r where k = 'ro.ok'),  'ok', 'set_role_status: inactive → active within the actor''s permissions');
 select ok((select v from r where k = 'ro.same') like 'ERR 22023%invalid transition active -> active%', 'set_role_status: explicit transitions only');
 select is((select v from r where k = 'ro.off'), 'ok', 'set_role_status: active → inactive');

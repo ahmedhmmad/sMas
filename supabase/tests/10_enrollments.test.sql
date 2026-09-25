@@ -199,7 +199,7 @@ select is((select v from r where k = 'no.dup_same_school_year'), 'ok', 'positive
 select ok((select v from r where k = 'no.dup_same_school_year2') like 'ERR 23505%enrollments_school_year_no_uq%', 'enrollment number unique within school and year');
 
 -- RLS
-select is((select v from r where k = 'rls.rows'), '0', 'RLS: authenticated sees nothing before policies');
+select is((select v from r where k = 'rls.rows'), '0', 'RLS: an authenticated user without permissions or relationships sees no enrollment row (policies since M17)');
 
 select * from finish();
 rollback;

@@ -78,15 +78,15 @@ select ok((select bool_and(relrowsecurity and relforcerowsecurity) from pg_class
           'RLS enabled and forced on all three tables');
 
 -- I1–I5
-select ok((select v from r where k = 'g.dup_code') like 'ERR 23505%',  'group_code unique within tenant');
+select ok((select v from r where k = 'g.dup_code') like 'ERR 23505%groups_tenant_code_uq%',  'group_code unique within tenant');
 select is((select count(*)::int from public.groups where group_code = 'G-A'), 2, 'same group_code allowed across tenants');
-select ok((select v from r where k = 'g.bad_code') like 'ERR 23514%',  'group_code format enforced');
-select ok((select v from r where k = 's.cross_tenant_grp') like 'ERR 23503%', 'I5: school cannot join a group of another tenant');
-select ok((select v from r where k = 's.dup_code') like 'ERR 23505%',  'school_code unique within tenant');
+select ok((select v from r where k = 'g.bad_code') like 'ERR 23514%groups_group_code_chk%',  'group_code format enforced');
+select ok((select v from r where k = 's.cross_tenant_grp') like 'ERR 23503%schools_group_fk%', 'I5: school cannot join a group of another tenant');
+select ok((select v from r where k = 's.dup_code') like 'ERR 23505%schools_tenant_code_uq%',  'school_code unique within tenant');
 select is((select count(*)::int from public.schools where school_code = 'S1'), 2, 'same school_code allowed across tenants');
-select ok((select v from r where k = 's.dup_slug') like 'ERR 23505%',  'slug unique within tenant');
-select ok((select v from r where k = 's.bad_slug') like 'ERR 23514%',  'slug format enforced');
-select ok((select v from r where k = 's.archive_no_ts') like 'ERR 23514%', 'archived status requires archived_at');
+select ok((select v from r where k = 's.dup_slug') like 'ERR 23505%schools_tenant_slug_uq%',  'slug unique within tenant');
+select ok((select v from r where k = 's.bad_slug') like 'ERR 23514%schools_slug_chk%',  'slug format enforced');
+select ok((select v from r where k = 's.archive_no_ts') like 'ERR 23514%schools_archived_chk%', 'archived status requires archived_at');
 
 -- الأعمدة المشتقة
 select is((select is_standalone from public.schools where id = '51000000-0000-0000-0000-000000000001'), false, 'is_standalone false for grouped school');
@@ -106,13 +106,13 @@ select ok(exists (select 1 from public.identity_scopes where group_id = 'a300000
           'T9: scope inherits the tenant of its group');
 
 -- I7–I9
-select ok((select v from r where k = 'is.scope_for_grouped_school') like 'ERR 23503%', 'I9: grouped school cannot own a scope');
-select ok((select v from r where k = 'is.second_scope_for_group')   like 'ERR 23505%', 'I7: at most one scope per group');
-select ok((select v from r where k = 'is.second_scope_for_school')  like 'ERR 23505%', 'I7: at most one scope per standalone school');
+select ok((select v from r where k = 'is.scope_for_grouped_school') like 'ERR 23503%identity_scopes_school_standalone_fk%', 'I9: grouped school cannot own a scope');
+select ok((select v from r where k = 'is.second_scope_for_group')   like 'ERR 23505%identity_scopes_group_uq%', 'I7: at most one scope per group');
+select ok((select v from r where k = 'is.second_scope_for_school')  like 'ERR 23505%identity_scopes_school_uq%', 'I7: at most one scope per standalone school');
 select ok((select v from r where k = 'is.cross_tenant_school')      like 'ERR 23503%identity_scopes_school_tenant_fk%', 'scope cannot reference a school of another tenant (added tenant FK)');
 select is((select v from r where k = 'is.same_tenant_control'), 'ok', 'control: the same insert with the correct tenant succeeds');
-select ok((select v from r where k = 'is.bad_shape')                like 'ERR 23514%', 'scope shape: group xor school');
-select ok((select v from r where k = 'is.join_group_with_scope')    like 'ERR 23503%', 'standalone school with a scope cannot silently join a group (merge procedure required)');
+select ok((select v from r where k = 'is.bad_shape')                like 'ERR 23514%identity_scopes_shape_chk%', 'scope shape: group xor school');
+select ok((select v from r where k = 'is.join_group_with_scope')    like 'ERR 23503%identity_scopes_school_standalone_fk%', 'standalone school with a scope cannot silently join a group (merge procedure required)');
 
 -- RLS
 select ok((select v from r where k = 'rls.groups') = '0' and (select v from r where k = 'rls.schools') = '0' and (select v from r where k = 'rls.scopes') = '0',

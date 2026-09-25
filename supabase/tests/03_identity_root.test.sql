@@ -108,24 +108,24 @@ select ok((select bool_and(relrowsecurity and relforcerowsecurity) from pg_class
           'RLS enabled and forced on all three tables at creation');
 
 -- G10
-select ok((select v from r where k = 'g10.platform_as_profile') like 'ERR 23503%', 'G10: platform-kind account cannot become a tenant profile');
-select ok((select v from r where k = 'g10.no_identity_row')     like 'ERR 23503%', 'G10: account without identity row cannot become a profile');
-select ok((select v from r where k = 'g10.second_kind')         like 'ERR 23505%', 'G10: one account cannot hold two security contexts');
-select ok((select v from r where k = 'g10.forged_kind')         like 'ERR 23514%', 'G10: identity_kind cannot be changed from tenant');
+select ok((select v from r where k = 'g10.platform_as_profile') like 'ERR 23503%profiles_identity_fk%', 'G10: platform-kind account cannot become a tenant profile');
+select ok((select v from r where k = 'g10.no_identity_row')     like 'ERR 23503%profiles_identity_fk%', 'G10: account without identity row cannot become a profile');
+select ok((select v from r where k = 'g10.second_kind')         like 'ERR 23505%auth_identities_pkey%', 'G10: one account cannot hold two security contexts');
+select ok((select v from r where k = 'g10.forged_kind')         like 'ERR 23514%profiles_identity_kind_chk%', 'G10: identity_kind cannot be changed from tenant');
 
 -- O1
-select ok((select v from r where k = 'o1.same_auth_second_tenant') like 'ERR 23505%', 'O1: same Auth user cannot have a profile in a second tenant');
+select ok((select v from r where k = 'o1.same_auth_second_tenant') like 'ERR 23505%profiles_auth_user_uq%', 'O1: same Auth user cannot have a profile in a second tenant');
 select col_is_unique('public', 'profiles', array['auth_user_id'], 'O1: profiles.auth_user_id is globally unique');
 
 -- platform_tenants
-select ok((select v from r where k = 'pt.bad_code')      like 'ERR 23514%', 'tenant_code format enforced');
-select ok((select v from r where k = 'pt.dup_code')      like 'ERR 23505%', 'tenant_code globally unique');
-select ok((select v from r where k = 'pt.suspend_no_ts') like 'ERR 23514%', 'status suspended requires suspended_at');
+select ok((select v from r where k = 'pt.bad_code')      like 'ERR 23514%platform_tenants_tenant_code_chk%', 'tenant_code format enforced');
+select ok((select v from r where k = 'pt.dup_code')      like 'ERR 23505%platform_tenants_tenant_code_uq%', 'tenant_code globally unique');
+select ok((select v from r where k = 'pt.suspend_no_ts') like 'ERR 23514%platform_tenants_suspended_chk%', 'status suspended requires suspended_at');
 select is((select v from r where k = 'pt.suspend_ok'), 'ok',                  'suspension with timestamp accepted');
 
 -- profiles
-select ok((select v from r where k = 'pr.bad_status') like 'ERR 23514%', 'profile status restricted');
-select ok((select v from r where k = 'pr.blank_name') like 'ERR 23514%', 'profile display_name cannot be blank');
+select ok((select v from r where k = 'pr.bad_status') like 'ERR 23514%profiles_status_chk%', 'profile status restricted');
+select ok((select v from r where k = 'pr.blank_name') like 'ERR 23514%profiles_display_name_chk%', 'profile display_name cannot be blank');
 select col_is_unique('public', 'profiles', array['id', 'platform_tenant_id'], 'profiles (id, platform_tenant_id) unique for composite FKs');
 
 -- دوال الهوية + T6
@@ -146,7 +146,7 @@ select ok(not has_function_privilege('anon', 'app.current_profile_id()', 'EXECUT
 -- RLS
 select is((select v from r where k = 'rls.auth_profiles'), '1', 'RLS (M15 self branch): an authenticated user without permissions sees only its own profile');
 select is((select v from r where k = 'rls.auth_tenants'),  '0', 'RLS: an authenticated user without tenant scope and tenant.read sees no tenant');
-select ok((select v from r where k = 'rls.auth_insert') like 'ERR 42501%', 'RLS: an authenticated tenant user cannot insert a tenant (platform only, K4)');
+select ok((select v from r where k = 'rls.auth_insert') like 'ERR 42501%permission denied%', 'RLS: an authenticated tenant user cannot insert a tenant (platform only, K4)');
 select ok((select v from r where k = 'rls.anon_profiles') like 'ERR 42501%permission denied%profiles%', 'anon has no privilege on profiles (M20)');
 
 select * from finish();

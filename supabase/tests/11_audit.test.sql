@@ -186,9 +186,9 @@ select ok(exists (select 1 from public.audit_log where entity_type = 'identity_s
           'T9-created identity scope is audited');
 
 -- T5 — الثبات حتى على service_role والمالك
-select ok((select v from r where k = 't5.service_update')   like 'ERR 42501%', 'service_role cannot UPDATE audit rows');
-select ok((select v from r where k = 't5.service_delete')   like 'ERR 42501%', 'service_role cannot DELETE audit rows');
-select ok((select v from r where k = 't5.service_truncate') like 'ERR 42501%', 'service_role cannot TRUNCATE audit_log');
+select ok((select v from r where k = 't5.service_update')   like 'ERR 42501%permission denied%', 'service_role cannot UPDATE audit rows');
+select ok((select v from r where k = 't5.service_delete')   like 'ERR 42501%permission denied%', 'service_role cannot DELETE audit rows');
+select ok((select v from r where k = 't5.service_truncate') like 'ERR 42501%permission denied%', 'service_role cannot TRUNCATE audit_log');
 select ok((select v from r where k = 't5.owner_update')   like 'ERR 42501%immutable%', 'T5: table owner cannot UPDATE (trigger, not privileges)');
 select ok((select v from r where k = 't5.owner_delete')   like 'ERR 42501%immutable%', 'T5: table owner cannot DELETE');
 select ok((select v from r where k = 't5.owner_truncate') like 'ERR 42501%immutable%', 'T5: table owner cannot TRUNCATE (statement trigger)');
@@ -196,7 +196,7 @@ select ok((select v from r where k = 'chk.actorless_user') like 'ERR 23514%audit
 
 -- الصلاحيات
 select is((select v from r where k = 'priv.auth_select'), '0', 'authenticated reads audit_log only through the M18 policy (SELECT granted in M20) — an unscoped reader sees nothing');
-select ok((select v from r where k = 'priv.auth_insert') like 'ERR 42501%', 'authenticated cannot forge audit rows');
+select ok((select v from r where k = 'priv.auth_insert') like 'ERR 42501%permission denied%', 'authenticated cannot forge audit rows');
 select ok(has_table_privilege('service_role', 'public.audit_log', 'INSERT'), 'service_role may INSERT (FastAPI read/export audit, §7.4)');
 select ok(not has_table_privilege('anon', 'public.audit_log', 'SELECT') and not has_table_privilege('anon', 'public.audit_log', 'INSERT'),
           'anon has no access to audit_log');

@@ -96,14 +96,14 @@ select ok((select bool_and(relrowsecurity and relforcerowsecurity) from pg_class
 select hasnt_column('public', 'system_users', 'created_by', 'system_users has no always-NULL created_by');
 
 -- G10
-select ok((select v from r where k = 'g10.tenant_as_system_user') like 'ERR 23503%', 'G10: tenant-kind account cannot become a system user');
-select ok((select v from r where k = 'g10.forged_kind')           like 'ERR 23514%', 'G10: system_users.identity_kind cannot change from platform');
+select ok((select v from r where k = 'g10.tenant_as_system_user') like 'ERR 23503%system_users_identity_fk%', 'G10: tenant-kind account cannot become a system user');
+select ok((select v from r where k = 'g10.forged_kind')           like 'ERR 23514%system_users_identity_kind_chk%', 'G10: system_users.identity_kind cannot change from platform');
 
 -- القيود
-select ok((select v from r where k = 'su.dup_auth')       like 'ERR 23505%', 'one system user per Auth account');
-select ok((select v from r where k = 'par.bad_code')      like 'ERR 23514%', 'platform role code format enforced');
-select ok((select v from r where k = 'paa.dup')           like 'ERR 23505%', 'role assigned once per system user');
-select ok((select v from r where k = 'paa.revoke_no_ts')  like 'ERR 23514%', 'revoked status requires revoked_at');
+select ok((select v from r where k = 'su.dup_auth')       like 'ERR 23505%system_users_auth_user_uq%', 'one system user per Auth account');
+select ok((select v from r where k = 'par.bad_code')      like 'ERR 23514%platform_admin_roles_code_chk%', 'platform role code format enforced');
+select ok((select v from r where k = 'paa.dup')           like 'ERR 23505%platform_admin_assignments_uq%', 'role assigned once per system user');
+select ok((select v from r where k = 'paa.revoke_no_ts')  like 'ERR 23514%platform_admin_assignments_revoked_chk%', 'revoked status requires revoked_at');
 select is((select v from r where k = 'paa.granted_at_immutable'), 'true',    'T6: granted_at immutable after insert');
 
 -- السياق الأمني

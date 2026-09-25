@@ -49,19 +49,21 @@ insert into auth.users (id, email) values
   ('c4000000-0000-0000-0000-000000000004', 'multi@m07.invalid'),
   ('c5000000-0000-0000-0000-000000000005', 'ended@m07.invalid'),
   ('c6000000-0000-0000-0000-000000000006', 't2@m07.invalid'),
-  ('c7000000-0000-0000-0000-000000000007', 'platform@m07.invalid');
+  ('c7000000-0000-0000-0000-000000000007', 'platform@m07.invalid'),
+  ('c8000000-0000-0000-0000-000000000008', 'nomem@m07.invalid');
 insert into public.auth_identities values
   ('c1000000-0000-0000-0000-000000000001', 'tenant'), ('c2000000-0000-0000-0000-000000000002', 'tenant'),
   ('c3000000-0000-0000-0000-000000000003', 'tenant'), ('c4000000-0000-0000-0000-000000000004', 'tenant'),
   ('c5000000-0000-0000-0000-000000000005', 'tenant'), ('c6000000-0000-0000-0000-000000000006', 'tenant'),
-  ('c7000000-0000-0000-0000-000000000007', 'platform');
+  ('c7000000-0000-0000-0000-000000000007', 'platform'), ('c8000000-0000-0000-0000-000000000008', 'tenant');
 insert into public.profiles (id, platform_tenant_id, auth_user_id, display_name) values
   ('b1000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'c1000000-0000-0000-0000-000000000001', 'TA'),
   ('b2000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000001', 'c2000000-0000-0000-0000-000000000002', 'GM'),
   ('b3000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000001', 'c3000000-0000-0000-0000-000000000003', 'SA'),
   ('b4000000-0000-0000-0000-000000000004', '10000000-0000-0000-0000-000000000001', 'c4000000-0000-0000-0000-000000000004', 'MULTI'),
   ('b5000000-0000-0000-0000-000000000005', '10000000-0000-0000-0000-000000000001', 'c5000000-0000-0000-0000-000000000005', 'ENDED'),
-  ('b6000000-0000-0000-0000-000000000006', '20000000-0000-0000-0000-000000000002', 'c6000000-0000-0000-0000-000000000006', 'T2');
+  ('b6000000-0000-0000-0000-000000000006', '20000000-0000-0000-0000-000000000002', 'c6000000-0000-0000-0000-000000000006', 'T2'),
+  ('b8000000-0000-0000-0000-000000000008', '10000000-0000-0000-0000-000000000001', 'c8000000-0000-0000-0000-000000000008', 'NOMEM');   -- T1 profile without membership
 insert into public.memberships (id, platform_tenant_id, profile_id, status, ended_at) values
   ('e1000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'b1000000-0000-0000-0000-000000000001', 'active', null),
   ('e2000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000001', 'b2000000-0000-0000-0000-000000000002', 'active', null),
@@ -98,7 +100,8 @@ insert into public.membership_roles (membership_id, role_id, platform_tenant_id,
 
 -- ============ القيود ============
 select pg_temp.rec('m.second_membership', $q$insert into public.memberships (platform_tenant_id, profile_id) values ('10000000-0000-0000-0000-000000000001','b1000000-0000-0000-0000-000000000001') returning 'ok'$q$);
-select pg_temp.rec('m.cross_tenant',      $q$insert into public.memberships (platform_tenant_id, profile_id) values ('20000000-0000-0000-0000-000000000002','b1000000-0000-0000-0000-000000000001') returning 'ok'$q$);
+-- profile بلا عضوية (فلا يسبق قيدُ التفرد الـFK) من T1 في عضوية داخل T2
+select pg_temp.rec('m.cross_tenant',      $q$insert into public.memberships (platform_tenant_id, profile_id) values ('20000000-0000-0000-0000-000000000002','b8000000-0000-0000-0000-000000000008') returning 'ok'$q$);
 select pg_temp.rec('m.end_no_ts',         $q$update public.memberships set status = 'ended' where id = 'e2000000-0000-0000-0000-000000000002' returning 'ok'$q$);
 
 select pg_temp.rec('mr.foreign_honest', $q$insert into public.membership_roles (membership_id, role_id, platform_tenant_id, role_owner_key) values ('e3000000-0000-0000-0000-000000000003','74000000-0000-0000-0000-000000000004','10000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000002') returning 'ok'$q$);
@@ -160,18 +163,17 @@ select ok((select bool_and(relrowsecurity and relforcerowsecurity) from pg_class
           'RLS enabled and forced on the three membership tables');
 
 -- القيود
-select ok((select v from r where k = 'm.second_membership') like 'ERR 23505%', 'I12: one membership per profile');
-select ok((select v from r where k = 'm.cross_tenant')      like 'ERR 23505%' or (select v from r where k = 'm.cross_tenant') like 'ERR 23503%',
-          'membership cannot bind a profile to another tenant');
-select ok((select v from r where k = 'm.end_no_ts')         like 'ERR 23514%', 'ended status requires ended_at');
-select ok((select v from r where k = 'mr.foreign_honest')   like 'ERR 23514%', 'I16: other-tenant custom role rejected (CHECK)');
-select ok((select v from r where k = 'mr.foreign_forged')   like 'ERR 23503%', 'I16: other-tenant custom role with forged key rejected (FK)');
-select ok((select v from r where k = 'mr.wrong_tenant')     like 'ERR 23503%', 'membership_roles tenant must match the membership');
+select ok((select v from r where k = 'm.second_membership') like 'ERR 23505%memberships_tenant_profile_uq%', 'I12: one membership per profile');
+select ok((select v from r where k = 'm.cross_tenant') like 'ERR 23503%memberships_profile_fk%', 'membership cannot bind a profile to another tenant (composite tenant FK)');
+select ok((select v from r where k = 'm.end_no_ts')         like 'ERR 23514%memberships_ended_chk%', 'ended status requires ended_at');
+select ok((select v from r where k = 'mr.foreign_honest')   like 'ERR 23514%membership_roles_owner_chk%', 'I16: other-tenant custom role rejected (CHECK)');
+select ok((select v from r where k = 'mr.foreign_forged')   like 'ERR 23503%membership_roles_role_fk%', 'I16: other-tenant custom role with forged key rejected (FK)');
+select ok((select v from r where k = 'mr.wrong_tenant')     like 'ERR 23503%membership_roles_membership_fk%', 'membership_roles tenant must match the membership');
 select is((select v from r where k = 'mr.granted_by'), '<null>', 'T6: granted_by NULL in service context');
-select ok((select v from r where k = 'ms.bad_shape')        like 'ERR 23514%', 'I13: scope shape enforced');
-select ok((select v from r where k = 'ms.dup_tenant')       like 'ERR 23505%', 'I14: duplicate tenant scope rejected (NULLS NOT DISTINCT)');
-select ok((select v from r where k = 'ms.dup_group')        like 'ERR 23505%', 'I14: duplicate group scope rejected');
-select ok((select v from r where k = 'ms.cross_tenant_school') like 'ERR 23503%', 'I15: scope cannot reference a school of another tenant');
+select ok((select v from r where k = 'ms.bad_shape')        like 'ERR 23514%membership_scopes_shape_chk%', 'I13: scope shape enforced');
+select ok((select v from r where k = 'ms.dup_tenant')       like 'ERR 23505%membership_scopes_uq%', 'I14: duplicate tenant scope rejected (NULLS NOT DISTINCT)');
+select ok((select v from r where k = 'ms.dup_group')        like 'ERR 23505%membership_scopes_uq%', 'I14: duplicate group scope rejected');
+select ok((select v from r where k = 'ms.cross_tenant_school') like 'ERR 23503%membership_scopes_school_fk%', 'I15: scope cannot reference a school of another tenant');
 
 -- has_permission
 select is((select v from r where k = 'hp.sa_read'),       'true',  'has_permission: granted via active role');
