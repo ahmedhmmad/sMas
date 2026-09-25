@@ -246,7 +246,7 @@ select ok((select v from r where k = 'sg.active_with_end')  like 'ERR 23514%stud
 select is((select v from r where k = 'sg.new_primary_after_end'), 'ok', 'positive: new primary guardian after the previous one ended');
 
 -- RLS
-select is((select v from r where k = 'rls.rows'), '0', 'RLS: authenticated sees nothing before policies');
+select is((select v from r where k = 'rls.rows'), '1', 'RLS (M17 self path): a staff member without permissions sees only its own staff row across the six tables');
 
 select * from finish();
 rollback;

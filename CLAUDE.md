@@ -3,7 +3,7 @@
 **المشروع:** نظام إدارة المدارس متعدد المستأجرين (Multi-Tenant SMS)
 **تاريخ الإنشاء:** 2026-09-22
 **آخر تحديث:** 2026-09-23
-**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (M01–M15 🔒، M16 ✅ بانتظار المراجعة؛ التالي M17 `policies_people_enrollment`)
+**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (M01–M16 🔒، M17 ✅ بانتظار المراجعة؛ التالي M18 `policies_audit`)
 
 ---
 
@@ -375,7 +375,8 @@ Platform Admin → Role → Permission + Platform-level scope
 | M14 | `policies_tenancy_platform` | ✅ 96/96 (602/602) | أول السياسات (6 جداول، 16 سياسة `TO authenticated`)؛ I1 مسح لكل جدول مملوك لـTenant ببيانات في الـTenantين؛ PA catalog = service فقط؛ EXECUTE يُمنح مع كل طبقة سياسات |
 | M15 | `policies_authz` | ✅ 104/104 (706/706) | 17 سياسة على 7 جداول؛ قراران (can_manage على النطاق، `membership_id_of`) بضوابط سلبية؛ E4 و E14/2 تنتظر T8 (M19)؛ حارس دائم: كل دالة ينفذها `authenticated` تستدعيها سياسة |
 | M16 | `policies_academic` | ✅ 40/40 (746/746) | 15 سياسة على 5 جداول؛ `academic_years` بمفاتيح الكتالوج (`create`/`update`) لا `.manage` (تعارض RLS §7 مع الكتالوج و§12.1 — رُجِّح الكتالوج بحكم أولوية المراجع)؛ لا دوال ولا EXECUTE جديد |
-| M17 | `policies_people_enrollment` | ⬜ | التالي |
+| M17 | `policies_people_enrollment` | ✅ 97/97 (843/843) | 17 سياسة على 7 جداول؛ H2 داخل RLS عبر دوال M12b وحدها (حارس: لا سياسة تقرأ جدول علاقة مباشرة)؛ قرار: enrollments INSERT و UPDATE تشترطان أيضاً `app.student_in_scope(student_id)` بضابط سلبي؛ R5 TODO حتى `teaching_assignments` (D1) |
+| M18 | `policies_audit` | ⬜ | التالي |
 
 **✅ H1 محسوم (2026-09-24) — السماح، بلا Group Scope:**
 > **H1 — A secretary may register a new student in a school that belongs to a group. The secretary requires `student.create` with school scope; this does not grant group scope. When the target school belongs to a group, the student's identity scope is derived from the target school's group and is not client-selectable. The student's enrollment is created for the target school in the same controlled provisioning operation.**
@@ -527,6 +528,7 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | `audit_log.id` هو `bigint IDENTITY` وليس uuid، وبلا FK على `actor_id`/`entity_id` | ترتيب زمني طبيعي وحجم أصغر؛ وFK على الكيانات يخلق تبعية عكسية تكسر السجل عند الأرشفة |
 | 2026-09-22 | **O1** — `profiles.auth_user_id` فريد عالمياً؛ نفس Auth User لا يعبر Tenantين | شرط حتمية `app.current_tenant_id()` وصحة §1.1. التفاصيل: §1.1 + `DATA_DICTIONARY_v1.md` §2.7 |
 | 2026-09-22 | **O2** — `students.gender` و`birth_date` قابلان لـNULL؛ OCR ليس شرطاً ولا مصدراً نهائياً | اكتمال البيانات قاعدة أعمال في المرحلة 4 لا قيد صف. يلزم معالجة NULL صراحةً في قواعد التوزيع والتقارير |
+| 2026-09-25 | **enrollments INSERT و UPDATE تشترطان أيضاً `app.student_in_scope(student_id)`** (M17) | تحت H2 التسجيل الأحدث = المدرسة التشغيلية؛ بدونه تنتزع مدرسة أخرى الطالب بإدراج تسجيل لاحق (التفاف على `enrollment.transfer`)، وتعدّل المدرسة السابقة صفها التاريخي. النقل عبر M21 |
 | 2026-09-25 | **منح/سحب النطاق يشترط `can_manage_membership`** (M15) | كـ`membership_roles` (F4)؛ وإلا تسري صلاحيات أدوار عضوية لا يديرها الفاعل في مدرسته |
 | 2026-09-25 | **T8 يشمل منح النطاق (M19):** **عند منح Scope لعضو، يجب ألا يؤدي المنح إلى تمكين العضو المستهدف من أي Permission داخل ذلك الـScope تتجاوز Permissions المانح الفعلية داخل نفس الـScope.** | `delegation cannot expand authority` — منح النطاق لا يضيف صلاحية لكنه يفعّل صلاحيات أدوار الهدف داخل النطاق |
 | 2026-09-25 | **EXECUTE بفئتين (M20):** RLS helpers تستدعيها سياسة؛ controlled functions في allowlist | حارس M15 «كل EXECUTE تستدعيه سياسة» صالح حتى M20 فقط |
@@ -554,6 +556,8 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | ✅ **C3** — اعتماد `platform_admin_roles → platform_admin_role_permissions → permissions`؛ `is_platform_admin()` اختبار هوية فقط، و`has_permission()` توحّد المسارين. الكتالوج 73 مفتاحاً بعد K4 (`tenant.create`) | `docs/ROLE_PERMISSION_SEED_v1.md`, `AUTHORIZATION_MATRIX_v1.md`, `docs/DATA_DICTIONARY_v1.md`, `CLAUDE.md` |
 | 2026-09-22 | ✅ **A3** — RLS Model: 7 دوال، سياسات كل الجداول، حل تعارض FORCE RLS/recursion، 30 اختبار pgTAP، و6 بنود معلّقة | `docs/RLS_MODEL_v1.md`, `CLAUDE.md` |
 | 2026-09-23 | ✅ **A5** — اعتماد A1–A4 كـFoundation Design Baseline | — |
+| 2026-09-25 | ✅ **M17** — سياسات الأشخاص والتسجيلات؛ R1–R4، E1، E2، E7؛ منع انتزاع الطالب بتسجيل لاحق | `supabase/migrations/20260925193159_policies_people_enrollment.sql`, `supabase/tests/17_relationship.test.sql`, `docs/*`, `CLAUDE.md` |
+| 2026-09-25 | 🔒 **M16 مغلقة** — 40/40، 746/746، CI أخضر (`e2e2725`)؛ مفاتيح `academic_years` من الكتالوج معتمدة | `CLAUDE.md` |
 | 2026-09-25 | ✅ **M16** — سياسات الجداول الأكاديمية؛ فصل الصلاحيات لكل مورد؛ نقل صف إلى مدرسة خارج النطاق مرفوض | `supabase/migrations/20260925190756_policies_academic.sql`, `supabase/tests/16_academic.test.sql`, `docs/*`, `CLAUDE.md` |
 | 2026-09-25 | 🔒 **M15 مغلقة** — 104/104، 706/706، CI أخضر (`a22cdab`). متطلبات M19 (T8): role escalation، permission escalation عبر `role_permissions`، ومنح النطاق لا يمكّن الهدف فوق صلاحيات المانح داخل النطاق. M20: فحص EXECUTE بفئتين (helpers / controlled allowlist) يحل محل حارس M15 | `CLAUDE.md`, `docs/DB_IMPLEMENTATION_SPEC_v1.md`, `docs/PLAN_v3.md` |
 | 2026-09-25 | ✅ **M15** — سياسات التفويض؛ منع التصعيد F1–F5 (عدا ما ينتظر T8)؛ اختبارات «قبل السياسات» في 03/07 وقوائم EXECUTE الحرفية في 12/14 استُبدلت بحقيقة ما بعد M15 وحارس دائم | `supabase/migrations/20260925182159_policies_authz.sql`, `supabase/tests/15_escalation.test.sql`, `supabase/tests/{03,07,12,14}_*.test.sql`, `docs/*`, `CLAUDE.md` |

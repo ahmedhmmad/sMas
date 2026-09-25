@@ -152,7 +152,7 @@ select pg_temp.rec('meta.definer', $q$select (count(*) = 3 and bool_and(pg_get_u
 select pg_temp.rec('meta.execute', $q$select count(*)::text
                                       from unnest(array['app.student_in_scope(uuid)'::regprocedure, 'app.staff_in_scope(uuid)'::regprocedure,
                                                         'app.guardian_in_scope(uuid)'::regprocedure]) f,
-                                           unnest(array['anon','authenticated','public']) g
+                                           unnest(array['anon','public']) g
                                       where has_function_privilege(g, f, 'EXECUTE')$q$);
 
 select plan(14);
@@ -189,7 +189,7 @@ select is((select v from r where k = 'sa1.manage_gmv'), 'false', 'H2: the former
 
 -- الدوال المستبدلة
 select is((select v from r where k = 'meta.definer'), 'true', 'replaced helpers keep SECURITY DEFINER, owner app_owner, pinned search_path');
-select is((select v from r where k = 'meta.execute'), '0',    'replaced helpers: still no EXECUTE for anon, authenticated or PUBLIC');
+select is((select v from r where k = 'meta.execute'), '0',    'replaced helpers: no EXECUTE for anon or PUBLIC (authenticated: granted with the M17 policies)');
 
 select * from finish();
 rollback;

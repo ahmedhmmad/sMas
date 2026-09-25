@@ -793,6 +793,7 @@
 | 2026-09-21 | اعتماد ERD + Data Dictionary + Authorization Matrix + RLS Model كمتطلبات إلزامية قبل بناء وحدات الأعمال |
 | 2026-09-21 | اعتماد Audit للعمليات الحساسة، export مستقل، transactions/idempotency/concurrency، وعدم تعديل migrations المنفذة |
 | 2026-09-24 | **تعدد علاقات الـprofile:** A profile may have multiple legitimate relationships/roles within the same Tenant, including student, employee, and guardian. No database invariant prohibits these combinations. Authorization remains determined independently by role, permission, and scope. (`Profile` = الشخص/الحساب داخل الـTenant، لا نوع المستخدم؛ حساب الطالب «المستقل» في §7.19 لا يستلزم profile ثانياً لنفس الشخص) |
+| 2026-09-25 | **enrollments INSERT و UPDATE تشترطان أيضاً `app.student_in_scope(student_id)`** (M17، H2): لا انتزاع للطالب بتسجيل لاحق؛ النقل عبر دالة `enrollment.transfer` (M21) |
 | 2026-09-25 | **منح/سحب النطاق يشترط `can_manage_membership`** (M15) |
 | 2026-09-25 | **T8 يشمل منح النطاق (M19):** **عند منح Scope لعضو، يجب ألا يؤدي المنح إلى تمكين العضو المستهدف من أي Permission داخل ذلك الـScope تتجاوز Permissions المانح الفعلية داخل نفس الـScope.** |
 | 2026-09-25 | **EXECUTE بفئتين (M20):** RLS helpers تستدعيها سياسة؛ controlled functions في allowlist M20 |
