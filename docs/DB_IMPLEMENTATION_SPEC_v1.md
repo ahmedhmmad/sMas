@@ -715,7 +715,7 @@ helpers ─► state fns ─► provisioning fns ─► reference data
 | M14 ✅ | `policies_tenancy_platform` | `platform_tenants`، `groups`، `schools`، `identity_scopes`، `system_users`، `platform_admin_assignments`؛ كل السياسات `TO authenticated`؛ **EXECUTE** على الدوال التي تستدعيها السياسات يُمنح مع السياسات (قرار 2026-09-25)؛ WITH CHECK في UPDATE يضيف عزل Tenant على قيم الصف الجديد | `14_isolation` ✅ 96/96 |
 | M15 | `policies_authz` | profiles، memberships، roles، scopes | `15_escalation` (E1–E8 + F1–F5) |
 | M16 | `policies_academic` | | |
-| M17 | `policies_people_enrollment` | | `17_relationship` (R1–R5) |
+| M17 | `policies_people_enrollment` | `staff`, `staff_school_assignments`, `families`, `students`, `guardians`, `student_guardians`, `enrollments` — **لا `identity_scopes`** (سياستها نهائية في M14) | `17_relationship` (R1–R5) |
 | M18 | `policies_audit` | F10/F11 | `18_audit_visibility` |
 | M19 | `authz_integrity` | T8 | `19_t8` |
 | M20 | `privileges` | سجل §4.6؛ REVOKE من `anon`؛ EXECUTE على الدوال | `20_column_grants` |

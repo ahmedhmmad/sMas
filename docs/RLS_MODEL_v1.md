@@ -445,6 +445,8 @@ using (
 | `terms` | `can_access_school(school_id) AND has_permission('term.read')` | `… AND has_permission('term.manage')` | نفسه + WITH CHECK |
 | `staff_school_assignments` | `can_access_school(school_id) AND has_permission('staff.read')` | `… AND has_permission('staff.assign')` | نفسه + WITH CHECK |
 
+**✅ تعديل معتمد (M14، 2026-09-25) — `WITH CHECK` في UPDATE لـ`groups` و`schools`:** يضاف `platform_tenant_id = (select app.current_tenant_id())` على قيم الصف الجديد. السبب مُثبت تجريبياً: `can_access_group(id)`/`can_access_school(id)` تقرأ الجدول بلقطة الجملة فترى Tenant الصف **القديم**؛ بالنص الأصلي تجاوزت RLS نقل مجموعة/مدرسة إلى Tenant آخر، ولم يوقفه إلا FK `identity_scopes`. العزل يُفرض في RLS نفسها لا بالاعتماد على قيد آخر.
+
 **ملاحظة على `schools` INSERT:** الشرط يقبل مسارين — `group_manager` داخل مجموعته، و`tenant_admin` على مستوى Tenant (`PLAN_v3.md` §7.9). `WITH CHECK` يمنع إنشاء مدرسة في Group من Tenant آخر، ويدعمه FK المركّب في قاعدة البيانات.
 
 **الأرشفة** `UPDATE` بصلاحية `<res>.archive` لا `.update` — تُفصل بسياسة مستقلة أو بفحص في طبقة الأعمال، **وقرار الفصل مؤجل إلى Gate D3** لأن RLS لا تميز الأعمدة المتغيرة. الفصل الحقيقي يتم بـ`GRANT UPDATE (column list)` أو trigger.
@@ -898,7 +900,7 @@ update using      (app.has_permission('guardian.link') and app.student_in_scope(
 ### 10.6 `identity_scopes` وجداول Platform Admin — Gate B (F6)
 
 ```sql
--- identity_scopes: قراءة فقط لمن يستطيع الوصول للنطاق
+-- identity_scopes: قراءة فقط لمن يستطيع الوصول للنطاق — ✅ نُفذت نهائية في M14 (لا تمسّها M17)
 select using (
       platform_tenant_id = (select app.current_tenant_id())
   and app.has_permission('school.read')

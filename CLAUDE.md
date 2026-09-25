@@ -3,7 +3,7 @@
 **المشروع:** نظام إدارة المدارس متعدد المستأجرين (Multi-Tenant SMS)
 **تاريخ الإنشاء:** 2026-09-22
 **آخر تحديث:** 2026-09-23
-**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (M01–M13 🔒، M14 ✅ بانتظار المراجعة؛ التالي M15 `policies_authz`)
+**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (M01–M14 🔒؛ التالي M15 `policies_authz`)
 
 ---
 
@@ -381,7 +381,7 @@ Platform Admin → Role → Permission + Platform-level scope
 الأثر الملزم:
 - **M22 `provision_student`:** لا تستقبل `identity_scope_id` من العميل؛ تشتقه من المدرسة الهدف (`schools.scope_owner_id` ← `identity_scopes`). الفحص: `student.create` + `enrollment.create` + `can_access_school(target_school)`. `can_access_identity_scope` **لا تُستعمل** شرطاً للإنشاء.
 - **G3** يبقى الحارس الإعلاني: نطاق الطالب = مالك مدرسة التسجيل؛ أي نطاق آخر يُرفض بالـFK حتى لو تجاوز أحد الدالة.
-- **M12 لا تُعدَّل:** `can_access_identity_scope` باقية بدلالتها «سلطة على النطاق كله» لسياسة قراءة `identity_scopes` (M17)؛ السكرتير لا يحتاج رؤية صف النطاق لأن الاشتقاق يتم داخل الدالة.
+- **M12 لا تُعدَّل:** `can_access_identity_scope` باقية بدلالتها «سلطة على النطاق كله» لسياسة قراءة `identity_scopes` — **نُفذت نهائية في M14** (تصحيح 2026-09-25: «M17» هنا كان خطأ في هذه الملاحظة؛ B10 لم يُسند `identity_scopes` إلى M17 قط، وهو جدول tenancy أُنشئ في M04)؛ السكرتير لا يحتاج رؤية صف النطاق لأن الاشتقاق يتم داخل الدالة.
 - **اختبارات M22:** سكرتير SA1 ينشئ طالباً في SA1 (نطاق GA) ✅؛ لا يملك `can_access_group(GA)` بعدها ✅؛ لا يستطيع الإنشاء في SB1 أو SS ❌؛ لا وسيلة لتمرير نطاق آخر.
 
 **✅ H2 محسوم (2026-09-25) — التاريخ يبقى، والصلاحية التشغيلية تنتقل مع الطالب:**
@@ -548,6 +548,7 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | ✅ **C3** — اعتماد `platform_admin_roles → platform_admin_role_permissions → permissions`؛ `is_platform_admin()` اختبار هوية فقط، و`has_permission()` توحّد المسارين. الكتالوج 73 مفتاحاً بعد K4 (`tenant.create`) | `docs/ROLE_PERMISSION_SEED_v1.md`, `AUTHORIZATION_MATRIX_v1.md`, `docs/DATA_DICTIONARY_v1.md`, `CLAUDE.md` |
 | 2026-09-22 | ✅ **A3** — RLS Model: 7 دوال، سياسات كل الجداول، حل تعارض FORCE RLS/recursion، 30 اختبار pgTAP، و6 بنود معلّقة | `docs/RLS_MODEL_v1.md`, `CLAUDE.md` |
 | 2026-09-23 | ✅ **A5** — اعتماد A1–A4 كـFoundation Design Baseline | — |
+| 2026-09-25 | 🔒 **M14 مغلقة** — 96/96، 602/602، CI أخضر (`290a566`)؛ اعتماد إضافة WITH CHECK (تعديل RLS §7)؛ سياسة `identity_scopes` في M14 **نهائية** — M17 لا تمسّها | `CLAUDE.md`, `docs/RLS_MODEL_v1.md`, `docs/DB_IMPLEMENTATION_SPEC_v1.md` |
 | 2026-09-25 | ✅ **M14** — سياسات Tenancy/Platform؛ I1–I7؛ قراران: كتالوج Platform Admin لـservice فقط، و EXECUTE مع السياسات لا في M20 | `supabase/migrations/20260925154337_policies_tenancy_platform.sql`, `supabase/tests/14_isolation.test.sql`, `docs/RLS_MODEL_v1.md`, `docs/DB_IMPLEMENTATION_SPEC_v1.md`, `CLAUDE.md`, `docs/PLAN_v3.md` |
 | 2026-09-25 | 🔒 **M13 مغلقة** — 61/61، 506/506، CI أخضر (`320f883`)؛ اعتماد: Foundation = 29 جدولاً، RLS enforcement 29/29، سياسات التطبيق 28 و`auth_identities` مستثنى صراحةً؛ فحص «لا سياسات قبل M14» داخل الـmigration | `CLAUDE.md`, `docs/*` |
 | 2026-09-25 | ✅ **M13** — `rls_enable`: بوابة RLS على 29 جدولاً بالاسم؛ ضوابط سلبية (بلا FORCE، بلا RLS، جدول في `app`، سياسة، جدول غير مدرج) كلها تفشل كما يجب | `supabase/migrations/20260925151821_rls_enable.sql`, `supabase/tests/13_rls_enable.test.sql`, `docs/DB_IMPLEMENTATION_SPEC_v1.md`, `docs/RLS_MODEL_v1.md`, `CLAUDE.md` |
