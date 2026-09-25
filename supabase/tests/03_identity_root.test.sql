@@ -144,9 +144,9 @@ select ok(not has_function_privilege('anon', 'app.current_profile_id()', 'EXECUT
           'identity functions: no EXECUTE for anon');
 
 -- RLS
-select is((select v from r where k = 'rls.auth_profiles'), '0', 'RLS: authenticated sees no profiles before policies');
-select is((select v from r where k = 'rls.auth_tenants'),  '0', 'RLS: authenticated sees no tenants before policies');
-select ok((select v from r where k = 'rls.auth_insert') like 'ERR 42501%', 'RLS: authenticated cannot insert before policies');
+select is((select v from r where k = 'rls.auth_profiles'), '1', 'RLS (M15 self branch): an authenticated user without permissions sees only its own profile');
+select is((select v from r where k = 'rls.auth_tenants'),  '0', 'RLS: an authenticated user without tenant scope and tenant.read sees no tenant');
+select ok((select v from r where k = 'rls.auth_insert') like 'ERR 42501%', 'RLS: an authenticated tenant user cannot insert a tenant (platform only, K4)');
 select is((select v from r where k = 'rls.anon_profiles'), '0', 'RLS: anon sees no profiles');
 
 select * from finish();

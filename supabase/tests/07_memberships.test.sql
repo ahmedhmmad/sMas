@@ -220,8 +220,8 @@ select ok((select bool_and(array_to_string(proconfig, ',') like 'search_path=%')
           'every SECURITY DEFINER function in app pins search_path');
 
 -- RLS
-select is((select v from r where k = 'rls.memberships'), '0', 'RLS: authenticated sees no memberships before policies');
-select is((select v from r where k = 'rls.scopes'),      '0', 'RLS: authenticated sees no scopes before policies');
+select is((select v from r where k = 'rls.memberships'), '1', 'RLS (M15 self branch): without membership.read only its own membership is visible');
+select is((select v from r where k = 'rls.scopes'),      '1', 'RLS (M15 self branch): without membership.read only its own scope rows are visible');
 
 -- الـCASCADE: حذف العضوية يحذف أدوارها ونطاقاتها
 delete from public.memberships where id = 'e5000000-0000-0000-0000-000000000005';

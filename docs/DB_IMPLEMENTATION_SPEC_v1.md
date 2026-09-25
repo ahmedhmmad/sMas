@@ -323,7 +323,7 @@ CHECK (start_date >= year_start_date AND end_date <= year_end_date)
 | `profiles` | الذات / `profile.read` + `can_see_membership` | دالة إنشاء | `profile.update` + `can_manage_membership` | — |
 | `memberships` | الذات / `membership.read` + `can_see_membership` | دالة إنشاء | دالة حالة | — |
 | `membership_roles` | كالعضوية | `role.assign` + `can_manage_membership` + T8 | — | ✅ G2 |
-| `membership_scopes` | كالعضوية | `scope.assign` + نطاق ⊆ الفاعل | — | ✅ G2 |
+| `membership_scopes` | كالعضوية | `scope.assign` + نطاق ⊆ الفاعل + `can_manage_membership` (M15) | — | ✅ G2 (+ `can_manage_membership`) |
 | `roles` | نظام أو Tenant + `role.read` | tenant scope + `role.create` | tenant scope + `role.update` | — |
 | `permissions` | `permission.read` | migration | — | — |
 | `role_permissions` | كالدور | tenant scope + `role.update` + T8 | — | ✅ G2 |
@@ -713,7 +713,7 @@ helpers ─► state fns ─► provisioning fns ─► reference data
 | M12b ✅ | `authz_helpers_current_scope` | **H2:** `create or replace` لـ`student_in_scope` (أحدث تسجيل)، `staff_in_scope` (تكليف نشط)، `guardian_in_scope` (ارتباط نشط)؛ الباقي يرث. M12 باقية في التاريخ | `12b_current_scope` ✅ 14/14 |
 | M13 ✅ | `rls_enable` | **تحقق فقط:** كل الجداول مفعّلة ومفروضة منذ إنشائها (تنفيذياً: RLS يُفعَّل في migration كل جدول، لأن صلاحيات Supabase الافتراضية تمنح `anon` صلاحية ALL على جداول `public` فور إنشائها) | `13_rls_enable` ✅ 61/61 — قائمة اسمية بـ**29** جدولاً (الـ28 في §4.5 + `auth_identities` من G10)؛ الـmigration بوابة تفشل النشر عند جدول بلا ENABLE/FORCE، أو جدول في `app`، أو سياسة قبل M14 |
 | M14 ✅ | `policies_tenancy_platform` | `platform_tenants`، `groups`، `schools`، `identity_scopes`، `system_users`، `platform_admin_assignments`؛ كل السياسات `TO authenticated`؛ **EXECUTE** على الدوال التي تستدعيها السياسات يُمنح مع السياسات (قرار 2026-09-25)؛ WITH CHECK في UPDATE يضيف عزل Tenant على قيم الصف الجديد | `14_isolation` ✅ 96/96 |
-| M15 | `policies_authz` | profiles، memberships، roles، scopes | `15_escalation` (E1–E8 + F1–F5) |
+| M15 ✅ | `policies_authz` | profiles، memberships، membership_roles، membership_scopes، roles، permissions، role_permissions (17 سياسة)؛ `app.membership_id_of()`؛ منح/سحب النطاق يشترط `can_manage_membership` | `15_escalation` ✅ 104/104 — E3، E6، E8، E9، E11، E12، E13، E14 (خطوة 1)؛ **مؤجل بقصد:** E1، E2، E7 → M17؛ E4، E14 خطوة 2 → M19 (T8)؛ E5 → M23؛ E15، E16 → M18 |
 | M16 | `policies_academic` | | |
 | M17 | `policies_people_enrollment` | `staff`, `staff_school_assignments`, `families`, `students`, `guardians`, `student_guardians`, `enrollments` — **لا `identity_scopes`** (سياستها نهائية في M14) | `17_relationship` (R1–R5) |
 | M18 | `policies_audit` | F10/F11 | `18_audit_visibility` |

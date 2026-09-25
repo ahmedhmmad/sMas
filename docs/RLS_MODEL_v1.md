@@ -695,6 +695,8 @@ $$;
 
 ### 10.1 `profiles` — مصحّح (F2)
 
+> **✅ M15 (2026-09-25):** الاستعلام الفرعي `(select m.id from public.memberships m where m.profile_id = …)` أدناه استُبدل بـ`app.membership_id_of(…)` (SECURITY DEFINER، داخل Tenant الفاعل فقط). النص الحرفي يخالف §1.1 بند 6 ويمر بـRLS العضويات، فيُحجب profile عن من يملك `profile.read` بلا `membership.read` (المعلم) — مُثبت بضابط سلبي في `15_escalation`. وكذلك فرع الذات في `membership_roles`/`membership_scopes`.
+
 ```sql
 -- SELECT
 using (
@@ -750,6 +752,8 @@ using (
 
 -- membership_scopes SELECT: مطابق لـmembership_roles
 
+-- ✅ M15 (2026-09-25): INSERT و DELETE يشترطان أيضاً app.can_manage_membership(membership_id) — كـmembership_roles (F4).
+--    بدونه: school_admin في SA1 يمنح SA1 لعضوية لا يديرها (محاسب SB1) فتسري صلاحيات أدوارها في SA1 — مُثبت بضابط سلبي.
 -- membership_scopes INSERT — النطاق الممنوح ⊆ نطاق الفاعل
 with check (
       app.has_permission('scope.assign')

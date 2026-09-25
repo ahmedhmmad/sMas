@@ -3,7 +3,7 @@
 **المشروع:** نظام إدارة المدارس متعدد المستأجرين (Multi-Tenant SMS)
 **تاريخ الإنشاء:** 2026-09-22
 **آخر تحديث:** 2026-09-23
-**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (M01–M14 🔒؛ التالي M15 `policies_authz`)
+**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (M01–M14 🔒، M15 ✅ بانتظار المراجعة؛ التالي M16 `policies_academic`)
 
 ---
 
@@ -373,7 +373,8 @@ Platform Admin → Role → Permission + Platform-level scope
 | M12b | `authz_helpers_current_scope` | ✅ 14/14 (445/445) | **H2** — أحدث تسجيل / ارتباط نشط / تكليف نشط؛ `12_helpers` حُدِّثت توقعاتها (7 قوائم) |
 | M13 | `rls_enable` | ✅ 61/61 (506/506) | بوابة تحقق فقط، بلا سياسات: **29** جدولاً بالاسم (28 + `auth_identities`)؛ الـmigration تفشل النشر عند جدول بلا ENABLE/FORCE أو في `app` أو سياسة قبل M14؛ 5 ضوابط سلبية مُثبتة |
 | M14 | `policies_tenancy_platform` | ✅ 96/96 (602/602) | أول السياسات (6 جداول، 16 سياسة `TO authenticated`)؛ I1 مسح لكل جدول مملوك لـTenant ببيانات في الـTenantين؛ PA catalog = service فقط؛ EXECUTE يُمنح مع كل طبقة سياسات |
-| M15 | `policies_authz` | ⬜ | التالي |
+| M15 | `policies_authz` | ✅ 104/104 (706/706) | 17 سياسة على 7 جداول؛ قراران (can_manage على النطاق، `membership_id_of`) بضوابط سلبية؛ E4 و E14/2 تنتظر T8 (M19)؛ حارس دائم: كل دالة ينفذها `authenticated` تستدعيها سياسة |
+| M16 | `policies_academic` | ⬜ | التالي |
 
 **✅ H1 محسوم (2026-09-24) — السماح، بلا Group Scope:**
 > **H1 — A secretary may register a new student in a school that belongs to a group. The secretary requires `student.create` with school scope; this does not grant group scope. When the target school belongs to a group, the student's identity scope is derived from the target school's group and is not client-selectable. The student's enrollment is created for the target school in the same controlled provisioning operation.**
@@ -525,6 +526,8 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | `audit_log.id` هو `bigint IDENTITY` وليس uuid، وبلا FK على `actor_id`/`entity_id` | ترتيب زمني طبيعي وحجم أصغر؛ وFK على الكيانات يخلق تبعية عكسية تكسر السجل عند الأرشفة |
 | 2026-09-22 | **O1** — `profiles.auth_user_id` فريد عالمياً؛ نفس Auth User لا يعبر Tenantين | شرط حتمية `app.current_tenant_id()` وصحة §1.1. التفاصيل: §1.1 + `DATA_DICTIONARY_v1.md` §2.7 |
 | 2026-09-22 | **O2** — `students.gender` و`birth_date` قابلان لـNULL؛ OCR ليس شرطاً ولا مصدراً نهائياً | اكتمال البيانات قاعدة أعمال في المرحلة 4 لا قيد صف. يلزم معالجة NULL صراحةً في قواعد التوزيع والتقارير |
+| 2026-09-25 | **منح/سحب النطاق يشترط `can_manage_membership`** (M15) | كـ`membership_roles` (F4)؛ وإلا تسري صلاحيات أدوار عضوية لا يديرها الفاعل في مدرسته. تغطية T8 لهذه الحالة (صلاحيات أدوار الهدف ⊆ الفاعل) **سؤال مفتوح لـM19** |
+| 2026-09-25 | **`app.membership_id_of()`** (M15) | دالة ربط بدل استعلام `memberships` داخل السياسة (§1.1 بند 6)؛ القرار يبقى في `can_see/can_manage_membership` |
 | 2026-09-25 | **PA catalog** — `platform_admin_roles` و`platform_admin_role_permissions` بلا سياسة عميل (service فقط) | تعارض RLS §10.6 (`is_platform_admin()` وحدها) مع §11/C3؛ حُسم لصالح C3 و G8 |
 | 2026-09-25 | **EXECUTE مع السياسات** — كل migration سياسات تمنح `authenticated` EXECUTE على الدوال التي تستدعيها سياساتها مباشرة؛ `anon` لا شيء؛ M20 يبقى للأعمدة والتدقيق النهائي | بدونه تفشل استعلامات `authenticated` كلها من M14 حتى M20 |
 | 2026-09-25 | **H2** — A school is operationally in scope for a student only through the student's current/authorized enrollment in that school. Historical enrollments provide historical access only where a specific permission/policy explicitly permits historical records; they do not grant operational access to the student's current account or guardian account. | `Historical Enrollment ≠ Current Operational Access`؛ الطالب ← أحدث تسجيل، ولي الأمر ← ارتباط نشط، الموظف ← تكليف نشط؛ لا هوية تاريخية في Foundation. منفذ في M12b |
@@ -548,6 +551,7 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | ✅ **C3** — اعتماد `platform_admin_roles → platform_admin_role_permissions → permissions`؛ `is_platform_admin()` اختبار هوية فقط، و`has_permission()` توحّد المسارين. الكتالوج 73 مفتاحاً بعد K4 (`tenant.create`) | `docs/ROLE_PERMISSION_SEED_v1.md`, `AUTHORIZATION_MATRIX_v1.md`, `docs/DATA_DICTIONARY_v1.md`, `CLAUDE.md` |
 | 2026-09-22 | ✅ **A3** — RLS Model: 7 دوال، سياسات كل الجداول، حل تعارض FORCE RLS/recursion، 30 اختبار pgTAP، و6 بنود معلّقة | `docs/RLS_MODEL_v1.md`, `CLAUDE.md` |
 | 2026-09-23 | ✅ **A5** — اعتماد A1–A4 كـFoundation Design Baseline | — |
+| 2026-09-25 | ✅ **M15** — سياسات التفويض؛ منع التصعيد F1–F5 (عدا ما ينتظر T8)؛ اختبارات «قبل السياسات» في 03/07 وقوائم EXECUTE الحرفية في 12/14 استُبدلت بحقيقة ما بعد M15 وحارس دائم | `supabase/migrations/20260925182159_policies_authz.sql`, `supabase/tests/15_escalation.test.sql`, `supabase/tests/{03,07,12,14}_*.test.sql`, `docs/*`, `CLAUDE.md` |
 | 2026-09-25 | 🔒 **M14 مغلقة** — 96/96، 602/602، CI أخضر (`290a566`)؛ اعتماد إضافة WITH CHECK (تعديل RLS §7)؛ سياسة `identity_scopes` في M14 **نهائية** — M17 لا تمسّها | `CLAUDE.md`, `docs/RLS_MODEL_v1.md`, `docs/DB_IMPLEMENTATION_SPEC_v1.md` |
 | 2026-09-25 | ✅ **M14** — سياسات Tenancy/Platform؛ I1–I7؛ قراران: كتالوج Platform Admin لـservice فقط، و EXECUTE مع السياسات لا في M20 | `supabase/migrations/20260925154337_policies_tenancy_platform.sql`, `supabase/tests/14_isolation.test.sql`, `docs/RLS_MODEL_v1.md`, `docs/DB_IMPLEMENTATION_SPEC_v1.md`, `CLAUDE.md`, `docs/PLAN_v3.md` |
 | 2026-09-25 | 🔒 **M13 مغلقة** — 61/61، 506/506، CI أخضر (`320f883`)؛ اعتماد: Foundation = 29 جدولاً، RLS enforcement 29/29، سياسات التطبيق 28 و`auth_identities` مستثنى صراحةً؛ فحص «لا سياسات قبل M14» داخل الـmigration | `CLAUDE.md`, `docs/*` |

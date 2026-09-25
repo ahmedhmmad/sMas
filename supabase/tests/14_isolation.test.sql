@@ -295,7 +295,9 @@ select pg_temp.rec('i7.overlap', $q$select count(*)::text from public.profiles p
 
 -- ============ الدوال ============
 select pg_temp.rec('exec.anon', $q$select count(*)::text from pg_proc p where p.pronamespace = 'app'::regnamespace and has_function_privilege('anon', p.oid, 'EXECUTE')$q$);
-select pg_temp.rec('exec.auth', $q$select string_agg(p.oid::regprocedure::text, ',' order by p.oid::regprocedure::text collate "C") from pg_proc p where p.pronamespace = 'app'::regnamespace and has_function_privilege('authenticated', p.oid, 'EXECUTE')$q$);
+select pg_temp.rec('exec.auth', $q$select bool_and(has_function_privilege('authenticated', f, 'EXECUTE'))::text
+  from unnest(array['app.can_access_group(uuid)','app.can_access_identity_scope(uuid)','app.can_access_school(uuid)','app.can_access_tenant(uuid)',
+                    'app.current_system_user_id()','app.current_tenant_id()','app.has_permission(text)','app.has_platform_permission(text)']::regprocedure[]) f$q$);
 select pg_temp.rec('policies', $q$select string_agg(tablename || ':' || cmd, ',' order by tablename, cmd) from pg_policies
   where schemaname = 'public' and not ('authenticated' = any(roles) and cardinality(roles) = 1)$q$);
 select pg_temp.rec('delete_policies', $q$select count(*)::text from pg_policies where schemaname = 'public'
@@ -410,9 +412,7 @@ select is((select v from r where k = 'i7.overlap'), '0', 'I7: no auth_user_id in
 
 -- ---------- الدوال والسياسات ----------
 select is((select v from r where k = 'exec.anon'), '0', 'anon executes no function in schema app');
-select is((select v from r where k = 'exec.auth'),
-          'app.can_access_group(uuid),app.can_access_identity_scope(uuid),app.can_access_school(uuid),app.can_access_tenant(uuid),app.current_system_user_id(),app.current_tenant_id(),app.has_permission(text),app.has_platform_permission(text)',
-          'authenticated executes exactly the helpers M14 policies call');
+select is((select v from r where k = 'exec.auth'), 'true', 'authenticated executes every helper the M14 policies call');
 select is((select v from r where k = 'policies'), '<null>', 'every policy is TO authenticated only');
 select is((select v from r where k = 'delete_policies'), '0', 'no DELETE policy on the M14 tables (§5.2)');
 

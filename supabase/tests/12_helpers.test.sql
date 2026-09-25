@@ -189,7 +189,7 @@ create temp table fns on commit drop as
 select pg_temp.rec('meta.definer', $q$select (count(*) = 10 and bool_and(pg_get_userbyid(p.proowner) = 'app_owner' and p.prosecdef
                                                  and array_to_string(p.proconfig, ',') like 'search_path=%'))::text
                                       from pg_proc p join fns f on f.oid = p.oid$q$);
-select pg_temp.rec('meta.execute', $q$select coalesce(string_agg(g || ':' || f.oid::regprocedure::text, ','), 'none') from fns f, unnest(array['anon','authenticated','public']) g
+select pg_temp.rec('meta.execute', $q$select coalesce(string_agg(g || ':' || f.oid::regprocedure::text, ','), 'none') from fns f, unnest(array['anon','public']) g
                                       where has_function_privilege(g, f.oid, 'EXECUTE')$q$);
 
 -- تحت FORCE RLS: authenticated لا يرى أي صف مباشرة (لا سياسات بعد)، والدالة ترى العلاقة.
@@ -279,8 +279,8 @@ select is((select v from r where k = 'can_manage_membership.service'), '<null>',
 
 -- ============ الدوال ============
 select is((select v from r where k = 'meta.definer'), 'true', 'the 10 helpers: SECURITY DEFINER, owned by app_owner, search_path pinned');
-select is((select v from r where k = 'meta.execute'), 'authenticated:app.can_access_identity_scope(uuid)',
-          'EXECUTE only where a policy needs it: authenticated on can_access_identity_scope (M14); nothing for anon or PUBLIC');
+select is((select v from r where k = 'meta.execute'), 'none',
+          'no EXECUTE for anon or PUBLIC (authenticated: granted per policy layer — checked in 14/15)');
 
 -- ============ تحت FORCE RLS ============
 select is((select v from r where k = 'rls.direct'),  '0',    'authenticated reads no enrollment directly (FORCE RLS, no policy)');
