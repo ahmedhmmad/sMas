@@ -202,7 +202,7 @@ select pg_temp.run('w.delete', 'ta', $q$with u as (delete from public.audit_log 
 
 select plan(24);
 
-select ok((select v from r where k = 'pre.ta')   like 'ERR 42501%permission denied%audit_log%', 'deployed state until M20: authenticated has no SELECT on audit_log (M11 dependency)');
+select ok((select v from r where k = 'pre.ta') !~ '^ERR', 'M20 granted SELECT on audit_log: the reader reaches the policy without a privilege error');
 select ok((select v from r where k = 'pre.anon') like 'ERR 42501%permission denied%audit_log%', 'anon has no SELECT on audit_log');
 
 -- ---------- الرؤية ----------

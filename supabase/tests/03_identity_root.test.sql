@@ -147,7 +147,7 @@ select ok(not has_function_privilege('anon', 'app.current_profile_id()', 'EXECUT
 select is((select v from r where k = 'rls.auth_profiles'), '1', 'RLS (M15 self branch): an authenticated user without permissions sees only its own profile');
 select is((select v from r where k = 'rls.auth_tenants'),  '0', 'RLS: an authenticated user without tenant scope and tenant.read sees no tenant');
 select ok((select v from r where k = 'rls.auth_insert') like 'ERR 42501%', 'RLS: an authenticated tenant user cannot insert a tenant (platform only, K4)');
-select is((select v from r where k = 'rls.anon_profiles'), '0', 'RLS: anon sees no profiles');
+select ok((select v from r where k = 'rls.anon_profiles') like 'ERR 42501%permission denied%profiles%', 'anon has no privilege on profiles (M20)');
 
 select * from finish();
 rollback;

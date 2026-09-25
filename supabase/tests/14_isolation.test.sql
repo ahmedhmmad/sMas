@@ -316,7 +316,7 @@ select is((select v from r where k = 'tenants.t2a'),     'T2',     'tenants: T2 
 select is((select v from r where k = 'tenants.pa'),      'T1,T2',  'tenants: platform admin via has_platform_permission(tenant.read) (C3)');
 select is((select v from r where k = 'tenants.pa0'),     '<null>', 'tenants: platform identity without the permission → nothing (C3: identity grants nothing)');
 select is((select v from r where k = 'tenants.parev'),   '<null>', 'tenants: revoked platform assignment → nothing');
-select is((select v from r where k = 'tenants.anon'),    '<null>', 'tenants: anon → nothing');
+select ok((select v from r where k = 'tenants.anon') like 'ERR 42501%permission denied%platform_tenants%', 'tenants: anon has no privilege (M20)');
 
 -- ---------- groups ----------
 select is((select v from r where k = 'groups.ta'),      'GA,GB',    'groups: tenant scope → every group of T1');
@@ -328,7 +328,7 @@ select is((select v from r where k = 'groups.noscope'), '<null>',   'groups: per
 select is((select v from r where k = 'groups.t2a'),     'G2',       'groups: T2 admin → T2 group only (I1)');
 select is((select v from r where k = 'groups.pa'),      'G2,GA,GB', 'groups: platform admin via group.read');
 select is((select v from r where k = 'groups.pa0'),     '<null>',   'groups: platform identity without the permission');
-select is((select v from r where k = 'groups.anon'),    '<null>',   'groups: anon');
+select ok((select v from r where k = 'groups.anon') like 'ERR 42501%permission denied%groups%', 'groups: anon has no privilege (M20)');
 
 -- ---------- schools ----------
 select is((select v from r where k = 'schools.ta'),      'SA1,SA2,SB1,SS',             'schools: tenant scope → every T1 school, none of T2');
@@ -340,7 +340,7 @@ select is((select v from r where k = 'schools.noscope'), '<null>',              
 select is((select v from r where k = 'schools.t2a'),     'S2A,S2S',                    'schools: T2 admin → T2 schools only (I1)');
 select is((select v from r where k = 'schools.pa'),      'S2A,S2S,SA1,SA2,SB1,SS',     'schools: platform admin via school.read');
 select is((select v from r where k = 'schools.pa0'),     '<null>',                     'schools: platform identity without the permission');
-select is((select v from r where k = 'schools.anon'),    '<null>',                     'schools: anon');
+select ok((select v from r where k = 'schools.anon') like 'ERR 42501%permission denied%schools%', 'schools: anon has no privilege (M20)');
 
 -- ---------- identity_scopes ----------
 select is((select v from r where k = 'iscopes.ta'),     'GA,GB,SS', 'identity_scopes: tenant scope → every T1 scope');
@@ -355,7 +355,7 @@ select is((select v from r where k = 'iscopes.pa'),     '<null>',   'identity_sc
 select is((select v from r where k = 'sysusers.pa'),   'pa',     'system_users: a platform admin sees only itself');
 select is((select v from r where k = 'sysusers.pa0'),  'pa0',    'system_users: self, with or without permissions');
 select is((select v from r where k = 'sysusers.ta'),   '<null>', 'system_users: a tenant user sees none');
-select is((select v from r where k = 'sysusers.anon'), '<null>', 'system_users: anon sees none');
+select ok((select v from r where k = 'sysusers.anon') like 'ERR 42501%permission denied%system_users%', 'system_users: anon has no privilege (M20)');
 select is((select v from r where k = 'assign.pa'),     '1',      'platform_admin_assignments: own assignment only');
 select is((select v from r where k = 'assign.ta'),     '0',      'platform_admin_assignments: a tenant user sees none');
 select is((select v from r where k = 'paroles.pa'),    '0/0',    'platform_admin_roles/_role_permissions: service only, even for a platform admin (2026-09-25)');
@@ -376,11 +376,11 @@ select is((select v from r where k = 'w.ta_group_T1'), 'ok', 'groups insert: ten
 select ok((select v from r where k = 'w.ta_group_T2') like 'ERR 42501%row-level security%groups%', 'groups insert: never into another tenant');
 select ok((select v from r where k = 'w.gm_group')    like 'ERR 42501%row-level security%groups%', 'groups insert: group scope cannot create groups (needs tenant scope, F1)');
 select ok((select v from r where k = 'w.rdr_group')   like 'ERR 42501%row-level security%groups%', 'groups insert: tenant scope without group.create');
-select ok((select v from r where k = 'w.anon_group')  like 'ERR 42501%row-level security%groups%', 'groups insert: anon');
-select ok((select v from r where k = 'w.ta_group_move') like 'ERR 42501%row-level security%groups%', 'groups update: cannot move a group to another tenant (WITH CHECK on the new row)');
+select ok((select v from r where k = 'w.anon_group') like 'ERR 42501%permission denied%groups%', 'groups insert: anon has no privilege (M20)');
+select ok((select v from r where k = 'w.ta_group_move') like 'ERR 42501%permission denied%groups%', 'groups update: platform_tenant_id is not client-writable (M20); RLS WITH CHECK remains the second line (proven before M20)');
 select is((select v from r where k = 'w.ta_group_rename'), 'ok', 'groups update: rename within scope (control)');
 select is((select v from r where k = 'w.gm_group_rename_GB'), '0', 'groups update: another group is invisible to USING');
-select is((select v from r where k = 'w.ta_group_delete'), '0', 'groups delete: no policy → nothing deleted');
+select ok((select v from r where k = 'w.ta_group_delete') like 'ERR 42501%permission denied%groups%', 'groups delete: no DELETE privilege (M20; no policy either, §5.2)');
 
 -- ---------- الكتابة: schools ----------
 select is((select v from r where k = 'w.gm_school_GA'), 'ok', 'schools insert: group manager inside its group (PLAN §7.9)');
@@ -390,18 +390,18 @@ select is((select v from r where k = 'w.ta_school_standalone'), 'ok', 'schools i
 select ok((select v from r where k = 'w.sa1_school_GA')        like 'ERR 42501%row-level security%schools%', 'schools insert: school scope cannot create schools in its group');
 select is((select v from r where k = 'w.sa1_rename_SA1'), '1', 'schools update: own school');
 select is((select v from r where k = 'w.sa1_rename_SA2'), '0', 'schools update: a sibling school in the same group is invisible (I2)');
-select ok((select v from r where k = 'w.ta_school_move') like 'ERR 42501%row-level security%schools%', 'schools update: cannot move a school to another tenant (WITH CHECK on the new row)');
+select ok((select v from r where k = 'w.ta_school_move') like 'ERR 42501%permission denied%schools%', 'schools update: platform_tenant_id is not client-writable (M20); RLS WITH CHECK remains the second line');
 
 -- ---------- الكتابة: platform_tenants ----------
-select ok((select v from r where k = 'w.ta_tenant_insert')  like 'ERR 42501%row-level security%platform_tenants%', 'tenants insert: no tenant-context path (K4)');
-select is((select v from r where k = 'w.pa_tenant_insert'), 'ok', 'tenants insert: platform admin via tenant.create');
-select ok((select v from r where k = 'w.pa0_tenant_insert') like 'ERR 42501%row-level security%platform_tenants%', 'tenants insert: platform identity without tenant.create');
+select ok((select v from r where k = 'w.ta_tenant_insert') like 'ERR 42501%permission denied%platform_tenants%', 'tenants insert: no client path (K4; registry §4.6 — bootstrap_tenant)');
+select ok((select v from r where k = 'w.pa_tenant_insert') like 'ERR 42501%permission denied%platform_tenants%', 'tenants insert: even a platform admin with tenant.create goes through bootstrap_tenant (registry §4.6, M20)');
+select ok((select v from r where k = 'w.pa0_tenant_insert') like 'ERR 42501%permission denied%platform_tenants%', 'tenants insert: platform identity without tenant.create');
 select is((select v from r where k = 'w.ta_tenant_T1'), '1', 'tenants update: tenant scope + tenant.update on own tenant');
 select is((select v from r where k = 'w.ta_tenant_T2'), '0', 'tenants update: never another tenant');
 select is((select v from r where k = 'w.gm_tenant_T1'), '0', 'tenants update: group scope cannot update the tenant (F1)');
 select is((select v from r where k = 'w.pa_group_T2'),  'ok', 'groups insert: platform admin via group.create (seed)');
 select is((select v from r where k = 'w.pa_group_rename'), '0', 'groups update: platform admin lacks group.update in the seed → nothing');
-select ok((select v from r where k = 'w.ta_iscope') like 'ERR 42501%row-level security%identity_scopes%', 'identity_scopes insert: no client path (T9 only, G9)');
+select ok((select v from r where k = 'w.ta_iscope') like 'ERR 42501%permission denied%identity_scopes%', 'identity_scopes insert: no client path (T9 only, G9)');
 
 -- ---------- I6 / I7 ----------
 select is((select v from r where k = 'i6.ta'), '10000000-0000-0000-0000-000000000001', 'I6: current_tenant_id() resolves exactly the actor''s tenant');

@@ -230,8 +230,8 @@ select ok((select v from r where k = 'r3.gm_tz') like 'ERR 42501%T8: scope grant
 select ok((select v from r where k = 'r3.layer_rls') like 'ERR 42501%row-level security%membership_scopes%', 'layering: a scope beyond the actor is rejected by RLS, not T8');
 
 -- UPDATE
-select is((select v from r where k = 'u.mr'), '0', 'membership_roles: no client UPDATE');
-select is((select v from r where k = 'u.rp'), '0', 'role_permissions: no client UPDATE');
+select ok((select v from r where k = 'u.mr') like 'ERR 42501%permission denied%membership_roles%', 'membership_roles: no client UPDATE privilege');
+select ok((select v from r where k = 'u.rp') like 'ERR 42501%permission denied%role_permissions%', 'role_permissions: no client UPDATE privilege');
 
 -- الحالة
 select is((select v from r where k = 'state.t1'), '<null>', 'state: t1 ends with no role — every rejected change left no trace; the legitimate ones were later revoked');

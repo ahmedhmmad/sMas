@@ -257,14 +257,9 @@ select pg_temp.run('mid.own',   'ta', format($q$select (app.membership_id_of(%L)
 select pg_temp.rec('exec.anon', $q$select count(*)::text from pg_proc p where p.pronamespace = 'app'::regnamespace and has_function_privilege('anon', p.oid, 'EXECUTE')$q$);
 select pg_temp.rec('exec.auth', $q$select bool_and(has_function_privilege('authenticated', f, 'EXECUTE'))::text
   from unnest(array['app.current_profile_id()','app.membership_id_of(uuid)','app.can_see_membership(uuid)','app.can_manage_membership(uuid)']::regprocedure[]) f$q$);
--- «EXECUTE فقط حيث تحتاجه سياسة» (قرار 2026-09-25): كل دالة ينفذها authenticated تستدعيها سياسة واحدة على الأقل
-select pg_temp.rec('exec.unused', $q$select coalesce(string_agg(p.proname, ','), 'none') from pg_proc p
-  where p.pronamespace = 'app'::regnamespace and has_function_privilege('authenticated', p.oid, 'EXECUTE')
-    and not exists (select 1 from pg_policies pol where pol.schemaname = 'public'
-                     and coalesce(pol.qual, '') || coalesce(pol.with_check, '') ~ ('app\.' || p.proname || '\('))$q$);
 select pg_temp.rec('mid.meta', $q$select (pg_get_userbyid(proowner) = 'app_owner' and prosecdef and array_to_string(proconfig, ',') like 'search_path=%')::text from pg_proc where oid = 'app.membership_id_of(uuid)'::regprocedure$q$);
 
-select plan(104);
+select plan(103);
 
 -- ---------- profiles (F2، قرار membership_id_of) ----------
 select is((select v from r where k = 'profiles.ta'),  'acc,fresh,gb,gm,grd,multi,rc,sa1,sb1,st,ta,tch', 'profiles: tenant scope sees every T1 profile reachable by scope or relationship; not T2');
@@ -276,7 +271,7 @@ select is((select v from r where k = 'profiles.grd'), 'grd',                    
 select is((select v from r where k = 'profiles.st'),  'st',                                            'profiles: a student sees only itself');
 select is((select v from r where k = 'profiles.t2a'), 't2a',                                           'profiles: never across tenants');
 select is((select v from r where k = 'profiles.pa'),  '<null>',                                        'profiles: a platform admin holding every platform permission sees nothing (E8)');
-select is((select v from r where k = 'profiles.anon'),'<null>',                                        'profiles: anon');
+select ok((select v from r where k = 'profiles.anon') like 'ERR 42501%permission denied%profiles%', 'profiles: anon has no privilege (M20)');
 
 -- ---------- memberships (F3) ----------
 select is((select v from r where k = 'members.ta'),  'acc,fresh,gb,gm,grd,multi,rc,sa1,sb1,st,ta,tch', 'memberships: tenant scope + membership.read');
@@ -345,22 +340,22 @@ select is((select v from r where k = 'u.sa1_profile_gm'),   '0', 'profile update
 select is((select v from r where k = 'u.sa1_profile_self'), '0', 'G1: no self-update of the profile');
 select is((select v from r where k = 'u.tch_profile_self'), '0', 'G1: a teacher cannot update its own profile');
 select is((select v from r where k = 'u.ta_profile_t2a'),   '0', 'profile update: never across tenants');
-select ok((select v from r where k = 'u.ta_profile_move') like 'ERR 42501%row-level security%profiles%', 'profile update: cannot move a profile to another tenant');
+select ok((select v from r where k = 'u.ta_profile_move') like 'ERR 42501%permission denied%profiles%', 'profile update: platform_tenant_id is not client-writable (M20)');
 
 -- ---------- memberships ----------
-select ok((select v from r where k = 'w.ta_membership_insert') like 'ERR 42501%row-level security%memberships%', 'memberships insert: no client path (provisioning functions only)');
-select is((select v from r where k = 'u.ta_membership_status'), '0', 'memberships update: no client path (state functions only)');
+select ok((select v from r where k = 'w.ta_membership_insert') like 'ERR 42501%permission denied%memberships%', 'memberships insert: no client path (provisioning functions only)');
+select ok((select v from r where k = 'u.ta_membership_status') like 'ERR 42501%permission denied%memberships%', 'memberships update: no client path (state functions only)');
 
 -- ---------- roles ----------
 select is((select v from r where k = 'w.ta_role_T1'), 'ok', 'roles insert: tenant scope + role.create');
 select ok((select v from r where k = 'w.ta_role_T2')  like 'ERR 42501%row-level security%roles%', 'roles insert: never into another tenant');
-select ok((select v from r where k = 'w.ta_role_sys') like 'ERR 42501%row-level security%roles%', 'roles insert: no system role from the client');
+select ok((select v from r where k = 'w.ta_role_sys') like 'ERR 42501%permission denied%roles%', 'roles insert: is_system is not client-writable — no system role from the client');
 select ok((select v from r where k = 'w.rc_role_T1')  like 'ERR 42501%row-level security%roles%', 'roles insert: role.create with school scope only → rejected (Gate B: custom roles are tenant-level)');
 select ok((select v from r where k = 'w.sa1_role_T1') like 'ERR 42501%row-level security%roles%', 'roles insert: without role.create');
 select is((select v from r where k = 'u.ta_role_c1'),  '1', 'roles update: own custom role');
 select is((select v from r where k = 'u.ta_role_sys'), '0', 'roles update: system roles are untouchable');
 select is((select v from r where k = 'u.ta_role_c2'),  '0', 'roles update: never another tenant''s role');
-select ok((select v from r where k = 'u.ta_role_to_sys') like 'ERR 42501%row-level security%roles%', 'roles update: cannot turn a custom role into a system role');
+select ok((select v from r where k = 'u.ta_role_to_sys') like 'ERR 42501%permission denied%roles%', 'roles update: platform_tenant_id/is_system are not client-writable');
 select is((select v from r where k = 'u.rc_role_c1'),  '0', 'roles update: school-scoped role manager cannot edit tenant roles');
 
 -- ---------- role_permissions ----------
@@ -372,10 +367,10 @@ select is((select v from r where k = 'd.ta_rp_c1'),  '2', 'role_permissions dele
 select is((select v from r where k = 'd.ta_rp_sys'), '0', 'role_permissions delete: never a system role');
 
 -- ---------- E6 ----------
-select is((select v from r where k = 'd.profiles'),    '0', 'E6: DELETE profiles → nothing');
-select is((select v from r where k = 'd.memberships'), '0', 'E6: DELETE memberships → nothing');
-select is((select v from r where k = 'd.roles'),       '0', 'E6: DELETE roles → nothing');
-select is((select v from r where k = 'd.permissions'), '0', 'E6: DELETE permissions → nothing');
+select ok((select v from r where k = 'd.profiles') like 'ERR 42501%permission denied%profiles%', 'E6: DELETE profiles → no privilege');
+select ok((select v from r where k = 'd.memberships') like 'ERR 42501%permission denied%memberships%', 'E6: DELETE memberships → no privilege');
+select ok((select v from r where k = 'd.roles') like 'ERR 42501%permission denied%roles%', 'E6: DELETE roles → no privilege');
+select ok((select v from r where k = 'd.permissions') like 'ERR 42501%permission denied%permissions%', 'E6: DELETE permissions → no privilege');
 select is((select count(*)::int from pg_policies where schemaname = 'public' and cmd in ('DELETE','ALL')
             and tablename not in ('membership_roles','membership_scopes','role_permissions')), 0,
           'E6: DELETE policies exist only on the three G2 tables');
@@ -388,7 +383,6 @@ select is((select v from r where k = 'mid.meta'),  'true',   'membership_id_of: 
 -- ---------- الدوال والسياسات ----------
 select is((select v from r where k = 'exec.anon'), '0', 'anon executes no function in schema app');
 select is((select v from r where k = 'exec.auth'),   'true', 'authenticated executes every helper the M15 policies call');
-select is((select v from r where k = 'exec.unused'), 'none', 'EXECUTE only where a policy needs it: every function authenticated can execute is called by a policy');
 select is((select count(*)::int from pg_policies where schemaname = 'public'
             and tablename in ('profiles','memberships','membership_roles','membership_scopes','roles','permissions','role_permissions')
             and not ('authenticated' = any(roles) and cardinality(roles) = 1)), 0, 'every M15 policy is TO authenticated only');

@@ -341,6 +341,8 @@ PA = سياق Platform (`app.has_platform_permission(...)`) — G10. النص ا
 
 ### 4.6 سجل صلاحيات الأعمدة (GRANT لـ`authenticated`)
 
+> **✅ M20 (2026-09-25):** مطبَّق حرفياً. «كل أعمدة الأعمال» = كل الأعمدة عدا `id`، `created_*`، `updated_*`، المولَّدة، `archived_at`، وأعمدة الحالة المحكومة بانتقال (`status`/`effective_to` خارج INSERT أيضاً في `staff_school_assignments` و`student_guardians` و`enrollments`: الإنشاء يبدأ نشطاً). الجداول المستقبلية آمنة افتراضياً (`ALTER DEFAULT PRIVILEGES`): `anon` لا شيء، `authenticated` SELECT فقط — كل migration لاحقة تمنح صراحةً.
+
 **القاعدة:** ما لا يرد هنا لا يُكتب مباشرة من أي مستخدم. أعمدة `status`/`archived_at` مستبعدة حيث تحكم الانتقال صلاحية مستقلة (`.archive`, `.activate`, `.close`, `.end`, `.unlink`) — تُغيَّر بدوال §5.3.
 
 | الجدول | INSERT | UPDATE |
@@ -352,7 +354,7 @@ PA = سياق Platform (`app.has_platform_permission(...)`) — G10. النص ا
 | `memberships` | — | — |
 | `membership_roles` | كل الأعمدة عدا `granted_at, granted_by` | — |
 | `membership_scopes` | كل الأعمدة عدا `created_*` | — |
-| `roles` | `platform_tenant_id, code, name, description` | `name, description, status` |
+| `roles` | `platform_tenant_id, code, name, description` | `name, description` — **✅ M19 (2026-09-25):** `status` حُذف؛ التفعيل/التعطيل انتقال حالة في M21 (مع فحص صلاحيات الدور ⊆ الفاعل عند التفعيل) |
 | `role_permissions` | الكل | — |
 | `staff` | — | الاسم الرباعي، `national_id, phone_e164, email, gender, birth_date, hire_date` |
 | `staff_school_assignments` | كل أعمدة الأعمال | `job_title, is_primary` — **✅ M17b (2026-09-25):** `status`, `effective_to` حُذفا؛ الانتقالات في M21. مطبَّق مبكراً على هذا الجدول |
@@ -719,7 +721,7 @@ helpers ─► state fns ─► provisioning fns ─► reference data
 | M17b ✅ | `staff_assignment_columns` | صلاحية أعمدة UPDATE على `staff_school_assignments` = `job_title, is_primary` فقط (تطبيق مبكر لـ§4.6) — يمنع إعادة فتح تكليف منتهٍ (H2) | `17_relationship` ✅ 102/102 |
 | M18 ✅ | `policies_audit` | F10/F11 — سياستا SELECT (سياق Tenant وسياق Platform منفصلتان، G10)؛ المسار (2) بدلالة H2؛ التحويل إلى uuid داخل `CASE`. SELECT لـ`authenticated` في M20 | `18_audit_visibility` ✅ 24/24 — E15، E16 |
 | M19 ✅ | `authz_integrity` | T8 — **ثلاثة متطلبات معتمدة (2026-09-25):** (1) منع role escalation عبر `membership_roles`؛ (2) منع permission escalation عبر `role_permissions`؛ (3) منح النطاق: **عند منح Scope لعضو، يجب ألا يؤدي المنح إلى تمكين العضو المستهدف من أي Permission داخل ذلك الـScope تتجاوز Permissions المانح الفعلية داخل نفس الـScope.** | `19_t8` ✅ 31/31 (E4، E14 خطوة 2، F5 كاملاً، منح النطاق) — trigger AFTER |
-| M20 | `privileges` | سجل §4.6؛ REVOKE من `anon`؛ EXECUTE على الدوال — **فحص EXECUTE يميّز فئتين (2026-09-25):** RLS helpers ← يجب أن تستدعيها سياسة؛ controlled functions ← يجب أن تكون في allowlist M20. قاعدة «كل EXECUTE تستدعيه سياسة» (حارس M15) **تُستبدل هنا** ولا تبقى invariant دائماً. **وتسحب صراحةً `TRUNCATE`, `TRIGGER`, `REFERENCES` من `anon` و`authenticated`** (RLS لا تحمي TRUNCATE؛ منح Supabase الافتراضي) | `20_column_grants` |
+| M20 ✅ | `privileges` | سجل §4.6؛ REVOKE من `anon`؛ EXECUTE على الدوال — **فحص EXECUTE يميّز فئتين (2026-09-25):** RLS helpers ← يجب أن تستدعيها سياسة؛ controlled functions ← يجب أن تكون في allowlist M20. قاعدة «كل EXECUTE تستدعيه سياسة» (حارس M15) **تُستبدل هنا** ولا تبقى invariant دائماً. **وتسحب صراحةً `TRUNCATE`, `TRIGGER`, `REFERENCES` من `anon` و`authenticated`** (RLS لا تحمي TRUNCATE؛ منح Supabase الافتراضي) | `20_column_grants` ✅ 65/65 — السجل حرفياً لكل جدول (29)، رفض سلوكي لـ21 عموداً/عملية محظورة، امتيازات افتراضية آمنة، EXECUTE بفئتين (allowlist فارغة حتى M21/M22) |
 | M21 | `state_functions` | §5.3 | `21_state` |
 | M22 | `provisioning_functions` | §5.2 | `22_provisioning` |
 | M23 | `reference_data` | الكتالوج والأدوار والخرائط | `23_catalog_drift` |

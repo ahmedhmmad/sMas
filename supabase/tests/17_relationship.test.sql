@@ -143,10 +143,18 @@ insert into public.students (id, platform_tenant_id, identity_scope_id, student_
 
 create function pg_temp.enroll_sql(p_student text, p_school text, p_yr text, p_status text, p_from date, p_to date) returns text
 language sql as $$
-  select format($f$insert into public.enrollments (school_id, student_id, platform_tenant_id, academic_year_id, grade_level_id, section_id,
+  -- تسجيل نشط مفتوح = ما يرسله العميل فعلاً: بلا status/effective_to (خارج GRANT — M20؛ الافتراضي active)
+  select case when p_status = 'active' and p_to is null then
+    format($f$insert into public.enrollments (school_id, student_id, platform_tenant_id, academic_year_id, grade_level_id, section_id,
+                   identity_scope_id, scope_owner_id, effective_from)
+                   values (%L,%L,%L,%L,%L,%L,%L,%L,%L) returning 'ok'$f$,
+    c.school, st.id, st.platform_tenant_id, c.year, c.grade, c.sec, st.identity_scope_id, s.scope_owner_id, p_from)
+  else
+    format($f$insert into public.enrollments (school_id, student_id, platform_tenant_id, academic_year_id, grade_level_id, section_id,
                    identity_scope_id, scope_owner_id, status, effective_from, effective_to)
                    values (%L,%L,%L,%L,%L,%L,%L,%L,%L,%L,%L) returning 'ok'$f$,
     c.school, st.id, st.platform_tenant_id, c.year, c.grade, c.sec, st.identity_scope_id, s.scope_owner_id, p_status, p_from, p_to)
+  end
   from ctx c join sch s on s.id = c.school, public.students st
   where s.code = p_school and c.yr = p_yr and st.id = pg_temp.eid('student', p_student) $$;
 do $$ begin
@@ -311,7 +319,7 @@ select is((select v from r where k = 'students.gp'),     'sa,sm',          'R1: 
 select is((select v from r where k = 'students.sa'),     'sa',             'R2: a student sees only itself');
 select is((select v from r where k = 'students.t2a'),    'st2',            'students: never across tenants');
 select is((select v from r where k = 'students.pa'),     '<null>',         'E7: platform admin — even with student.read in the platform context — reads no student');
-select is((select v from r where k = 'students.anon'),   '<null>',         'students: anon');
+select ok((select v from r where k = 'students.anon') like 'ERR 42501%permission denied%students%', 'students: anon has no privilege (M20)');
 
 -- R5 — دين D1: المعلم يرى طلاب شعبه فقط. لا teaching_assignments بعد، فالمعلم يرى كل مدرسته — TODO يفشل عمداً.
 select todo_start('D1: teaching_assignments not implemented — a teacher currently sees its whole school (R5)');
@@ -372,10 +380,10 @@ select is((select v from r where k = 'u.sa1_student_sm'), '0', 'H2: the former s
 select is((select v from r where k = 'u.sa2_student_sm'), '1', 'H2: the new school can');
 select is((select v from r where k = 'u.tch_student_sa'), '0', 'students update: student.read does not grant update');
 select is((select v from r where k = 'u.gp_student_sa'),  '0', 'students update: a guardian cannot update its child');
-select ok((select v from r where k = 'u.sa1_student_tenant') like 'ERR 42501%row-level security%students%', 'E2: UPDATE students SET platform_tenant_id → rejected');
+select ok((select v from r where k = 'u.sa1_student_tenant') like 'ERR 42501%permission denied%students%', 'E2: students.platform_tenant_id is not client-writable (M20); RLS WITH CHECK second line');
 
 -- ---------- الكتابة: enrollments ----------
-select ok((select v from r where k = 'u.sa1_enr_move') like 'ERR 42501%row-level security%enrollments%', 'E1: UPDATE enrollments SET school_id to an out-of-scope school → rejected');
+select ok((select v from r where k = 'u.sa1_enr_move') like 'ERR 42501%permission denied%enrollments%', 'E1: enrollments.school_id is not client-writable (M20); RLS WITH CHECK second line');
 select is((select v from r where k = 'u.sa1_enr_sa'),       '1', 'enrollments update: current school on its current student');
 select is((select v from r where k = 'u.sa1_enr_sm_hist'),  '0', '2026-09-25: the former school cannot modify its historical row of a moved student');
 select is((select v from r where k = 'u.sa2_enr_sm'),       '1', 'enrollments update: the current school can');
@@ -412,11 +420,11 @@ select is((select v from r where k = 'u.sa1_fam_m'), '0', 'H2 families update: n
 select is((select v from r where k = 'u.gp_fam_a'),  '0', 'families update: a guardian reads but cannot update');
 
 -- ---------- G4 و E6 ----------
-select ok((select v from r where k = 'w.g4_student')  like 'ERR 42501%row-level security%students%',  'G4: no direct student insert (provisioning functions only)');
-select ok((select v from r where k = 'w.g4_guardian') like 'ERR 42501%row-level security%guardians%', 'G4: no direct guardian insert');
-select ok((select v from r where k = 'w.g4_staff')    like 'ERR 42501%row-level security%staff%',     'G4: no direct staff insert');
-select ok((select v from r where k = 'w.g4_family')   like 'ERR 42501%row-level security%families%',  'G4: no direct family insert');
-select is((select v from r where k = 'd.all'), '0', 'E6: DELETE on the seven tables removes nothing, even for a tenant-scoped admin');
+select ok((select v from r where k = 'w.g4_student') like 'ERR 42501%permission denied%students%', 'G4: no direct student insert (no INSERT privilege; no policy)');
+select ok((select v from r where k = 'w.g4_guardian') like 'ERR 42501%permission denied%guardians%', 'G4: no direct guardian insert');
+select ok((select v from r where k = 'w.g4_staff') like 'ERR 42501%permission denied%staff%', 'G4: no direct staff insert');
+select ok((select v from r where k = 'w.g4_family') like 'ERR 42501%permission denied%families%', 'G4: no direct family insert');
+select ok((select v from r where k = 'd.all') like 'ERR 42501%permission denied%%', 'E6: DELETE on the seven tables → no privilege (M20)');
 
 -- ---------- السياسات ----------
 select policies_are('public', 'staff',                    array['staff_select','staff_update'], 'staff: exactly the M17 policies (no INSERT — G4)');

@@ -183,7 +183,7 @@ select is((select v from r where k = 'vis.noperm'),  'ay=|te=|st=|gl=|se=', 'sco
 select is((select v from r where k = 'vis.noscope'), 'ay=|te=|st=|gl=|se=', 'permission without scope → nothing (P1)');
 select is((select v from r where k = 'vis.t2a'),     'ay=S2|te=S2|st=S2|gl=S2|se=S2', 'T2 → T2 only (I1)');
 select is((select v from r where k = 'vis.pa'),      'ay=|te=|st=|gl=|se=', 'platform admin with every academic permission sees nothing — no platform policy on school data');
-select is((select v from r where k = 'vis.anon'),    'ay=|te=|st=|gl=|se=', 'anon sees nothing');
+select ok((select v from r where k = 'vis.anon') like 'ERR 42501%permission denied%academic_years%', 'anon has no privilege on academic tables (M20)');
 
 -- ---------- الكتابة ----------
 select is((select v from r where k = 'w.sa1_stage_SA1'), 'ok', 'insert: stage.manage in own school');
@@ -191,7 +191,7 @@ select ok((select v from r where k = 'w.sa1_stage_SA2')  like 'ERR 42501%row-lev
 select ok((select v from r where k = 'w.tch_stage_SA1')  like 'ERR 42501%row-level security%stages%', 'insert: stage.read does not grant stage.manage');
 select ok((select v from r where k = 'w.noscope_stage')  like 'ERR 42501%row-level security%stages%', 'insert: permission without scope (P1)');
 select ok((select v from r where k = 'w.pa_stage')       like 'ERR 42501%row-level security%stages%', 'insert: platform admin has no path');
-select ok((select v from r where k = 'w.anon_stage')     like 'ERR 42501%row-level security%stages%', 'insert: anon');
+select ok((select v from r where k = 'w.anon_stage') like 'ERR 42501%permission denied%stages%', 'insert: anon has no privilege');
 select ok((select v from r where k = 'w.sa1_stage_move_SA2') like 'ERR 42501%row-level security%stages%', 'update: cannot move a row to a school outside the scope (WITH CHECK on the new school_id)');
 select ok((select v from r where k = 'w.ta_stage_move_T2')   like 'ERR 42501%row-level security%stages%', 'update: cannot move a row to another tenant''s school');
 
@@ -210,7 +210,7 @@ select is((select v from r where k = 'w.gm_section_SA2'), 'ok', 'sections insert
 select is((select v from r where k = 'w.multi_term_SS'),  'ok', 'terms insert: a second school scope works for writes');
 select ok((select v from r where k = 'w.multi_grade_SA1') like 'ERR 42501%row-level security%grade_levels%', 'grade_levels insert: a school outside the actor''s scopes');
 
-select is((select v from r where k = 'd.all'), '0', 'DELETE on the five academic tables removes nothing, even for a tenant-scoped admin (§5.2)');
+select ok((select v from r where k = 'd.all') like 'ERR 42501%permission denied%%', 'DELETE on the academic tables → no privilege (M20), and no policy (§5.2)');
 
 -- ---------- السياسات ----------
 select policies_are('public', 'academic_years', array['academic_years_select','academic_years_insert','academic_years_update'], 'academic_years: exactly the M16 policies');

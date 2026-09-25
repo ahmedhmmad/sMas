@@ -195,7 +195,7 @@ select ok((select v from r where k = 't5.owner_truncate') like 'ERR 42501%immuta
 select ok((select v from r where k = 'chk.actorless_user') like 'ERR 23514%audit_log_actor_chk%', 'non-system actor requires actor_id');
 
 -- الصلاحيات
-select ok((select v from r where k = 'priv.auth_select') like 'ERR 42501%', 'authenticated cannot read audit_log directly (visibility comes in M18/M20)');
+select is((select v from r where k = 'priv.auth_select'), '0', 'authenticated reads audit_log only through the M18 policy (SELECT granted in M20) — an unscoped reader sees nothing');
 select ok((select v from r where k = 'priv.auth_insert') like 'ERR 42501%', 'authenticated cannot forge audit rows');
 select ok(has_table_privilege('service_role', 'public.audit_log', 'INSERT'), 'service_role may INSERT (FastAPI read/export audit, §7.4)');
 select ok(not has_table_privilege('anon', 'public.audit_log', 'SELECT') and not has_table_privilege('anon', 'public.audit_log', 'INSERT'),
