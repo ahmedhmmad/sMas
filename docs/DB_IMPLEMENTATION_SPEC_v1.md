@@ -498,7 +498,7 @@ grant execute on function app.archive_student(uuid, text) to authenticated;
 | `app.provision_staff(...)` | staff + أول `staff_school_assignment` | `staff.create` + `staff.assign` + `can_access_school` |
 | `app.provision_guardian(student_id, ...)` | guardian + `student_guardians` + (family) | `guardian.create` + `guardian.link` + `student_in_scope` |
 | `app.provision_account(kind, id, auth_user_id)` | profile + membership + دور + (نطاق) لموظف/ولي أمر قائم | صلاحية المورد + علاقة في النطاق |
-| `app.bootstrap_tenant(...)` | tenant + profile + membership + `tenant_admin` + نطاق tenant | PA `tenant.create` — service context |
+| `app.bootstrap_tenant(...)` | tenant + profile + membership + `tenant_admin` + نطاق tenant | PA `tenant.create` — **✅ M22 (2026-09-26): بـJWT الـPlatform Admin لا service**؛ T8 بإعفاء ضيق (سياق المنصة + `tenant.create`، INSERT في `membership_roles`/`membership_scopes`) |
 
 **قواعد ملزمة لكل دالة في القائمة** (إضافة إلى المتطلبات السبعة في §5.0.2):
 1. أول سطر: فحص الصلاحية والنطاق **بنفس الدوال المساعدة** (`has_permission`, `can_access_*`) — لا منطق تفويض جديد.
@@ -728,7 +728,7 @@ helpers ─► state fns ─► provisioning fns ─► reference data
 | M20b ✅ | `privileges_followup` | حذف `platform_tenants_platform_insert` (bootstrap_tenant هو المسار الوحيد)؛ سحب UPDATE `families.family_code` | `20_column_grants` ✅ 67/67 |
 | M21 ✅ | `state_functions` | §5.3 | `21_state` |
 | M21b ✅ | `tenant_suspension` | `current_profile_id` و`current_tenant_id` تُرجعان NULL لـTenant موقوف | `21b_tenant_suspension` ✅ 15/15 |
-| M22 | `provisioning_functions` | §5.2 | `22_provisioning` |
+| M22 ✅ | `provisioning_functions` | §5.2 | `22_provisioning` |
 | M23 | `reference_data` | الكتالوج والأدوار والخرائط | `23_catalog_drift` |
 
 **معيار الخروج من Gate C/D/E:** كل M01–M23 مطبَّقة على قاعدة نظيفة بـ`supabase db reset`، وكل ملفات pgTAP خضراء في CI.
