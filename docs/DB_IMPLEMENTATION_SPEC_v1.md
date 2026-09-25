@@ -708,6 +708,7 @@ helpers ─► state fns ─► provisioning fns ─► reference data
 | M10 ✅ | `enrollments` | `enrollments` (I38–I42، G3، G6)؛ قيود G3 `DEFERRABLE INITIALLY IMMEDIATE` (§5.5) | `10_enrollments` ✅ 26/26 |
 | M11 ✅ | `audit` | `audit_log`؛ T5 (صف + جملة)؛ T7 على **28** جدولاً (يشمل `auth_identities`)؛ الفاعل مستقل عن `created_by` | `11_audit` ✅ 44/44 |
 | M12 ✅ | `authz_helpers` | **المتبقي فقط:** دوال العلاقة (`student_in_scope`, `student_linked_to_guardian`, `student_is_self`, `staff_in_scope`, `guardian_in_scope`, `family_in_scope`, `can_access_identity_scope`, `current_guardian_id`) و`can_see/can_manage_membership` — دوال الهوية والصلاحية والنطاق أُنشئت في M03 و M05 و M06 و M07 حين جهزت اعتمادياتها. نص RLS_MODEL §8.1–§8.3 و§10.0 و§10.4 حرفياً | `12_helpers` ✅ 61/61 |
+| M12b ✅ | `authz_helpers_current_scope` | **H2:** `create or replace` لـ`student_in_scope` (أحدث تسجيل)، `staff_in_scope` (تكليف نشط)، `guardian_in_scope` (ارتباط نشط)؛ الباقي يرث. M12 باقية في التاريخ | `12b_current_scope` ✅ 14/14 |
 | M13 | `rls_enable` | **تحقق فقط:** كل الجداول مفعّلة ومفروضة منذ إنشائها (تنفيذياً: RLS يُفعَّل في migration كل جدول، لأن صلاحيات Supabase الافتراضية تمنح `anon` صلاحية ALL على جداول `public` فور إنشائها) | T2 من RLS §15 |
 | M14 | `policies_tenancy_platform` | | `14_isolation` (I1–I7) |
 | M15 | `policies_authz` | profiles، memberships، roles، scopes | `15_escalation` (E1–E8 + F1–F5) |

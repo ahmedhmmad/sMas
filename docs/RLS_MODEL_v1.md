@@ -458,18 +458,26 @@ using (
 ### 8.1 دالة العلاقة التشغيلية
 
 ```sql
+-- H2 (M12b): المدرسة التشغيلية الحالية = مدرسة أحدث تسجيل، أياً كانت حالته، حتى يظهر أحدث منه
 create or replace function app.student_in_scope(p_student_id uuid)
 returns boolean
 language sql stable security definer set search_path = app, public, pg_temp
 as $$
   select exists (
     select 1
-    from public.enrollments e
-    where e.student_id = p_student_id
-      and app.can_access_school(e.school_id)
+    from (select e.school_id
+          from public.enrollments e
+          where e.student_id = p_student_id
+          order by e.effective_from desc
+          limit 1) cur
+    where app.can_access_school(cur.school_id)
   );
 $$;
 ```
+
+> **✅ H2 (2026-09-25، M12b) — النص أعلاه نهائي؛ حلّ محل «أي enrollment» (M12):** A school is operationally in scope for a student only through the student's current/authorized enrollment in that school. Historical enrollments provide historical access only where a specific permission/policy explicitly permits historical records; they do not grant operational access to the student's current account or guardian account.
+>
+> **أحدث تسجيل** بـ`effective_from` — فريد لكل طالب بحكم G6. الحالة **لا** تحدد المدرسة الحالية: `completed` في نهاية السنة و`withdrawn` بالخطأ لا يسحبان الوصول؛ يسحبه فقط تسجيل أحدث في مدرسة أخرى. المدرسة السابقة ترى سجلات `enrollments` و`audit_log` الخاصة بها (بنطاق المدرسة)، لا صف هوية الطالب — عرض الهوية التاريخية مؤجل للمرحلة 4.
 
 `SECURITY DEFINER` هنا ضروري: بدونه تُطبَّق RLS الخاصة بـ`enrollments` داخل الاستعلام الفرعي، فيصبح التقييم متداخلاً ومكلفاً، وقد تختلف النتيجة عن المقصود.
 
@@ -799,18 +807,18 @@ end if;
 ### 10.4 دوال العلاقة لجداول الهوية — Gate B (F6)
 
 ```sql
--- موظف مرئي: له تكليف (بأي حالة) في مدرسة ضمن النطاق
+-- موظف مرئي: له تكليف نشط في مدرسة ضمن النطاق (H2، M12b)
 create or replace function app.staff_in_scope(p_staff_id uuid) returns boolean
 language sql stable security definer set search_path = app, public, pg_temp as $$
   select exists (select 1 from public.staff_school_assignments a
-                 where a.staff_id = p_staff_id and app.can_access_school(a.school_id));
+                 where a.staff_id = p_staff_id and a.status = 'active' and app.can_access_school(a.school_id));
 $$;
 
--- ولي أمر مرئي: مرتبط بطالب ضمن النطاق
+-- ولي أمر مرئي: ارتباط نشط بطالب ضمن النطاق الحالي (H2، M12b)
 create or replace function app.guardian_in_scope(p_guardian_id uuid) returns boolean
 language sql stable security definer set search_path = app, public, pg_temp as $$
   select exists (select 1 from public.student_guardians sg
-                 where sg.guardian_id = p_guardian_id and app.student_in_scope(sg.student_id));
+                 where sg.guardian_id = p_guardian_id and sg.status = 'active' and app.student_in_scope(sg.student_id));
 $$;
 
 -- أسرة مرئية: فيها طالب ضمن النطاق
@@ -836,7 +844,9 @@ language sql stable security definer set search_path = app, public, pg_temp as $
 $$;
 ```
 
-**التكليفات والارتباطات المنتهية تُحسب في الرؤية:** مثل `student_in_scope` التي تقبل أي enrollment. المدرسة ترى تاريخ من عمل أو درس فيها — هذا مطابق لقاعدة «المدرسة القديمة لا تعدل التاريخ الأصلي» (`PLAN_v3.md` §7.10): الرؤية باقية، والتعديل محكوم بصلاحيات منفصلة.
+**✅ H2 (2026-09-25، M12b) — الفقرة التالية مُلغاة (superseded):** الطالب ← أحدث تسجيل؛ ولي الأمر ← ارتباط نشط + الطالب في النطاق الحالي؛ الموظف ← تكليف نشط. `family_in_scope` و`can_see/can_manage_membership` ترث الدلالة لأنها تستدعي هذه الدوال.
+
+~~**التكليفات والارتباطات المنتهية تُحسب في الرؤية:** مثل `student_in_scope` التي تقبل أي enrollment. المدرسة ترى تاريخ من عمل أو درس فيها — هذا مطابق لقاعدة «المدرسة القديمة لا تعدل التاريخ الأصلي» (`PLAN_v3.md` §7.10): الرؤية باقية، والتعديل محكوم بصلاحيات منفصلة.~~
 
 ### 10.5 سياسات جداول الهوية — Gate B (F6)
 

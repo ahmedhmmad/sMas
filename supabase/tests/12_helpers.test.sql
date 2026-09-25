@@ -1,5 +1,6 @@
 -- M12 — authz_helpers: دوال العلاقة (RLS_MODEL §8.1–§8.3، §10.4) و can_see/can_manage_membership (§10.0)
 -- كل دالة تُقيَّم على كل الكيانات لكل فاعل، والنتيجة قائمة كاملة: تثبت ما يُقبل وما يُرفض معاً.
+-- التوقعات بدلالة H2 النهائية (M12b): أحدث تسجيل، ارتباط ولي أمر نشط، تكليف نشط. حالات H2 المفصلة في 12b_current_scope.
 begin;
 
 create temp table r (k text primary key, v text) on commit drop;
@@ -207,7 +208,7 @@ select plan(61);
 -- ============ student_in_scope — أي تسجيل في مدرسة ضمن النطاق ============
 select is((select v from r where k = 'student_in_scope.ta'),      'sta,stb,sto,sts', 'student_in_scope: tenant scope → every enrolled T1 student; not the unenrolled stx, not T2');
 select is((select v from r where k = 'student_in_scope.gm'),      'sta,stb,sto',     'student_in_scope: group scope → students enrolled in GA schools only (not SS)');
-select is((select v from r where k = 'student_in_scope.sa1'),     'sta,sto',         'student_in_scope: school scope → its students, including the completed enrollment (history visible)');
+select is((select v from r where k = 'student_in_scope.sa1'),     'sta,sto',         'student_in_scope: school scope → its students, including one whose latest enrollment is completed (H2)');
 select is((select v from r where k = 'student_in_scope.sa2'),     'stb',             'student_in_scope: SA2 does not see SA1 students in the same group (§1.1 rule 5)');
 select is((select v from r where k = 'student_in_scope.sb'),      '<null>',          'student_in_scope: another group sees nothing');
 select is((select v from r where k = 'student_in_scope.t2'),      'st2',             'student_in_scope: T2 tenant scope sees only T2');
@@ -224,17 +225,17 @@ select is((select v from r where k = 'student_is_self.gp'),  '<null>', 'student_
 select is((select v from r where k = 'student_is_self.sa1'), '<null>', 'student_is_self: staff are not the student');
 
 -- ============ staff / guardian / family ============
-select is((select v from r where k = 'staff_in_scope.ta'),  'fa1,fold', 'staff_in_scope: tenant scope → every assigned staff; fnone has no assignment');
+select is((select v from r where k = 'staff_in_scope.ta'),  'fa1',      'staff_in_scope: tenant scope → active assignments only; not fold (ended), not fnone (H2)');
 select is((select v from r where k = 'staff_in_scope.gm'),  'fa1',      'staff_in_scope: group scope → GA assignments only');
 select is((select v from r where k = 'staff_in_scope.sa1'), 'fa1',      'staff_in_scope: school scope → its staff');
 select is((select v from r where k = 'staff_in_scope.sa2'), '<null>',   'staff_in_scope: SA2 does not see SA1 staff');
-select is((select v from r where k = 'staff_in_scope.sb'),  'fold',     'staff_in_scope: an ended assignment stays visible to its school');
+select is((select v from r where k = 'staff_in_scope.sb'),  '<null>',   'staff_in_scope: an ended assignment grants its former school nothing (H2)');
 select is((select v from r where k = 'staff_in_scope.t2'),  '<null>',   'staff_in_scope: never across tenants');
 
 select is((select v from r where k = 'guardian_in_scope.ta'),  'garch,gp', 'guardian_in_scope: tenant scope → every linked guardian; gnone has no link');
 select is((select v from r where k = 'guardian_in_scope.gm'),  'gp',       'guardian_in_scope: group scope → guardians of GA students');
 select is((select v from r where k = 'guardian_in_scope.sa1'), 'gp',       'guardian_in_scope: school scope via an active link');
-select is((select v from r where k = 'guardian_in_scope.sa2'), 'gp',       'guardian_in_scope: an ended link still counts (history visible)');
+select is((select v from r where k = 'guardian_in_scope.sa2'), '<null>',   'guardian_in_scope: an ended link grants nothing, although stb is current in SA2 (H2)');
 select is((select v from r where k = 'guardian_in_scope.sb'),  '<null>',   'guardian_in_scope: another group sees nothing');
 
 select is((select v from r where k = 'family_in_scope.ta'),  'fama',   'family_in_scope: a family with an enrolled student; famx (unenrolled) never');
@@ -255,11 +256,11 @@ select is((select v from r where k = 'cg.garch'), '<null>', 'current_guardian_id
 select is((select v from r where k = 'cg.sa1'),   '<null>', 'current_guardian_id: a staff member has none');
 
 -- ============ can_see_membership — تقاطع ============
-select is((select v from r where k = 'can_see_membership.ta'),      'fa1,fold,gm,gp,multi,sa1,sa2,sb,sta,sto,ta', 'can_see: tenant scope → every T1 membership reachable by scope or relationship; not the unenrolled stx, not T2');
+select is((select v from r where k = 'can_see_membership.ta'),      'fa1,gm,gp,multi,sa1,sa2,sb,sta,sto,ta',      'can_see: tenant scope → every T1 membership reachable by scope or current relationship; not fold (ended), not stx, not T2');
 select is((select v from r where k = 'can_see_membership.gm'),      'fa1,gm,gp,multi,sa1,sa2,sta,sto',            'can_see: group scope → GA members; multi by intersection; not the tenant admin, not SB1');
 select is((select v from r where k = 'can_see_membership.sa1'),     'fa1,gp,multi,sa1,sta,sto',                   'can_see: school scope → its staff, guardian, students; not the group manager above it');
-select is((select v from r where k = 'can_see_membership.sa2'),     'gp,sa2',                                     'can_see: SA2 sees the guardian via the ended link to its student, nothing of SA1');
-select is((select v from r where k = 'can_see_membership.sb'),      'fold,multi,sb',                              'can_see: the former staff member (ended assignment) and multi by intersection');
+select is((select v from r where k = 'can_see_membership.sa2'),     'sa2',                                        'can_see: SA2 does not see the guardian through an ended link (H2), nothing of SA1');
+select is((select v from r where k = 'can_see_membership.sb'),      'multi,sb',                                   'can_see: not the former staff member (H2); multi by intersection');
 select is((select v from r where k = 'can_see_membership.t2'),      't2',                                         'can_see: never across tenants');
 select is((select v from r where k = 'can_see_membership.plat'),    '<null>',                                     'can_see: platform context sees no tenant membership');
 select is((select v from r where k = 'can_see_membership.gp'),      '<null>',                                     'can_see: a guardian has no scope path (self is a policy branch, not this helper)');
@@ -269,7 +270,7 @@ select is((select v from r where k = 'can_see_membership.service'), '<null>',   
 select is((select v from r where k = 'can_manage_membership.ta'),      'fa1,fold,gm,gp,multi,sa1,sa2,sb,sta,sto,stx', 'can_manage: tenant scope → every T1 membership except itself (F5), including scope-less ones');
 select is((select v from r where k = 'can_manage_membership.gm'),      'fa1,gp,sa1,sa2,sta,sto',                     'can_manage: group scope → not multi (SB1 ⊄ GA, F4), not the tenant admin, not itself');
 select is((select v from r where k = 'can_manage_membership.sa1'),     'fa1,gp,sta,sto',                             'can_manage: school scope → not multi (F4: SA1 admin cannot act on SB1), not gm, not itself');
-select is((select v from r where k = 'can_manage_membership.sa2'),     'gp',                                         'can_manage: SA2 → the guardian through its student');
+select is((select v from r where k = 'can_manage_membership.sa2'),     '<null>',                                     'can_manage: SA2 does not manage the guardian through an ended link (H2)');
 select is((select v from r where k = 'can_manage_membership.sb'),      '<null>',                                     'can_manage: SB1 → not multi (SA1 ⊄ SB1), not the scope-less former staff member');
 select is((select v from r where k = 'can_manage_membership.t2'),      '<null>',                                     'can_manage: T2 admin manages nothing in T1 and not itself');
 select is((select v from r where k = 'can_manage_membership.plat'),    '<null>',                                     'can_manage: platform context manages no tenant membership');

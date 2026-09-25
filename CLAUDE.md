@@ -3,7 +3,7 @@
 **المشروع:** نظام إدارة المدارس متعدد المستأجرين (Multi-Tenant SMS)
 **تاريخ الإنشاء:** 2026-09-22
 **آخر تحديث:** 2026-09-23
-**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (M01–M11 🔒، M12 ✅ بانتظار المراجعة؛ التالي M13)
+**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (M01–M11 🔒، M12 + M12b ✅ بانتظار المراجعة؛ التالي M13)
 
 ---
 
@@ -370,6 +370,7 @@ Platform Admin → Role → Permission + Platform-level scope
 | M10 | `enrollments` | ✅ 26/26 | I38 محتوى في G6 (لا يُعزل باسمه)؛ قيود G3 DEFERRABLE INITIALLY IMMEDIATE |
 | M11 | `audit` | ✅ 44/44 | T7 على 28 جدولاً؛ الفاعل مستقل عن `created_by`؛ `source` غير المعروف يصبح `api`؛ **متطلب M21:** إعادة `app.audit_action/reason` بعد الكتابة |
 | M12 | `authz_helpers` | ✅ 61/61 | 10 دوال بنص RLS_MODEL حرفياً؛ كل دالة مختبرة بقائمة كاملة لكل فاعل؛ تعمل تحت FORCE RLS. كشفت H1 (محسوم أدناه) |
+| M12b | `authz_helpers_current_scope` | ✅ 14/14 (445/445) | **H2** — أحدث تسجيل / ارتباط نشط / تكليف نشط؛ `12_helpers` حُدِّثت توقعاتها (7 قوائم) |
 | M13 | RLS verification | ⬜ | التالي |
 
 **✅ H1 محسوم (2026-09-24) — السماح، بلا Group Scope:**
@@ -380,6 +381,30 @@ Platform Admin → Role → Permission + Platform-level scope
 - **G3** يبقى الحارس الإعلاني: نطاق الطالب = مالك مدرسة التسجيل؛ أي نطاق آخر يُرفض بالـFK حتى لو تجاوز أحد الدالة.
 - **M12 لا تُعدَّل:** `can_access_identity_scope` باقية بدلالتها «سلطة على النطاق كله» لسياسة قراءة `identity_scopes` (M17)؛ السكرتير لا يحتاج رؤية صف النطاق لأن الاشتقاق يتم داخل الدالة.
 - **اختبارات M22:** سكرتير SA1 ينشئ طالباً في SA1 (نطاق GA) ✅؛ لا يملك `can_access_group(GA)` بعدها ✅؛ لا يستطيع الإنشاء في SB1 أو SS ❌؛ لا وسيلة لتمرير نطاق آخر.
+
+**✅ H2 محسوم (2026-09-25) — التاريخ يبقى، والصلاحية التشغيلية تنتقل مع الطالب:**
+> **H2 — A school is operationally in scope for a student only through the student's current/authorized enrollment in that school. Historical enrollments provide historical access only where a specific permission/policy explicitly permits historical records; they do not grant operational access to the student's current account or guardian account.**
+
+`Historical Enrollment ≠ Current Operational Access`. إدارة الحساب (كلمة المرور، الهاتف، حالة الحساب) للطالب أو ولي الأمر تتبع **العلاقة الحالية المصرّح بها** أو مساراً إدارياً صريحاً مستقلاً — لا العلاقة التاريخية.
+
+| الحالة | المدرسة السابقة |
+|---|---|
+| للطالب Enrollment حالي فيها | ✅ صلاحياتها المعتادة وفق Scope/Permission |
+| غادرها إلى مدرسة أخرى | ❌ لا وصول تشغيلي للطالب |
+| تحتاج تاريخ التسجيل القديم | ✅ عبر السجلات التاريخية المسموح بها، لا كإدارة للحساب |
+| ولي الأمر مرتبط بطالب غادرها | ❌ لا إدارة لحساب ولي الأمر |
+| لولي الأمر طفل آخر ما زال فيها | ✅ بقدر ما تسمح به علاقة ذلك الطفل الحالية |
+
+**التفصيل المعتمد (2026-09-25):**
+
+| البند | القرار |
+|---|---|
+| `student_in_scope` | **أحدث Enrollment** للطالب (بـ`effective_from`)، أياً كانت حالته، حتى يظهر أحدث منه في مدرسة أخرى — لا `status` وحده |
+| `guardian_in_scope` / `family_in_scope` | ارتباط **نشط** + الطالب ضمن النطاق الحالي |
+| `staff_in_scope` | التكليف **النشط** فقط |
+| الهوية التاريخية للطالب | غير متاحة في Foundation؛ المدرسة السابقة ترى `enrollments` و`audit_log` الخاصة بها فقط؛ يؤجل للمرحلة 4 بلا فتح الكتالوج |
+
+**التطبيق: M12b** (`authz_helpers_current_scope`) — `create or replace` للدوال الثلاث؛ M12 باقية في التاريخ؛ `family_in_scope` و`can_see/can_manage_membership` ترث الدلالة. مثبت في `12b_current_scope`.
 
 **قاعدة اختبار (من M08):** كل تحقق رفض يطابق **اسم القيد** المقصود لا رمز الخطأ وحده (`like 'ERR 23503%<constraint_name>%'`). تكرر ثلاث مرات أن رُفض الإدراج بقيد غير المقصود فنجح التحقق دون أن يثبت شيئاً.
 
@@ -497,6 +522,7 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | `audit_log.id` هو `bigint IDENTITY` وليس uuid، وبلا FK على `actor_id`/`entity_id` | ترتيب زمني طبيعي وحجم أصغر؛ وFK على الكيانات يخلق تبعية عكسية تكسر السجل عند الأرشفة |
 | 2026-09-22 | **O1** — `profiles.auth_user_id` فريد عالمياً؛ نفس Auth User لا يعبر Tenantين | شرط حتمية `app.current_tenant_id()` وصحة §1.1. التفاصيل: §1.1 + `DATA_DICTIONARY_v1.md` §2.7 |
 | 2026-09-22 | **O2** — `students.gender` و`birth_date` قابلان لـNULL؛ OCR ليس شرطاً ولا مصدراً نهائياً | اكتمال البيانات قاعدة أعمال في المرحلة 4 لا قيد صف. يلزم معالجة NULL صراحةً في قواعد التوزيع والتقارير |
+| 2026-09-25 | **H2** — A school is operationally in scope for a student only through the student's current/authorized enrollment in that school. Historical enrollments provide historical access only where a specific permission/policy explicitly permits historical records; they do not grant operational access to the student's current account or guardian account. | `Historical Enrollment ≠ Current Operational Access`؛ الطالب ← أحدث تسجيل، ولي الأمر ← ارتباط نشط، الموظف ← تكليف نشط؛ لا هوية تاريخية في Foundation. منفذ في M12b |
 | 2026-09-24 | **H1** — A secretary may register a new student in a school that belongs to a group. The secretary requires `student.create` with school scope; this does not grant group scope. When the target school belongs to a group, the student's identity scope is derived from the target school's group and is not client-selectable. The student's enrollment is created for the target school in the same controlled provisioning operation. | كشفه `12_helpers`: `can_access_identity_scope(GA)` = false لسكرتير SA1. التطبيق في M22 (§5.2 من المواصفة) |
 | 2026-09-22 | **O3** — `temporary_id` بصيغة `TMP-{YEAR}-{SEQUENCE}`، توليد ذري، بلا إعادة استخدام | `nextval()` غير تعاملي فلا يُعيد رقماً بعد rollback؛ الفجوات مقبولة. التفاصيل: `DATA_DICTIONARY_v1.md` §2.17.1 |
 
@@ -517,6 +543,8 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | ✅ **C3** — اعتماد `platform_admin_roles → platform_admin_role_permissions → permissions`؛ `is_platform_admin()` اختبار هوية فقط، و`has_permission()` توحّد المسارين. الكتالوج 73 مفتاحاً بعد K4 (`tenant.create`) | `docs/ROLE_PERMISSION_SEED_v1.md`, `AUTHORIZATION_MATRIX_v1.md`, `docs/DATA_DICTIONARY_v1.md`, `CLAUDE.md` |
 | 2026-09-22 | ✅ **A3** — RLS Model: 7 دوال، سياسات كل الجداول، حل تعارض FORCE RLS/recursion، 30 اختبار pgTAP، و6 بنود معلّقة | `docs/RLS_MODEL_v1.md`, `CLAUDE.md` |
 | 2026-09-23 | ✅ **A5** — اعتماد A1–A4 كـFoundation Design Baseline | — |
+| 2026-09-25 | ✅ **M12b** — H2 منفذ: أحدث تسجيل، ارتباط نشط، تكليف نشط؛ 12b 14/14 | `supabase/migrations/20260925144149_authz_helpers_current_scope.sql`, `supabase/tests/12b_current_scope.test.sql`, `supabase/tests/12_helpers.test.sql`, `docs/RLS_MODEL_v1.md`, `docs/DB_IMPLEMENTATION_SPEC_v1.md`, `CLAUDE.md` |
+| 2026-09-25 | ✅ **H2 محسوم** — المدرسة السابقة لا تدير حساب الطالب ولا ولي أمره بتسجيل تاريخي | `CLAUDE.md`, `docs/PLAN_v3.md`, `docs/RLS_MODEL_v1.md` |
 | 2026-09-24 | ✅ **H1 محسوم** — السماح للسكرتير بنطاق المدرسة، النطاق مشتق من المدرسة الهدف لا من العميل | `CLAUDE.md`, `docs/PLAN_v3.md`, `docs/DB_IMPLEMENTATION_SPEC_v1.md` |
 | 2026-09-24 | ✅ **M12** — دوال العلاقة الثمانية + `can_see/can_manage_membership`؛ كشف H1 (نطاق هوية Group مغلق أمام عضو نطاق المدرسة)؛ 431/431 | `supabase/migrations/20260924234528_authz_helpers.sql`, `supabase/tests/12_helpers.test.sql`, `docs/DB_IMPLEMENTATION_SPEC_v1.md`, `CLAUDE.md` |
 | 2026-09-24 | 🔒 **M11 مغلقة** — 44/44، 370/370، CI أخضر (`e4f8790`)؛ الانحرافات الخمسة معتمدة؛ متطلب M21 وتبعية M18/M20 موثقان | `CLAUDE.md` |
