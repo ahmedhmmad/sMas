@@ -1109,7 +1109,7 @@ D7  سياسة audit_log (§13)
 | # | الاختبار |
 |---|---|
 | T1 | كل الدوال تعمل بعد `FORCE RLS` بلا recursion (§4.2) |
-| T2 | كل جدول من الـ27 عليه `rowsecurity = true` و`relforcerowsecurity = true` |
+| T2 | كل جدول من الـ**29** (28 + `auth_identities`، G10) عليه `relrowsecurity = true` و`relforcerowsecurity = true` — بالاسم، وأي جدول غير مدرج يُفشل الاختبار (`13_rls_enable`، M13) |
 | T3 | لا جدول Foundation بلا سياسة SELECT (منع نسيان صامت) — **هذا الاختبار كان سيفشل على 9 جداول في A3 الأصلي (F6)** |
 | T4 | `audit_log` يرفض UPDATE و DELETE من كل الأدوار |
 

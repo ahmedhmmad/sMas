@@ -3,7 +3,7 @@
 **المشروع:** نظام إدارة المدارس متعدد المستأجرين (Multi-Tenant SMS)
 **تاريخ الإنشاء:** 2026-09-22
 **آخر تحديث:** 2026-09-23
-**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (M01–M11 🔒، M12 + M12b ✅ بانتظار المراجعة؛ التالي M13)
+**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (M01–M12b 🔒، M13 ✅ بانتظار المراجعة؛ التالي M14)
 
 ---
 
@@ -371,7 +371,8 @@ Platform Admin → Role → Permission + Platform-level scope
 | M11 | `audit` | ✅ 44/44 | T7 على 28 جدولاً؛ الفاعل مستقل عن `created_by`؛ `source` غير المعروف يصبح `api`؛ **متطلب M21:** إعادة `app.audit_action/reason` بعد الكتابة |
 | M12 | `authz_helpers` | ✅ 61/61 | 10 دوال بنص RLS_MODEL حرفياً؛ كل دالة مختبرة بقائمة كاملة لكل فاعل؛ تعمل تحت FORCE RLS. كشفت H1 (محسوم أدناه) |
 | M12b | `authz_helpers_current_scope` | ✅ 14/14 (445/445) | **H2** — أحدث تسجيل / ارتباط نشط / تكليف نشط؛ `12_helpers` حُدِّثت توقعاتها (7 قوائم) |
-| M13 | RLS verification | ⬜ | التالي |
+| M13 | `rls_enable` | ✅ 61/61 (506/506) | بوابة تحقق فقط، بلا سياسات: **29** جدولاً بالاسم (28 + `auth_identities`)؛ الـmigration تفشل النشر عند جدول بلا ENABLE/FORCE أو في `app` أو سياسة قبل M14؛ 5 ضوابط سلبية مُثبتة |
+| M14 | `policies_tenancy_platform` | ⬜ | التالي |
 
 **✅ H1 محسوم (2026-09-24) — السماح، بلا Group Scope:**
 > **H1 — A secretary may register a new student in a school that belongs to a group. The secretary requires `student.create` with school scope; this does not grant group scope. When the target school belongs to a group, the student's identity scope is derived from the target school's group and is not client-selectable. The student's enrollment is created for the target school in the same controlled provisioning operation.**
@@ -544,6 +545,8 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | ✅ **C3** — اعتماد `platform_admin_roles → platform_admin_role_permissions → permissions`؛ `is_platform_admin()` اختبار هوية فقط، و`has_permission()` توحّد المسارين. الكتالوج 73 مفتاحاً بعد K4 (`tenant.create`) | `docs/ROLE_PERMISSION_SEED_v1.md`, `AUTHORIZATION_MATRIX_v1.md`, `docs/DATA_DICTIONARY_v1.md`, `CLAUDE.md` |
 | 2026-09-22 | ✅ **A3** — RLS Model: 7 دوال، سياسات كل الجداول، حل تعارض FORCE RLS/recursion، 30 اختبار pgTAP، و6 بنود معلّقة | `docs/RLS_MODEL_v1.md`, `CLAUDE.md` |
 | 2026-09-23 | ✅ **A5** — اعتماد A1–A4 كـFoundation Design Baseline | — |
+| 2026-09-25 | ✅ **M13** — `rls_enable`: بوابة RLS على 29 جدولاً بالاسم؛ ضوابط سلبية (بلا FORCE، بلا RLS، جدول في `app`، سياسة، جدول غير مدرج) كلها تفشل كما يجب | `supabase/migrations/20260925151821_rls_enable.sql`, `supabase/tests/13_rls_enable.test.sql`, `docs/DB_IMPLEMENTATION_SPEC_v1.md`, `docs/RLS_MODEL_v1.md`, `CLAUDE.md` |
+| 2026-09-25 | 🔒 **M12 و M12b و H1/H2 مغلقة** — CI أخضر على `ab65c75`, `7c1cbe2`, `6c4e32c`, `18c70b2`؛ 445/445 | `CLAUDE.md` |
 | 2026-09-25 | H2 مغلق قراراً وتنفيذاً (بانتظار CI)؛ future enrollment مسجل كـdesign item للمرحلة 4 (§6 بند 6) | `CLAUDE.md` |
 | 2026-09-25 | ✅ **M12b** — H2 منفذ: أحدث تسجيل، ارتباط نشط، تكليف نشط؛ 12b 14/14 | `supabase/migrations/20260925144149_authz_helpers_current_scope.sql`, `supabase/tests/12b_current_scope.test.sql`, `supabase/tests/12_helpers.test.sql`, `docs/RLS_MODEL_v1.md`, `docs/DB_IMPLEMENTATION_SPEC_v1.md`, `CLAUDE.md` |
 | 2026-09-25 | ✅ **H2 محسوم** — المدرسة السابقة لا تدير حساب الطالب ولا ولي أمره بتسجيل تاريخي | `CLAUDE.md`, `docs/PLAN_v3.md`, `docs/RLS_MODEL_v1.md` |

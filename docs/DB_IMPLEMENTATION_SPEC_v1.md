@@ -307,7 +307,9 @@ CHECK (start_date >= year_start_date AND end_date <= year_end_date)
 
 الطبقة الثانية تحمي حتى لو فشلت الأولى: صلاحية Tenant لا تُرضي سياسة Platform بأي حال.
 
-### 4.5 تغطية RLS — 28/28
+### 4.5 تغطية RLS — 28/28 (+ `auth_identities`)
+
+> **M13 (2026-09-25):** الجداول الفعلية 29: الـ28 أدناه + `auth_identities` (G10، أُضيف بعد كتابة هذا الجدول). `auth_identities` مفعّل ومفروض **بلا أي سياسة** — لا يقرؤه إلا دوال `app_owner` (`current_security_context`)؛ أي عميل يرى 0 صفوف.
 
 | الجدول | SELECT | INSERT | UPDATE | DELETE |
 |---|---|---|---|---|
@@ -709,7 +711,7 @@ helpers ─► state fns ─► provisioning fns ─► reference data
 | M11 ✅ | `audit` | `audit_log`؛ T5 (صف + جملة)؛ T7 على **28** جدولاً (يشمل `auth_identities`)؛ الفاعل مستقل عن `created_by` | `11_audit` ✅ 44/44 |
 | M12 ✅ | `authz_helpers` | **المتبقي فقط:** دوال العلاقة (`student_in_scope`, `student_linked_to_guardian`, `student_is_self`, `staff_in_scope`, `guardian_in_scope`, `family_in_scope`, `can_access_identity_scope`, `current_guardian_id`) و`can_see/can_manage_membership` — دوال الهوية والصلاحية والنطاق أُنشئت في M03 و M05 و M06 و M07 حين جهزت اعتمادياتها. نص RLS_MODEL §8.1–§8.3 و§10.0 و§10.4 حرفياً | `12_helpers` ✅ 61/61 |
 | M12b ✅ | `authz_helpers_current_scope` | **H2:** `create or replace` لـ`student_in_scope` (أحدث تسجيل)، `staff_in_scope` (تكليف نشط)، `guardian_in_scope` (ارتباط نشط)؛ الباقي يرث. M12 باقية في التاريخ | `12b_current_scope` ✅ 14/14 |
-| M13 | `rls_enable` | **تحقق فقط:** كل الجداول مفعّلة ومفروضة منذ إنشائها (تنفيذياً: RLS يُفعَّل في migration كل جدول، لأن صلاحيات Supabase الافتراضية تمنح `anon` صلاحية ALL على جداول `public` فور إنشائها) | T2 من RLS §15 |
+| M13 ✅ | `rls_enable` | **تحقق فقط:** كل الجداول مفعّلة ومفروضة منذ إنشائها (تنفيذياً: RLS يُفعَّل في migration كل جدول، لأن صلاحيات Supabase الافتراضية تمنح `anon` صلاحية ALL على جداول `public` فور إنشائها) | `13_rls_enable` ✅ 61/61 — قائمة اسمية بـ**29** جدولاً (الـ28 في §4.5 + `auth_identities` من G10)؛ الـmigration بوابة تفشل النشر عند جدول بلا ENABLE/FORCE، أو جدول في `app`، أو سياسة قبل M14 |
 | M14 | `policies_tenancy_platform` | | `14_isolation` (I1–I7) |
 | M15 | `policies_authz` | profiles، memberships، roles، scopes | `15_escalation` (E1–E8 + F1–F5) |
 | M16 | `policies_academic` | | |
