@@ -1,0 +1,8 @@
+# F4 — هيكل FastAPI (PLAN_v3.md §3.1). مثبتة الإصدارات.
+fastapi==0.141.1
+uvicorn[standard]==0.54.0
+psycopg[binary,pool]==3.3.6
+psycopg-pool==3.3.3
+PyJWT[crypto]==2.15.0
+httpx==0.28.1
+pytest==9.1.1

@@ -251,7 +251,7 @@
 - [ ] المصادقة: دخول الموظفين مع Supabase Auth وJWT؛ حساب الطالب مستقل وفق القرار المعتمد، وحساب ولي الأمر يدعم OTP/كلمة المرور وفق إعداد المدرسة
 - [ ] تحديد المدرسة من الـ subdomain
 - [ ] هيكل تطبيق الويب: RTL، خط عربي (IBM Plex Sans Arabic أو Cairo)، قائمة تنقل حسب الدور، ملفات الترجمة
-- [ ] هيكل FastAPI مع التحقق من Supabase JWT واستخراج المدرسة والدور
+- [ ] هيكل FastAPI مع التحقق من Supabase JWT واستخراج المدرسة والدور — ✅ F4 منفذ (`docs/F4_API_SECURITY.md`) بانتظار المراجعة؛ السياق يُشتق في DB لا من الـJWT
 - [ ] seed لمدرستين وهميتين بمستخدمين من كل الأدوار
 
 **معايير الإنجاز:**
@@ -793,6 +793,7 @@
 | 2026-09-21 | اعتماد ERD + Data Dictionary + Authorization Matrix + RLS Model كمتطلبات إلزامية قبل بناء وحدات الأعمال |
 | 2026-09-21 | اعتماد Audit للعمليات الحساسة، export مستقل، transactions/idempotency/concurrency، وعدم تعديل migrations المنفذة |
 | 2026-09-24 | **تعدد علاقات الـprofile:** A profile may have multiple legitimate relationships/roles within the same Tenant, including student, employee, and guardian. No database invariant prohibits these combinations. Authorization remains determined independently by role, permission, and scope. (`Profile` = الشخص/الحساب داخل الـTenant، لا نوع المستخدم؛ حساب الطالب «المستقل» في §7.19 لا يستلزم profile ثانياً لنفس الشخص) |
+| 2026-09-26 | **FastAPI ← قاعدة البيانات عبر `authenticator` (F4):** اتصال بدور `authenticator` (آلية PostgREST)؛ كل طلب معاملة واحدة بـ`role = authenticated` و`request.jwt.claims` = الـpayload الذي تحقق منه FastAPI (ES256 عبر JWKS)؛ RLS ودوال `app.*` تقرر. الخدمة لا تحمل مفتاح `service_role`؛ تبدّل إلى دور `service_role` لإدراج تدقيق القراءة/التصدير وحده في المعاملة نفسها (fail closed). تدقيق التصدير صف لكل طالب |
 | 2026-09-26 | **Gate C مكتمل (M01–M23)**. ملاحظة تصميم مفتوحة: هل يعيّن `group_manager` `school_admin`؟ حالياً لا (T8 + `security.*`)؛ قرار تجاري لا تقني — لا يُمنح `security.*` حلاً |
 | 2026-09-26 | **البذر من القوائم الصريحة (M23)**: قوائم `ROLE_PERMISSION_SEED` §4 هي المرجع؛ الأعداد 71/62/59/19/11/11/10/2/6/4 (255 ربطاً) |
 | 2026-09-26 | **bootstrap_tenant (M22):** يُستدعى بـJWT الـPlatform Admin (`has_platform_permission('tenant.create')`) فالفاعل مُتحقَّق منه في DB ومُدقَّق كـ`platform_admin`؛ T8 يُعفى إعفاءً ضيقاً: سياق المنصة + `tenant.create`، على INSERT في `membership_roles`/`membership_scopes` فقط (Platform Admin بلا سياسة RLS عليهما) |

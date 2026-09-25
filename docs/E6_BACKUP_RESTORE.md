@@ -3,6 +3,7 @@
 **الحالة:** 🔒 **E6 Technical Database Backup/Restore: CLOSED** (2026-09-26، CI `c985a0d`) · **Production Backup Policy: TBD** (§4)
 
 > **النطاق:** استعادة **قاعدة بيانات** من backup كامل داخل خادم قائم. لا يثبت **استعادة خادم PostgreSQL كامل إلى خادم جديد** (L1) — ذلك جزء من سياسة Production.
+
 **الأدوات:** `scripts/restore-test.sh`، `scripts/db-fingerprint.sql` · **CI:** خطوتان (§2.3)
 
 > E6 شرط قبل أي بيانات حقيقية (`PLAN_v3.md` §3 بند 20). ما أُنجز هنا يثبت أن **backup كامل يعيد بناء الحالة**؛

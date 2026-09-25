@@ -21,6 +21,12 @@ jobs:
           node-version: 20
           cache: npm
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+          cache: pip
+          cache-dependency-path: services/api/requirements.txt
+
       - run: npm ci
 
       - name: Secret scan
@@ -48,3 +54,10 @@ jobs:
       - name: Restore test — seeded data (E6)
         # البيانات: عدد وhash كل جدول + حسابات Auth + التسلسلات تطابق المصدر بعد الاستعادة
         run: bash scripts/restore-test.sh
+
+      - name: API security tests (F4)
+        # FastAPI ← authenticator ← RLS على seed E5؛ المتغيرات من `supabase status` داخل conftest
+        working-directory: services/api
+        run: |
+          pip install -r requirements.txt
+          python -m pytest
