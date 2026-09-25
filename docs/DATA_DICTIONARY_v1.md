@@ -1137,7 +1137,7 @@ app.can_access_*() + app.has_permission() تبني عليه
 
 | البند | الحالة |
 |---|---|
-| تغطية جداول ERD §4 | ✅ 28/28 (+`auth_identities` ✅ G10) |
+| تغطية الجداول | ✅ **29/29** — 28 من ERD §4 + `auth_identities` (G10) |
 | إعلان مستوى الملكية لكل جدول (§3.3 بند 14) | ✅ |
 | `school_id NOT NULL` على كل School-level (§3.3 بند 1) | ✅ |
 | لا `school_id` على `students` (§10 بند 5) | ✅ |

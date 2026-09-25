@@ -912,7 +912,8 @@ select using (auth_user_id = auth.uid());
 select using (system_user_id = (select app.current_system_user_id()));
 
 -- platform_admin_roles و platform_admin_role_permissions
-select using (app.is_platform_admin());
+-- ✅ قرار 2026-09-25 (M14): service فقط — بلا سياسة SELECT.
+-- (كان هنا: select using (app.is_platform_admin()) — يخالف §11 و C3؛ ولا مفتاح في البذر يحكم قراءة هذا الكتالوج.)
 ```
 
 **لا INSERT/UPDATE على جداول Platform Admin لـ`authenticated`:** إدارة Platform Admins لا مفتاح لها في الكتالوج المجمَّد، فتبقى service role فقط في v1 (✅ G8).
@@ -1035,7 +1036,7 @@ using (
 
 ```text
 D1  schema app + الدوال (§1–§3) بمالك BYPASSRLS
-D2  التحقق من BYPASSRLS ثم ENABLE + FORCE RLS على الجداول الـ27
+D2  التحقق من BYPASSRLS ثم ENABLE + FORCE RLS على الجداول الـ29
 D3  سياسات Tenant/Group/School (§7) + GRANT على مستوى الأعمدة (§12.2)
 D4  سياسات students / enrollments (§8, §9) + دوال العلاقة
 D5  سياسات profiles/memberships (§10) + trigger T8
@@ -1055,7 +1056,7 @@ D7  سياسة audit_log (§13)
 
 | # | الاختبار |
 |---|---|
-| I1 | Tenant A لا يقرأ أي صف من Tenant B في الجداول الـ27 |
+| I1 | Tenant A لا يقرأ أي صف من Tenant B في جداول Foundation الـ29 |
 | I2 | عضو مدرسة A **داخل نفس Tenant** لا يقرأ مدرسة B |
 | I3 | `group` scope يرى كل مدارس مجموعته ولا شيء خارجها |
 | I4 | `group` scope **لا** يرى مدرسة مستقلة (`group_id IS NULL`) — يختبر شرط §3 نقطة 2 |

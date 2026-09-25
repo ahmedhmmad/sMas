@@ -3,7 +3,7 @@
 **المشروع:** نظام إدارة المدارس متعدد المستأجرين (Multi-Tenant SMS)
 **تاريخ الإنشاء:** 2026-09-22
 **آخر تحديث:** 2026-09-23
-**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (M01–M12b 🔒، M13 ✅ بانتظار المراجعة؛ التالي M14)
+**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (M01–M13 🔒، M14 ✅ بانتظار المراجعة؛ التالي M15 `policies_authz`)
 
 ---
 
@@ -187,7 +187,7 @@ npx supabase start -x studio,imgproxy,mailpit,edge-runtime,logflare,vector,supav
 
 ### Gate A — التوثيق قبل أي SQL
 
-- [x] **A1. Data Dictionary** — `docs/DATA_DICTIONARY_v1.md`: 28 جدول Foundation (بعد A4 و C3)، الأعمدة والأنواع وNULL/DEFAULT ومستوى الملكية وكل FK/Unique/Check + الفهارس + قائمة الـtriggers اللازمة. القرارات O1–O3 محسومة (§5 هناك).
+- [x] **A1. Data Dictionary** — `docs/DATA_DICTIONARY_v1.md`: 28 جدول Foundation (بعد A4 و C3) — **29 بعد G10** (`auth_identities`)، الأعمدة والأنواع وNULL/DEFAULT ومستوى الملكية وكل FK/Unique/Check + الفهارس + قائمة الـtriggers اللازمة. القرارات O1–O3 محسومة (§5 هناك).
 - [x] **A2. Authorization Matrix** — `AUTHORIZATION_MATRIX_v1.md`: سلسلة التفويض، أنواع Scope، كتالوج Permissions للـFoundation، فصل `read`/`export` وفصل الإدخال عن الاعتماد، مسارا Guardian/Teacher، قواعد التفويض والتضييق، و15 قاعدة منع تجاوز عزل + قائمة اختبارات pgTAP مطلوبة.
       ✅ بنود §17 أُغلقت في A2.1–A2.3 و C3؛ المتبقي مؤجل بقصد (§3.2).
 - [x] **A3. RLS Model** — `docs/RLS_MODEL_v1.md`: الطبقات السبع، الدوال السبع بنصها، سياسات كل جداول Foundation (USING/WITH CHECK)، مسارات `students` الثلاثة، سياسات Platform Admin، حل تعارض `FORCE RLS` مع الـrecursion، وحدود RLS وما يُنفَّذ خارجها، و30 اختبار pgTAP.
@@ -320,7 +320,7 @@ Platform Admin → Role → Permission + Platform-level scope
 - [x] **B1.** مطابقة ERD — أُضيف `platform_admin_role_permissions` و`identity_scopes` كقسمين
 - [x] **B2.** مطابقة Data Dictionary — 11 عدم اتساق، منها قيد تفرد **لا يعمل** (D8)
 - [x] **B3.** القيود والفهارس — سجل 46 invariant بآلية كل منها؛ **T1 و T3 و T4 تحولت إلى قيود إعلانية**
-- [x] **B4.** الملكية والتفويض — 8 ثغرات في A3 صُحِّحت (§3.6)؛ تغطية RLS 28/28؛ سجل صلاحيات الأعمدة
+- [x] **B4.** الملكية والتفويض — 8 ثغرات في A3 صُحِّحت (§3.6)؛ تغطية RLS: enforcement 29/29، سياسات التطبيق 28 (`auth_identities` مستثنى بتصميمه — M13)؛ سجل صلاحيات الأعمدة
 - [x] **B5.** المعاملات — دوال الإنشاء والانتقال (قائمة مغلقة)؛ Saga إنشاء حساب الطالب
 - [x] **B6.** الزمن — اصطلاحان للتواريخ؛ الحالة ↔ `effective_to`
 - [x] **B7.** التدقيق — النطاق، المحتوى، الثبات، الرؤية
@@ -372,7 +372,8 @@ Platform Admin → Role → Permission + Platform-level scope
 | M12 | `authz_helpers` | ✅ 61/61 | 10 دوال بنص RLS_MODEL حرفياً؛ كل دالة مختبرة بقائمة كاملة لكل فاعل؛ تعمل تحت FORCE RLS. كشفت H1 (محسوم أدناه) |
 | M12b | `authz_helpers_current_scope` | ✅ 14/14 (445/445) | **H2** — أحدث تسجيل / ارتباط نشط / تكليف نشط؛ `12_helpers` حُدِّثت توقعاتها (7 قوائم) |
 | M13 | `rls_enable` | ✅ 61/61 (506/506) | بوابة تحقق فقط، بلا سياسات: **29** جدولاً بالاسم (28 + `auth_identities`)؛ الـmigration تفشل النشر عند جدول بلا ENABLE/FORCE أو في `app` أو سياسة قبل M14؛ 5 ضوابط سلبية مُثبتة |
-| M14 | `policies_tenancy_platform` | ⬜ | التالي |
+| M14 | `policies_tenancy_platform` | ✅ 96/96 (602/602) | أول السياسات (6 جداول، 16 سياسة `TO authenticated`)؛ I1 مسح لكل جدول مملوك لـTenant ببيانات في الـTenantين؛ PA catalog = service فقط؛ EXECUTE يُمنح مع كل طبقة سياسات |
+| M15 | `policies_authz` | ⬜ | التالي |
 
 **✅ H1 محسوم (2026-09-24) — السماح، بلا Group Scope:**
 > **H1 — A secretary may register a new student in a school that belongs to a group. The secretary requires `student.create` with school scope; this does not grant group scope. When the target school belongs to a group, the student's identity scope is derived from the target school's group and is not client-selectable. The student's enrollment is created for the target school in the same controlled provisioning operation.**
@@ -524,6 +525,8 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | `audit_log.id` هو `bigint IDENTITY` وليس uuid، وبلا FK على `actor_id`/`entity_id` | ترتيب زمني طبيعي وحجم أصغر؛ وFK على الكيانات يخلق تبعية عكسية تكسر السجل عند الأرشفة |
 | 2026-09-22 | **O1** — `profiles.auth_user_id` فريد عالمياً؛ نفس Auth User لا يعبر Tenantين | شرط حتمية `app.current_tenant_id()` وصحة §1.1. التفاصيل: §1.1 + `DATA_DICTIONARY_v1.md` §2.7 |
 | 2026-09-22 | **O2** — `students.gender` و`birth_date` قابلان لـNULL؛ OCR ليس شرطاً ولا مصدراً نهائياً | اكتمال البيانات قاعدة أعمال في المرحلة 4 لا قيد صف. يلزم معالجة NULL صراحةً في قواعد التوزيع والتقارير |
+| 2026-09-25 | **PA catalog** — `platform_admin_roles` و`platform_admin_role_permissions` بلا سياسة عميل (service فقط) | تعارض RLS §10.6 (`is_platform_admin()` وحدها) مع §11/C3؛ حُسم لصالح C3 و G8 |
+| 2026-09-25 | **EXECUTE مع السياسات** — كل migration سياسات تمنح `authenticated` EXECUTE على الدوال التي تستدعيها سياساتها مباشرة؛ `anon` لا شيء؛ M20 يبقى للأعمدة والتدقيق النهائي | بدونه تفشل استعلامات `authenticated` كلها من M14 حتى M20 |
 | 2026-09-25 | **H2** — A school is operationally in scope for a student only through the student's current/authorized enrollment in that school. Historical enrollments provide historical access only where a specific permission/policy explicitly permits historical records; they do not grant operational access to the student's current account or guardian account. | `Historical Enrollment ≠ Current Operational Access`؛ الطالب ← أحدث تسجيل، ولي الأمر ← ارتباط نشط، الموظف ← تكليف نشط؛ لا هوية تاريخية في Foundation. منفذ في M12b |
 | 2026-09-24 | **H1** — A secretary may register a new student in a school that belongs to a group. The secretary requires `student.create` with school scope; this does not grant group scope. When the target school belongs to a group, the student's identity scope is derived from the target school's group and is not client-selectable. The student's enrollment is created for the target school in the same controlled provisioning operation. | كشفه `12_helpers`: `can_access_identity_scope(GA)` = false لسكرتير SA1. التطبيق في M22 (§5.2 من المواصفة) |
 | 2026-09-22 | **O3** — `temporary_id` بصيغة `TMP-{YEAR}-{SEQUENCE}`، توليد ذري، بلا إعادة استخدام | `nextval()` غير تعاملي فلا يُعيد رقماً بعد rollback؛ الفجوات مقبولة. التفاصيل: `DATA_DICTIONARY_v1.md` §2.17.1 |
@@ -545,6 +548,8 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | ✅ **C3** — اعتماد `platform_admin_roles → platform_admin_role_permissions → permissions`؛ `is_platform_admin()` اختبار هوية فقط، و`has_permission()` توحّد المسارين. الكتالوج 73 مفتاحاً بعد K4 (`tenant.create`) | `docs/ROLE_PERMISSION_SEED_v1.md`, `AUTHORIZATION_MATRIX_v1.md`, `docs/DATA_DICTIONARY_v1.md`, `CLAUDE.md` |
 | 2026-09-22 | ✅ **A3** — RLS Model: 7 دوال، سياسات كل الجداول، حل تعارض FORCE RLS/recursion، 30 اختبار pgTAP، و6 بنود معلّقة | `docs/RLS_MODEL_v1.md`, `CLAUDE.md` |
 | 2026-09-23 | ✅ **A5** — اعتماد A1–A4 كـFoundation Design Baseline | — |
+| 2026-09-25 | ✅ **M14** — سياسات Tenancy/Platform؛ I1–I7؛ قراران: كتالوج Platform Admin لـservice فقط، و EXECUTE مع السياسات لا في M20 | `supabase/migrations/20260925154337_policies_tenancy_platform.sql`, `supabase/tests/14_isolation.test.sql`, `docs/RLS_MODEL_v1.md`, `docs/DB_IMPLEMENTATION_SPEC_v1.md`, `CLAUDE.md`, `docs/PLAN_v3.md` |
+| 2026-09-25 | 🔒 **M13 مغلقة** — 61/61، 506/506، CI أخضر (`320f883`)؛ اعتماد: Foundation = 29 جدولاً، RLS enforcement 29/29، سياسات التطبيق 28 و`auth_identities` مستثنى صراحةً؛ فحص «لا سياسات قبل M14» داخل الـmigration | `CLAUDE.md`, `docs/*` |
 | 2026-09-25 | ✅ **M13** — `rls_enable`: بوابة RLS على 29 جدولاً بالاسم؛ ضوابط سلبية (بلا FORCE، بلا RLS، جدول في `app`، سياسة، جدول غير مدرج) كلها تفشل كما يجب | `supabase/migrations/20260925151821_rls_enable.sql`, `supabase/tests/13_rls_enable.test.sql`, `docs/DB_IMPLEMENTATION_SPEC_v1.md`, `docs/RLS_MODEL_v1.md`, `CLAUDE.md` |
 | 2026-09-25 | 🔒 **M12 و M12b و H1/H2 مغلقة** — CI أخضر على `ab65c75`, `7c1cbe2`, `6c4e32c`, `18c70b2`؛ 445/445 | `CLAUDE.md` |
 | 2026-09-25 | H2 مغلق قراراً وتنفيذاً (بانتظار CI)؛ future enrollment مسجل كـdesign item للمرحلة 4 (§6 بند 6) | `CLAUDE.md` |

@@ -133,8 +133,8 @@ select is((select count(*)::int from pg_proc p where p.pronamespace = 'app'::reg
           'every app function except app.auth_uid() is owned by app_owner');
 
 -- RLS
-select is((select v from r where k = 'rls.system_users'), '0', 'RLS: authenticated sees no system users before policies');
-select is((select v from r where k = 'rls.assignments'),  '0', 'RLS: authenticated sees no assignments before policies');
+select is((select v from r where k = 'rls.system_users'), '1', 'RLS (M14 self policy): a platform admin sees only its own system user, none of the others');
+select is((select v from r where k = 'rls.assignments'),  '1', 'RLS (M14 self policy): a platform admin sees only its own assignment');
 
 select * from finish();
 rollback;

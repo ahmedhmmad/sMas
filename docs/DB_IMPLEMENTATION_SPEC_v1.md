@@ -87,7 +87,7 @@
 | D4 | `schools.is_standalone` معرَّف داخل قسم `identity_scopes` لا في قسم `schools` | نُقل إلى §2.3 |
 | D5 | §2.5.1 ما زال يصف `tenant.create` كمطلوب و«مقترح» | حُدِّث: معتمد (C3/K4) |
 | D6 | `families`, `guardians` تحمل `status = archived` بلا قيد يربطه بـ`archived_at` | أُضيف `CHECK ((status = 'archived') = (archived_at IS NOT NULL))` كبقية الجداول |
-| D7 | §7 «تغطية 26/26» | 28/28 |
+| D7 | §7 «تغطية 26/26» | 28/28 — **29/29 بعد G10** (`auth_identities`) |
 | D8 | `membership_scopes`: `UNIQUE (membership_id, scope_type, group_id, school_id)` | **خطأ فعلي:** Postgres يعامل `NULL` كقيم مختلفة، فالقيد **لا يمنع** تكرار نطاق `tenant` (العمودان NULL) ولا تكرار نطاق `group`. التصحيح: `UNIQUE NULLS NOT DISTINCT` (PG15+) |
 | D9 | `memberships`: التفرد `(platform_tenant_id, profile_id)` | بما أن الـprofile في Tenant واحد (O1)، أُضيف `UNIQUE (profile_id)` صراحةً — العلاقة 1:1 |
 | D10 | `effective_to >= effective_from` في ثلاثة جداول | `>` — انظر B6 (فترات نصف مفتوحة) |
@@ -231,7 +231,7 @@ CHECK (start_date >= year_start_date AND end_date <= year_end_date)
 |---|---|---|---|
 | **T5** | رفض UPDATE/DELETE/**TRUNCATE** | `audit_log` (صف + جملة) | REVOKE لا يمنع مالك الجدول؛ و`TRUNCATE` لا يطلق trigger الصف |
 | **T6** | ختم `created_*`/`updated_*` | كل الجداول ذات الأعمدة | لا «DEFAULT عند UPDATE» في Postgres؛ ومنع التزوير |
-| **T7** | التقاط التدقيق | 27 جدولاً | — |
+| **T7** | التقاط التدقيق | 28 جدولاً (الـ29 عدا `audit_log`) | — |
 | **T8** | صلاحيات الدور ⊆ صلاحيات الفاعل | `membership_roles` (INSERT/DELETE)، `role_permissions` (INSERT/DELETE) | يعتمد على هوية الفاعل |
 | **T9** | إنشاء نطاق الهوية تلقائياً | `groups` (INSERT)، `schools` (INSERT حين `group_id IS NULL`) | وجود صف تابع ✅ G9 |
 | ~~T1–T4~~ | — | — | **ألغيت: T1/T3/T4 أصبحت إعلانية، T2 بقرار A4** |
@@ -260,7 +260,7 @@ CHECK (start_date >= year_start_date AND end_date <= year_end_date)
 
 ## B4 — الملكية والـFK والتفرد وسلامة التفويض
 
-### 4.1 الملكية — 28/28
+### 4.1 الملكية — 29/29
 
 كما في B1 §1.1. لا جدول بلا ملكية معلنة.
 
@@ -307,9 +307,9 @@ CHECK (start_date >= year_start_date AND end_date <= year_end_date)
 
 الطبقة الثانية تحمي حتى لو فشلت الأولى: صلاحية Tenant لا تُرضي سياسة Platform بأي حال.
 
-### 4.5 تغطية RLS — 28/28 (+ `auth_identities`)
+### 4.5 تغطية RLS — enforcement 29/29؛ سياسات التطبيق 28
 
-> **M13 (2026-09-25):** الجداول الفعلية 29: الـ28 أدناه + `auth_identities` (G10، أُضيف بعد كتابة هذا الجدول). `auth_identities` مفعّل ومفروض **بلا أي سياسة** — لا يقرؤه إلا دوال `app_owner` (`current_security_context`)؛ أي عميل يرى 0 صفوف.
+> **M13 (2026-09-25، معتمد):** Foundation = **29 جدولاً**. **RLS enforcement coverage = 29/29** (ENABLE + FORCE على كل جدول، مثبت في `13_rls_enable`). **Application policy coverage = الـ28 أدناه**، و`auth_identities` (G10) **مستثنى صراحةً** بتصميمه: بلا أي سياسة عميل، لا يقرؤه إلا دوال `app_owner` للسياق الأمني، فأي عميل يرى 0 صفوف. لا تُضاف له سياسة اصطناعية.
 
 | الجدول | SELECT | INSERT | UPDATE | DELETE |
 |---|---|---|---|---|
@@ -318,7 +318,7 @@ CHECK (start_date >= year_start_date AND end_date <= year_end_date)
 | `schools` | `can_access_school` + `school.read` / PA | group scope أو tenant scope + `school.create` / PA | `school.update` | — |
 | `identity_scopes` | نطاق مرئي + `school.read` | T9 فقط | — | — |
 | `system_users` | الذات (PA) | service | service | — |
-| `platform_admin_roles` / `_role_permissions` | PA | service | service | — |
+| `platform_admin_roles` / `_role_permissions` | **service فقط** (قرار 2026-09-25، M14) | service | service | — |
 | `platform_admin_assignments` | الذات (PA) | service | service | — |
 | `profiles` | الذات / `profile.read` + `can_see_membership` | دالة إنشاء | `profile.update` + `can_manage_membership` | — |
 | `memberships` | الذات / `membership.read` + `can_see_membership` | دالة إنشاء | دالة حالة | — |
@@ -594,7 +594,7 @@ CHECK ((status = 'active') = (effective_to IS NULL))
 
 ### 7.1 النطاق
 
-T7 على **كل** جداول Foundation عدا `audit_log` (27 جدولاً). في Foundation كل جدول إما تفويض أو هوية أو إعداد مؤثر — لا جدول «غير حساس» يستحق الاستثناء.
+T7 على **كل** جداول Foundation عدا `audit_log` (28 جدولاً من 29). في Foundation كل جدول إما تفويض أو هوية أو إعداد مؤثر — لا جدول «غير حساس» يستحق الاستثناء.
 
 ### 7.2 محتوى الصف
 
@@ -712,7 +712,7 @@ helpers ─► state fns ─► provisioning fns ─► reference data
 | M12 ✅ | `authz_helpers` | **المتبقي فقط:** دوال العلاقة (`student_in_scope`, `student_linked_to_guardian`, `student_is_self`, `staff_in_scope`, `guardian_in_scope`, `family_in_scope`, `can_access_identity_scope`, `current_guardian_id`) و`can_see/can_manage_membership` — دوال الهوية والصلاحية والنطاق أُنشئت في M03 و M05 و M06 و M07 حين جهزت اعتمادياتها. نص RLS_MODEL §8.1–§8.3 و§10.0 و§10.4 حرفياً | `12_helpers` ✅ 61/61 |
 | M12b ✅ | `authz_helpers_current_scope` | **H2:** `create or replace` لـ`student_in_scope` (أحدث تسجيل)، `staff_in_scope` (تكليف نشط)، `guardian_in_scope` (ارتباط نشط)؛ الباقي يرث. M12 باقية في التاريخ | `12b_current_scope` ✅ 14/14 |
 | M13 ✅ | `rls_enable` | **تحقق فقط:** كل الجداول مفعّلة ومفروضة منذ إنشائها (تنفيذياً: RLS يُفعَّل في migration كل جدول، لأن صلاحيات Supabase الافتراضية تمنح `anon` صلاحية ALL على جداول `public` فور إنشائها) | `13_rls_enable` ✅ 61/61 — قائمة اسمية بـ**29** جدولاً (الـ28 في §4.5 + `auth_identities` من G10)؛ الـmigration بوابة تفشل النشر عند جدول بلا ENABLE/FORCE، أو جدول في `app`، أو سياسة قبل M14 |
-| M14 | `policies_tenancy_platform` | | `14_isolation` (I1–I7) |
+| M14 ✅ | `policies_tenancy_platform` | `platform_tenants`، `groups`، `schools`، `identity_scopes`، `system_users`، `platform_admin_assignments`؛ كل السياسات `TO authenticated`؛ **EXECUTE** على الدوال التي تستدعيها السياسات يُمنح مع السياسات (قرار 2026-09-25)؛ WITH CHECK في UPDATE يضيف عزل Tenant على قيم الصف الجديد | `14_isolation` ✅ 96/96 |
 | M15 | `policies_authz` | profiles، memberships، roles، scopes | `15_escalation` (E1–E8 + F1–F5) |
 | M16 | `policies_academic` | | |
 | M17 | `policies_people_enrollment` | | `17_relationship` (R1–R5) |
@@ -761,7 +761,7 @@ helpers ─► state fns ─► provisioning fns ─► reference data
 | **V7** | سلوك RLS مع جدول بلا سياسة تحت `FORCE` (منع كامل صامت) + استعلام الكتالوج الذي يكشفه | جدول بلا سياسة + استعلام `pg_policies` | — (يُعتمد كاختبار T3) |
 | **V8** | Saga حساب الطالب: Admin API ← دالة DB ← تعويض؛ `auth.uid() IS NULL` تحت service role؛ idempotency بإعادة المحاولة | Supabase Auth محلي: نجاح، فشل مع حذف تعويضي، إعادة محاولة بنفس المعرّف | إعادة تصميم §5.4 قبل F2 |
 
-**ملاحظة على V7:** التحقق من أن **الجداول الـ28 كلها** لها سياسات لا يتم في M00، لأنها غير موجودة بعد. M00 يثبت **السلوك** (منع صامت) و**أداة الكشف** (استعلام `pg_policies`)؛ التغطية الكاملة يثبتها اختبار T3 بعد M13–M18، ويُفشل CI إن نقصت سياسة.
+**ملاحظة على V7:** التحقق من أن **جداول سياسات التطبيق الـ28 كلها** (الـ29 عدا `auth_identities`) لها سياسات لا يتم في M00، لأنها غير موجودة بعد. M00 يثبت **السلوك** (منع صامت) و**أداة الكشف** (استعلام `pg_policies`)؛ التغطية الكاملة يثبتها اختبار T3 بعد M13–M18، ويُفشل CI إن نقصت سياسة.
 
 **أُسقطت من القائمة السابقة** (تفاصيل لا تغيّر التصميم): توافر `btree_gist` — يُفحص ضمنياً في M01؛ سلوك `INSERT ... RETURNING` مع RLS — سلوك Postgres موثّق، ويُغطّى باختبارات M22.
 
@@ -789,6 +789,6 @@ helpers ─► state fns ─► provisioning fns ─► reference data
 ```text
 M00           → يثبت خصائص PostgreSQL/Supabase الحرجة (V1–V8)
 Gate C        → إنشاء الجداول
-T3            → يثبت أن الجداول الـ28 لها سياسات RLS
+T3            → يثبت أن جداول سياسات التطبيق الـ28 (الـ29 عدا auth_identities) لها سياسات RLS
 CI            → يفشل إذا ظهرت فجوة جديدة
 ```
