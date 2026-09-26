@@ -248,7 +248,7 @@
 - [ ] دوال RLS الموحدة: `app.can_access_tenant()`, `app.can_access_group()`, `app.can_access_school()`, `app.has_permission()`، مع helper اختياري `app.user_school_ids()` كتحسين أداء وليس كمصدر الصلاحية الوحيد
 - [ ] قالب اختبار pgTAP للعزل بين مدرستين
 - [ ] trigger عام لتسجيل التغييرات في `audit_log`
-- [ ] المصادقة: دخول الموظفين مع Supabase Auth وJWT؛ حساب الطالب مستقل وفق القرار المعتمد، وحساب ولي الأمر يدعم OTP/كلمة المرور وفق إعداد المدرسة — F2 جارٍ (`docs/F2_AUTHENTICATION.md`): D1 🔒، D2 🔒، D3 ✅ (M26)
+- [ ] المصادقة: دخول الموظفين مع Supabase Auth وJWT؛ حساب الطالب مستقل وفق القرار المعتمد، وحساب ولي الأمر يدعم OTP/كلمة المرور وفق إعداد المدرسة — F2 جارٍ (`docs/F2_AUTHENTICATION.md`): D1 🔒، D2 🔒، D3 🔒 (M26)
 - [ ] تحديد المدرسة من الـ subdomain
 - [ ] هيكل تطبيق الويب: RTL، خط عربي (IBM Plex Sans Arabic أو Cairo)، قائمة تنقل حسب الدور، ملفات الترجمة
 - [x] هيكل FastAPI مع التحقق من Supabase JWT واستخراج المدرسة والدور — 🔒 F4 مغلق (`docs/F4_API_SECURITY.md`، CI `addae39`)؛ السياق يُشتق في DB لا من الـJWT
@@ -793,6 +793,14 @@
 | 2026-09-21 | اعتماد ERD + Data Dictionary + Authorization Matrix + RLS Model كمتطلبات إلزامية قبل بناء وحدات الأعمال |
 | 2026-09-21 | اعتماد Audit للعمليات الحساسة، export مستقل، transactions/idempotency/concurrency، وعدم تعديل migrations المنفذة |
 | 2026-09-24 | **تعدد علاقات الـprofile:** A profile may have multiple legitimate relationships/roles within the same Tenant, including student, employee, and guardian. No database invariant prohibits these combinations. Authorization remains determined independently by role, permission, and scope. (`Profile` = الشخص/الحساب داخل الـTenant، لا نوع المستخدم؛ حساب الطالب «المستقل» في §7.19 لا يستلزم profile ثانياً لنفس الشخص) |
+| 2026-09-26 | **F2 defaults — OTP:** صلاحية الرمز **5 دقائق**، **5 محاولات** لكل تحدٍّ، والطلب الجديد يُلغي السابق |
+| 2026-09-26 | **F2 defaults — كلمة المرور:** **5 إخفاقات ⇒ قفل 15 دقيقة**؛ نجاح OTP يفك القفل (PLAN §7.8). تبقى **configuration** لا افتراضات أعمال ثابتة متى سمح التصميم (اليوم ثوابت في M26 — نقلها إلى إعداد متابعة) |
+| 2026-09-26 | **Staff authentication requires `status = active`:** `on_leave` لا يحصل على جلسة (fail-closed)؛ أي دخول محدود لموظف في إجازة قرار مستقل لاحق |
+| 2026-09-26 | **تنبيهات القفل (ولي الأمر + المدرسة):** لا تُضاف الآن — تابعة لقناة الإرسال (المرحلة 5) |
+| 2026-09-26 | **I4:** حدود معدّل Supabase Auth ومعالجة IP العميل = **Production deployment requirement**، لا مانع لـF2 المحلي |
+| 2026-09-26 | **Tenant Admin Auth identity remains native email for now; separate decision deferred.** (`bootstrap_tenant` — lifecycle مختلف عن student/guardian/staff) |
+| 2026-09-26 | **`login_challenges` بلا T7 (معتمد):** لا تُنسخ OTP hashes إلى `audit_log`؛ نتيجة الدخول/القفل تُدقَّق على guardian/staff |
+| 2026-09-26 | **D4 — ربط الحروف بترتيب PLAN (السطر 412):** **A** = OTP ثم إنشاء كلمة مرور إجبارياً؛ **B** = OTP فقط وكلمة المرور اختيارية؛ **C** = كلمة مرور مؤقتة من المدرسة ثم تغيير إجباري |
 | 2026-09-26 | **D3 — Tenant accounts synthetic identity (معتمد بعد الـSpike):** ولي الأمر (هاتف) والموظف (بريد): الهاتف/البريد الحقيقي في `guardians`/`staff`، وحساب Auth اصطناعي؛ الجلسة يصدرها Supabase Auth عبر Admin `generate_link` (magiclink) ثم `/verify` في الخادم — FastAPI لا يصدر JWT، والبريد الاصطناعي والـtoken_hash ورابط الجلسة والأسرار لا تصل إلى العميل. **I1:** الحساب الموقوف لا يبدأ مصادقة أصلاً (لا OTP ولا جلسة) بالرد الخارجي نفسه. **I2:** `auth.users.id = guardian_id` / `staff_id` — قاعدة موحدة مع D1: **Domain entity ID = Supabase Auth user ID**. **I4:** حدود معدّل Supabase Auth لكل IP = Production configuration dependency، لا مانع لـD3. **I6:** مسار الموظف مختبر قبل إغلاق D3. **I7:** قناة WhatsApp/SMS — المرحلة 5؛ مرسل محلي في D3 |
 | 2026-09-26 | **D2 = B (2026-09-26):** `pending → تغيير الكلمة عبر Supabase Auth → FastAPI → app.activate_first_login() → active`؛ أي فشل ⇒ يبقى pending (fail closed). الدالة تتحقق من الشروط كلها: pending؛ الحساب = auth.uid()؛ حدث `user_updated_password` في سجل Supabase Auth بفاعل = الحساب نفسه بعد لحظة إصدار الكلمة المؤقتة (EXISTS لا «آخر صف»)؛ `user_modified` لا يُقبل؛ idempotent؛ مُدقَّق كـ`activate_first_login`؛ لا مسار بلا auth.uid(). لا trigger على `auth.users` ولا `auth.audit_log_entries`. عقد V9b اختبار CI كـ**Supabase Auth integration assumption**. Admin reset → force change = مسار متحكَّم به مستقل (5c) |
 | 2026-09-26 | **استثناء R2 — قائمة مغلقة مسمّاة (M25، 2026-09-26):** `app.auth_uid()` + `app.auth_user_updated_at(uid)` + `app.auth_password_changed_by_self_after(uid, ts)` — ملك `postgres`، `search_path` فارغ، EXECUTE لـ`app_owner` وحده، تعيد لحظة/قيمة منطقية لا صفاً؛ لأن `app_owner` لا يصل إلى schema `auth` و`postgres` لا يملك grant option عليه. أي إضافة للقائمة قرار جديد |
