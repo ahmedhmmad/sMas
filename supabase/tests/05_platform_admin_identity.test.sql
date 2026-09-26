@@ -128,9 +128,11 @@ select ok((select bool_and(pg_get_userbyid(proowner) = 'app_owner' and prosecdef
 select is((select count(*)::int from pg_proc p where p.pronamespace = 'app'::regnamespace
              and has_function_privilege('anon', p.oid, 'EXECUTE')), 0,
           'no function in schema app is executable by anon');
-select is((select count(*)::int from pg_proc p where p.pronamespace = 'app'::regnamespace
-             and p.oid <> 'app.auth_uid()'::regprocedure and pg_get_userbyid(p.proowner) <> 'app_owner'), 0,
-          'every app function except app.auth_uid() is owned by app_owner');
+-- استثناءات R2 — قائمة مغلقة مسمّاة (M25، قرار 2026-09-26): قراءة schema auth التي لا يصلها app_owner
+select is((select coalesce(string_agg(p.oid::regprocedure::text, ',' order by p.oid::regprocedure::text), 'none') from pg_proc p
+            where p.pronamespace = 'app'::regnamespace and pg_get_userbyid(p.proowner) <> 'app_owner'),
+          'app.auth_password_changed_by_self_after(uuid,timestamp with time zone),app.auth_uid(),app.auth_user_updated_at(uuid)',
+          'every app function is owned by app_owner except the closed R2 list (auth_uid; M25: auth_user_updated_at, auth_password_changed_by_self_after)');
 
 -- RLS
 select is((select v from r where k = 'rls.system_users'), '1', 'RLS (M14 self policy): a platform admin sees only its own system user, none of the others');

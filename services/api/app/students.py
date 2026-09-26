@@ -6,6 +6,9 @@
   4. app.provision_student بـJWT المستدعي (RLS/T8؛ D1 مفروض في DB)       ← معاملة ذرية
   5. فشل 4 ← حذف الحساب تعويضاً (فقط إن أُنشئ في هذه المحاولة)
   6. كلمة المرور الأولية = معرّف الدخول (Official ID أو Temporary ID المولَّد في 4) — §7.19
+  7. app.arm_first_login بـJWT المستدعي: لحظة الإصدار (D2) — الحساب pending منذ 4
+
+فشل 7: الحساب pending بلا لحظة إصدار ⇒ لا تفعيل ممكن (مغلق)؛ إعادة الطلب نفسه تكمل.
 
 فشل 6 بعد نجاح 4: الطالب موجود وحسابه بكلمة مرور عشوائية لا يعرفها أحد (آمن)؛ إعادة الطلب نفسه تكمل.
 لا سلطة هنا: FastAPI لا يقرر من يُنشئ طالباً — `provision_student` تقرر.
@@ -81,4 +84,9 @@ def create_student(body: NewStudent, request: Request, c: dict = Depends(claims)
         admin.set_password(body.student_id, identifier)
     except AuthAdminError as exc:
         raise HTTPException(status_code=502, detail="initial_password_pending_retry") from exc
+    try:
+        with database.as_user(c) as conn:
+            conn.execute("select app.arm_first_login(%s)", [body.student_id])
+    except psycopg.Error as exc:
+        raise http_error(exc) from exc
     return {"student_id": str(body.student_id), "login_identifier": identifier}

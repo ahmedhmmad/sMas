@@ -167,8 +167,11 @@ ALTER TABLE schools ADD CONSTRAINT schools_group_same_tenant_fk
 | `auth_user_id` | uuid | NOT NULL | — | PK، FK → `auth.users(id)` |
 | `kind` | text | NOT NULL | — | `tenant` \| `platform` |
 | `created_at` | timestamptz | NOT NULL | `now()` | |
+| `credential_state` | text | NOT NULL | `'active'` | ✅ M25 (F2/D2): `active` \| `pending` — `pending` ⇒ `current_profile_id()`/`current_tenant_id()` = NULL (بوابة الجذر) |
+| `credential_issued_at` | timestamptz | NULL | — | ✅ M25: لحظة كتابة الكلمة المؤقتة **بساعة Supabase Auth** (`auth.users.updated_at` بعد الكتابة، عبر `arm_first_login`)؛ NULL = لم تُصدَر بعد ⇒ لا تفعيل |
+| `credential_activated_at` | timestamptz | NULL | — | ✅ M25: لحظة التفعيل عبر `activate_first_login` |
 
-**القيود:** `PRIMARY KEY (auth_user_id)`؛ `CHECK (kind IN ('tenant','platform'))`؛ `UNIQUE (auth_user_id, kind)` — هدف FK من:
+**القيود:** `PRIMARY KEY (auth_user_id)`؛ `CHECK (kind IN ('tenant','platform'))`؛ `UNIQUE (auth_user_id, kind)`؛ ✅ M25: `auth_identities_credential_state_chk` (`credential_state IN ('active','pending')`)، `auth_identities_credential_kind_chk` (حساب المنصة `active` دائماً — D2 لحسابات Tenant)، `auth_identities_credential_activated_chk` (`credential_activated_at` ⇒ `active`) — هدف FK من:
 - `profiles (auth_user_id, identity_kind)` حيث `identity_kind` ثابت `'tenant'` (`CHECK`)
 - `system_users (auth_user_id, identity_kind)` حيث `identity_kind` ثابت `'platform'` (M05)
 

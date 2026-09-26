@@ -321,6 +321,8 @@ revoke execute on function app.auth_uid() from public, anon, authenticated;
 grant  execute on function app.auth_uid() to app_owner;
 ```
 
+**استثناء R2 — قائمة مغلقة مسمّاة (M25، 2026-09-26):** `app.auth_uid()` + `app.auth_user_updated_at(uid)` + `app.auth_password_changed_by_self_after(uid, ts)` — ملك `postgres`، `search_path` فارغ، EXECUTE لـ`app_owner` وحده، تعيد لحظة/قيمة منطقية لا صفاً؛ لأن `app_owner` لا يصل إلى schema `auth` و`postgres` لا يملك grant option عليه. أي إضافة للقائمة قرار جديد
+
 **قاعدة الاستعمال — أين `app.auth_uid()` وأين `auth.uid()`:**
 
 | الموضع | يُنفَّذ بدور | يستعمل |

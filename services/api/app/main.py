@@ -19,7 +19,7 @@ import psycopg
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from . import student_login, students
+from . import first_login, student_login, students
 from .audit import write_access_audit
 from .auth_admin import AuthAdmin
 from .config import load_settings
@@ -52,6 +52,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="SMas API", lifespan=lifespan)
 app.include_router(student_login.router)
 app.include_router(students.router)
+app.include_router(first_login.router)
 
 
 @app.exception_handler(psycopg.errors.InsufficientPrivilege)

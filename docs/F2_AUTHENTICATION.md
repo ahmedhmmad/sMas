@@ -1,6 +1,6 @@
 # Gate F2 — المصادقة
 
-**الحالة:** D1/M24 🔒 (CI `3f4ae05`) · D2 🔬 **V9 منفذ** (§3.1): الآلية المقترحة **مرفوضة** (5a/5b)؛ خيارات بإشارة سجل Auth بانتظار القرار · D3 🔬 Spike · D4 ⚠️ دلالات A/B/C (§5)
+**الحالة:** D1/M24 🔒 (CI `3f4ae05`) · D2 ✅ **B منفذ — M25** (§3.2) بانتظار المراجعة · D3 🔬 Spike · D4 ⚠️ دلالات A/B/C (§5)
 **الترتيب المعتمد:** M24 → D1 → D2 → D3 Spike → D3 → D4 → E2E لكل الأدوار
 
 ---
@@ -10,7 +10,7 @@
 | # | القرار | الحالة |
 |---|---|---|
 | **D1** | Student Auth identity = **A**: `auth.users.id = student_id` (UUID يولده العميل، مفتاح الـSaga)؛ بريد Auth `student_id@students.smas.invalid` لا يراه الطالب؛ الدخول بـOfficial/Temporary ID يُحَل في FastAPI داخل نطاق الهوية؛ Temporary ← Official لا يغيّر هوية Auth؛ لا اعتماد على `temporary_id` لإنشاء الحساب. دالة lookup ضيقة قبل JWT لا تكشف tenant/school/بيانات الطالب ولا تختلف بين موجود وغير موجود، مع rate limiting — **M24** | ✅ |
-| **D2** | First-login password change = **DB/RLS boundary**: أثناء `pending` ترجع `current_tenant_id()` و`current_profile_id()` NULL؛ التغيير عبر Supabase Auth بجلسة المستخدم؛ **انتقال حالة موثوق** — لا عمليتان منفصلتان تسمحان بحالة غير متسقة | ✅ القرار — الآلية §3 |
+| **D2** | **= B** (§3.2) — First-login password change = **DB/RLS boundary**: أثناء `pending` ترجع `current_tenant_id()` و`current_profile_id()` NULL؛ التغيير عبر Supabase Auth بجلسة المستخدم؛ **انتقال حالة موثوق** — لا عمليتان منفصلتان تسمحان بحالة غير متسقة | ✅ B — M25 |
 | **D3** | Tenant users (Guardian/Staff) = **synthetic identity per tenant account** (ii): لا `guardian phone → auth.users.phone` ولا `staff email → auth.users.email` كهوية عالمية؛ الهاتف/البريد الحقيقي في جدول النطاق. **Tenant isolation أهم من native identity.** | ✅ القرار |
 | D3 | آلية الجلسة/OTP | 🔬 **Spike إلزامي قبل التنفيذ** (§4) |
 | **D4** | سياسة first-login لولي الأمر تُحدَّد **حسب المدرسة المستهدفة أثناء الدخول/الـonboarding**، لا حسب المدرسة التي أنشأت الحساب | ⚠️ دلالات A/B/C قبل التنفيذ (§5) |
@@ -63,11 +63,15 @@
 | N1 | **حالة الطالب:** `active` وحدها تدخل؛ `withdrawn` لا تدخل — **سلوك مقصود (معتمد 2026-09-26)** |
 | N2 | حد المحاولات في ذاكرة العملية؛ تعدد نسخ الخدمة يحتاج مخزناً مشتركاً — مع البنية/الإنتاج |
 | N3 | الـseed (E5) صار على شكل D1: حساب الطالب = معرّفه، بريده اصطناعي، ويدخل بالـOfficial ID |
-| N4 | حتى D2: كلمة المرور الأولية (= المعرّف) تعمل فوراً بلا إجبار تغيير — D2 يغلق ذلك |
+| N4 | ~~حتى D2: كلمة المرور الأولية تعمل فوراً~~ — **أُغلق في M25**: الحساب pending حتى التغيير والتفعيل |
 
 ---
 
-## 3. D2 — الآلية المقترحة (**غير معتمدة** — V9 أولاً)
+## 3. D2 — first-login password change
+
+> **الاقتراح الأول أدناه (trigger على `auth.users`) مرفوض بنتائج V9 (§3.1). المعتمد والمنفذ: الخيار B (§3.2).**
+
+### 3.0 الاقتراح الأول (مرفوض)
 
 > **الهدف الأمني:** لا مسار يجعل الحساب مفتوحاً قبل استيفاء شرط first-login. الذرية ليست هدفاً بأي ثمن: إن لم يعطِ `auth.users` إشارة موثوقة تميّز تغيير first-login عن إعادة ضبط المدير أو إعادة الكلمة نفسها، فالبديل: `pending → تغيير عبر Supabase Auth → تفعيل متحكَّم به → active`، وأي فشل في التفعيل يُبقي الحساب مغلقاً ويقبل إعادة المحاولة.
 >
@@ -135,6 +139,42 @@ Spike محلي (ليس migration): نموذج الآلية المقترحة **ب
 **لماذا B:** يحقق الهدف الأمني (لا مسار يفتح الحساب قبل شرط first-login) بإشارة مُثبتة تميّز الطالب عن المدير، دون trigger على جداول Supabase Auth؛ والخطوتان fail-closed وقابلتان للإعادة. **في A وB معاً:** إن توقفت كتابة سجل Auth في قاعدة البيانات (إعداد لدى المزود أو تغيّر صيغته في ترقية) فلا تفعيل ⇒ الحسابات تبقى مغلقة (آمن لا مفتوح) — يُحرس باختبار CI يفشل عند تغيّر الصيغة، ويُتحقق من إعداد هدف الإنتاج.
 
 **ما لا تحله أي آلية:** إعادة ضبط خارج المسار المتحكَّم به (Dashboard/Admin API مباشرة) لحساب `active` لا تعيد الإجبار (5c). الإجبار بعد إعادة الضبط = مسار إعادة ضبط متحكَّم به (issuing ← الكلمة ← arm ← pending)، وإعادة الضبط الخارجية عملية مشغّل تُضبط إجرائياً.
+
+### 3.2 المعتمد والمنفذ — الخيار B (M25)
+
+**القرار (2026-09-26):** **D2 = B (2026-09-26):** `pending → تغيير الكلمة عبر Supabase Auth → FastAPI → app.activate_first_login() → active`؛ أي فشل ⇒ يبقى pending (fail closed). الدالة تتحقق من الشروط كلها: pending؛ الحساب = auth.uid()؛ حدث `user_updated_password` في سجل Supabase Auth بفاعل = الحساب نفسه بعد لحظة إصدار الكلمة المؤقتة (EXISTS لا «آخر صف»)؛ `user_modified` لا يُقبل؛ idempotent؛ مُدقَّق كـ`activate_first_login`؛ لا مسار بلا auth.uid(). لا trigger على `auth.users` ولا `auth.audit_log_entries`. عقد V9b اختبار CI كـ**Supabase Auth integration assumption**. Admin reset → force change = مسار متحكَّم به مستقل (5c)
+
+**قاعدة البيانات — M25 `first_login_credential`:**
+
+| العنصر | |
+|---|---|
+| `auth_identities` | `credential_state` (`active`\|`pending`، افتراضي `active`)، `credential_issued_at`، `credential_activated_at`؛ 3 قيود مسمّاة (DD §2.0)؛ بلا سياسة عميل ولا منح (G10)؛ T7 يدقّق كل انتقال |
+| بوابة الجذر | `current_profile_id()`/`current_tenant_id()` = NULL ما لم يكن `credential_state = 'active'` — نمط M21b؛ PostgREST مغلق أيضاً |
+| `provision_student` | الحساب يولد `pending` (نص M24 + سطر) |
+| `app.arm_first_login(uid)` | بعد كتابة الكلمة المؤقتة عبر Admin API، بـJWT المستدعي (`student.create` + الطالب في نطاقه): لحظة الإصدار = `auth.users.updated_at` — **ساعة Supabase Auth نفسها** التي تختم سجل التدقيق (لا انحراف ساعات بين خادمين)؛ مرة واحدة (إعادة الإصدار مسار 5c) |
+| `app.activate_first_login()` | بلا معاملات؛ الشروط التسعة؛ `EXISTS` على كل الصفوف المؤهلة؛ يعيد `active` أو `pending` |
+| قراءة schema `auth` | **استثناء R2 موسّع بقرار:** دالتان ملك `postgres` (`search_path` فارغ، EXECUTE لـ`app_owner` وحده) تعيدان لحظة وقيمة منطقية فقط — `app_owner` لا يصل إلى `auth` و`postgres` لا يملك grant option عليه |
+
+**FastAPI:** الـSaga تستدعي `arm_first_login` بعد كتابة الكلمة الأولية (فشلها ⇒ الحساب مغلق وإعادة الطلب تكمل)؛ `POST /auth/activate` بجلسة الطالب ← `200 {"state":"active"}` أو `409 password_change_required`.
+
+**الاختبارات:**
+
+| | |
+|---|---|
+| pgTAP `25_first_login` — 36 | القيود بأسمائها؛ البوابة (NULL + RLS صفر)؛ arm (الصلاحية، النطاق، اللحظة من `auth.users`، مرة واحدة)؛ activate: service_role بلا EXECUTE، بلا JWT، حساب منصة، بلا حدث، **لم يُصدَر**، **حدث قبل الإصدار**، `user_modified` بـservice_role، `user_updated_password` بفاعل آخر، **`user_modified` بفاعل الحساب نفسه**، حدث حساب آخر؛ النجاح وسط صفوف غير صالحة قبله وبعده؛ تدقيق `activate_first_login:tenant_user`؛ idempotent؛ ملكية الدوال ومنحها |
+| pytest `test_first_login` — 8 | حساب جديد pending ومغلق عبر FastAPI **و PostgREST**؛ التفعيل قبل التغيير 409؛ تغيير ← تفعيل ← السياق يفتح وصفه وحده، المؤقتة انتهت؛ **V9 5a** (المدير يضع المؤقتة أثناء pending) لا يفتح؛ same/weak password لا يفتحان؛ فشل arm ⇒ مغلق حتى مع تغيير صالح؛ الموظفون لا يتأثرون |
+| pytest `test_auth_contract` — 5 | **عقد V9b (Supabase Auth integration assumption):** تغيير المستخدم ⇒ `user_updated_password` بفاعله؛ كتابة المدير ⇒ `user_modified` بـservice_role فقط؛ same/weak ⇒ لا إشارة؛ الحدث بعد لحظة الإصدار |
+
+**الضوابط السلبية — كلها تُفشل الاختبارات:** الإشارة بأي `action` ← pgTAP 2 + pytest 4؛ بلا شرط الزمن ← pgTAP 2؛ بأي فاعل ← pgTAP 5؛ بلا بوابة الجذر ← pytest 1؛ الـSaga بلا arm ← pytest 1.
+
+**ملاحظات:**
+
+| # | |
+|---|---|
+| N5 | البحث في `auth.audit_log_entries` بلا فهرس على `payload` (جدول Supabase Auth) — مسح مرة لكل تفعيل؛ يُراقب مع الحجم الحقيقي |
+| N6 | طالب الـseed (E5) صار `pending` كأي طالب جديد — يغيّر كلمته ويفعّل أولاً |
+| N7 | إن توقفت كتابة سجل Supabase Auth في قاعدة البيانات أو تغيّرت صيغته: لا تفعيل ⇒ الحسابات تبقى مغلقة، و`test_auth_contract` يفشل في CI — يُتحقق من إعداد هدف الإنتاج |
+| N8 | Admin reset → force change: خارج D2 (قرار 5c) — مسار متحكَّم به بحالة صريحة إن طُلب |
 
 ---
 

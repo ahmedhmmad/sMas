@@ -6,7 +6,7 @@ import httpx
 import pytest
 
 from app.auth_admin import student_email
-from conftest import DEV_TENANT, ENV, auth
+from conftest import ENV, auth
 
 TENANT_CODE, SCHOOL_A, SCHOOL_B = "DEV", "school-a", "school-b"
 SEED_STUDENT = "e0000000-0000-4000-8000-000000000001"
@@ -88,7 +88,8 @@ def test_login_with_temporary_id(client, section_sa, ids):
     assert session.status_code == 200
     assert set(session.json()) == {"access_token", "refresh_token", "expires_in", "token_type"}   # لا بيانات أخرى
     me = client.get("/me", headers={"Authorization": f"Bearer {session.json()['access_token']}"}).json()
-    assert me["auth_user_id"] == body["student_id"] and me["tenant_id"] == DEV_TENANT and me["profile_id"]
+    # الهوية هي الطالب؛ السياق مغلق حتى تغيير الكلمة الأولى (D2 — test_first_login)
+    assert me["auth_user_id"] == body["student_id"] and me["profile_id"] is None and me["tenant_id"] is None
 
 
 def test_login_with_official_id(client, section_sa):

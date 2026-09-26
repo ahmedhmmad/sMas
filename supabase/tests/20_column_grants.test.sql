@@ -116,7 +116,8 @@ insert into controlled_allowlist values   -- M21
   ('app.provision_student(uuid,uuid,uuid,date,text,text,text,text,text,text,text,date,text,uuid,text,text)'),
   ('app.provision_staff(uuid,uuid,text,text,text,text,date,text,text,text,text,text,text,date,date)'),
   ('app.provision_guardian(uuid,uuid,text,text,text,text,date,text,text,text,text,text,boolean)'),
-  ('app.provision_account(text,uuid,uuid)');
+  ('app.provision_account(text,uuid,uuid)'),
+  ('app.arm_first_login(uuid)'), ('app.activate_first_login()');   -- M25 (F2/D2)
 select pg_temp.rec('x.uncategorized', $q$select coalesce(string_agg(p.oid::regprocedure::text, ','), 'none') from pg_proc p
   where p.pronamespace = 'app'::regnamespace and has_function_privilege('authenticated', p.oid, 'EXECUTE')
     and not exists (select 1 from pg_policies pol where pol.schemaname = 'public'
@@ -180,7 +181,7 @@ select ok(not has_table_privilege('service_role', 'public.audit_log', 'UPDATE') 
 -- ---------- EXECUTE بفئتين ----------
 select is((select v from r where k = 'x.uncategorized'), 'none',
           'EXECUTE for authenticated: every function is either an RLS helper called by a policy or an allowlisted controlled function');
-select is((select v from r where k = 'x.allowlist_missing'), 'none', 'every allowlisted controlled function is executable (15 from M21 + 5 from M22)');
+select is((select v from r where k = 'x.allowlist_missing'), 'none', 'every allowlisted controlled function is executable (15 from M21 + 5 from M22 + 2 from M25)');
 select is((select count(*)::int from pg_proc p where p.pronamespace = 'app'::regnamespace and has_function_privilege('anon', p.oid, 'EXECUTE')), 0,
           'anon executes no function in app');
 select is((select count(*)::int from pg_proc p where p.pronamespace = 'app'::regnamespace

@@ -524,6 +524,8 @@ grant execute on function app.archive_student(uuid, text) to authenticated;
 | `app.transfer_enrollment(id, target_section, date, reason, [enrollment_no])` ✅ M21 | `enrollment.transfer` + نطاق على المدرستين + الطالب في النطاق الحالي؛ ذرية |
 | `app.end_staff_assignment(id, effective_to, reason)` ✅ M21 (M17b) | `staff.assign` + نطاق المدرسة؛ لا إعادة فتح |
 | `app.set_role_status(id, status, reason)` ✅ M21 (M19) | `role.update` + نطاق tenant + صلاحيات الدور ⊆ الفاعل في الاتجاهين |
+| `app.arm_first_login(auth_user_id)` ✅ M25 (F2/D2) | `student.create` + الطالب في النطاق الحالي؛ لحظة الإصدار من `auth.users.updated_at`؛ مرة واحدة |
+| `app.activate_first_login()` ✅ M25 (F2/D2) | الفاعل auth.uid() وحده؛ pending + `user_updated_password` بفاعل الحساب بعد الإصدار (سجل Supabase Auth)؛ `docs/F2_AUTHENTICATION.md` §3.2 |
 
 `reason` إلزامي في دوال الأرشفة والإغلاق ويُمرَّر إلى T7.
 
