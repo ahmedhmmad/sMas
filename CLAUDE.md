@@ -3,7 +3,7 @@
 **المشروع:** نظام إدارة المدارس متعدد المستأجرين (Multi-Tenant SMS)
 **تاريخ الإنشاء:** 2026-09-22
 **آخر تحديث:** 2026-09-23
-**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (**Gate C 🔒 مكتمل: M01–M23**؛ **Gate E 🔒 مغلق تقنياً: E1–E6** — Production Backup Policy TBD؛ Gate F: **F4 🔒**؛ F2: **D1/M24 🔒**؛ **D2 = B منفذ (M25)** بانتظار المراجعة)
+**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (**Gate C 🔒 مكتمل: M01–M23**؛ **Gate E 🔒 مغلق تقنياً: E1–E6** — Production Backup Policy TBD؛ Gate F: **F4 🔒**؛ F2: **D1/M24 🔒، D2/M25 🔒**؛ التالي D3 Spike)
 
 ---
 
@@ -470,7 +470,7 @@ Platform Admin → Role → Permission + Platform-level scope
 
 - [ ] **F1.** تطبيق الويب: Vite + TS + Tailwind RTL، خط عربي (IBM Plex Sans Arabic / Cairo)، i18n، تنقل حسب الدور.
 - [ ] **F2.** المصادقة: Supabase Auth + JWT للموظفين؛ حساب الطالب المستقل؛ حساب ولي الأمر OTP/كلمة مرور حسب إعداد المدرسة.
-      `docs/F2_AUTHENTICATION.md` — الترتيب: M24 → D1 → D2 → D3 Spike → D3 → D4 → E2E. **D1/M24 🔒** (CI `3f4ae05`؛ 24: 26/26، pytest 68/68)؛ **D2 = B** (M25 + `POST /auth/activate`؛ 25: 36، pytest 81/81، 5 ضوابط سلبية)؛ D3 Spike؛ D4 دلالات A/B/C.
+      `docs/F2_AUTHENTICATION.md` — الترتيب: M24 → D1 → D2 → D3 Spike → D3 → D4 → E2E. **D1/M24 🔒** (CI `3f4ae05`؛ 24: 26/26، pytest 68/68)؛ **D2/M25 🔒** (CI `62c76b1`؛ 25: 36، pytest 81/81)؛ D3 Spike؛ D4 دلالات A/B/C.
 - [ ] **F3.** تحديد المدرسة من الـsubdomain (سياق واجهة فقط — لا يمنح أي صلاحية).
 - [x] **F4.** هيكل FastAPI: التحقق من Supabase JWT، استخراج Tenant/Scope/Role، طبقة تفويض مشتركة.
       🔒 **مغلق (2026-09-26، CI `addae39`)** (`docs/F4_API_SECURITY.md`): JWT ← FastAPI ← DB (RLS + `app.*`) ← البيانات؛ لا تفويض موازٍ في FastAPI. اتصال `authenticator`؛ P3 بمفتاح التصدير نفسه عبر `has_permission` + `can_access_school`؛ N5 مُدقَّق ذرياً؛ 48/48 pytest + 4 ضوابط سلبية؛ خطوة CI.
@@ -593,6 +593,7 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | ✅ **C3** — اعتماد `platform_admin_roles → platform_admin_role_permissions → permissions`؛ `is_platform_admin()` اختبار هوية فقط، و`has_permission()` توحّد المسارين. الكتالوج 73 مفتاحاً بعد K4 (`tenant.create`) | `docs/ROLE_PERMISSION_SEED_v1.md`, `AUTHORIZATION_MATRIX_v1.md`, `docs/DATA_DICTIONARY_v1.md`, `CLAUDE.md` |
 | 2026-09-22 | ✅ **A3** — RLS Model: 7 دوال، سياسات كل الجداول، حل تعارض FORCE RLS/recursion، 30 اختبار pgTAP، و6 بنود معلّقة | `docs/RLS_MODEL_v1.md`, `CLAUDE.md` |
 | 2026-09-23 | ✅ **A5** — اعتماد A1–A4 كـFoundation Design Baseline | — |
+| 2026-09-26 | 🔒 **D2/M25 مغلقان** — CI أخضر (`62c76b1`)؛ طالب الـseed `pending` صحيح (lifecycle الحقيقي — اختبارات E2E تُتم first-login أولاً)؛ **ملاحظة أداء:** مسح `auth.audit_log_entries` بلا فهرس — يُقاس زمن `activate_first_login()` وحجم الجدول مع بيانات حقيقية، ولا فهرس الآن بافتراض ولا تعديل غير مدعوم لجداول Supabase | `CLAUDE.md`, `docs/F2_AUTHENTICATION.md` |
 | 2026-09-26 | ✅ **F2/D2 = B + M25** — تفعيل متحكَّم به fail-closed بإشارة سجل Supabase Auth؛ بوابة الجذر؛ استثناء R2 موسّع بقرار؛ pgTAP 25: 36؛ pytest 81/81 (عقد V9b + D2)؛ 5 ضوابط سلبية | `supabase/migrations/20260926160000_first_login_credential.sql`, `supabase/tests/{05,20,25}_*.test.sql`, `services/api/**`, `docs/F2_AUTHENTICATION.md`, `docs/DATA_DICTIONARY_v1.md`, `docs/RLS_MODEL_v1.md`, `docs/DB_IMPLEMENTATION_SPEC_v1.md`, `CLAUDE.md`, `docs/PLAN_v3.md` |
 | 2026-09-26 | 🔬 **V9** — trigger على `encrypted_password` **يفتح الحساب** عند كتابة المدير (5a/5b) ولا إشارة في `auth.users` تميّزه؛ الإشارة الموثوقة في سجل Supabase Auth: `user_updated_password` بفاعل الحساب، في معاملة الكتابة نفسها، ولا يكتبه المدير؛ الخيار B (تفعيل متحكَّم به fail-closed بهذه الإشارة) مقترح — لا migration | `spikes/v9/*`, `docs/F2_AUTHENTICATION.md`, `CLAUDE.md` |
 | 2026-09-26 | 🔒 **D1/M24 مغلقان** — CI أخضر (`3f4ae05`)؛ الطالب `withdrawn` لا يدخل (سلوك مقصود)؛ D2: V9 إلزامي بحالاته الثماني، ولا migration قبل مراجعة new/same/admin reset/failed update؛ البديل المحافظ (تفعيل متحكَّم به fail-closed) مفتوح | `CLAUDE.md`, `docs/F2_AUTHENTICATION.md` |
