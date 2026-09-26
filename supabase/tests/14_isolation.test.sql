@@ -227,6 +227,11 @@ begin
   execute 'reset role';
   insert into r values ('sweep.' || p_label, coalesce(v_bad, 'none') || '|' || v_tables);
 end $$;
+-- M26: تحدٍّ OTP في T2 كي لا يكون مسح login_challenges فارغاً (لا وصول عميل إليه أصلاً)
+insert into public.login_challenges (platform_tenant_id, account_id, kind, code_hash, expires_at)
+  select '20000000-0000-0000-0000-000000000002', ai.auth_user_id, 'staff', 'x', now() + interval '5 minutes'
+  from public.auth_identities ai join public.profiles p on p.auth_user_id = ai.auth_user_id
+  where p.platform_tenant_id = '20000000-0000-0000-0000-000000000002' limit 1;
 select pg_temp.sweep('ta');
 -- الضابط العكسي: t2a يرى بيانات T2 في جداول M14 ولا شيء من T1
 select pg_temp.run('sweep.t2a_own', 't2a', $q$select (select count(*) from public.platform_tenants) || '/' || (select count(*) from public.groups) || '/' || (select count(*) from public.schools)$q$);

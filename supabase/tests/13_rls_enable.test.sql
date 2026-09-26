@@ -16,7 +16,8 @@ insert into expected values
   ('academic_years'), ('terms'), ('stages'), ('grade_levels'), ('sections'),
   ('staff'), ('staff_school_assignments'), ('families'), ('students'), ('guardians'), ('student_guardians'),
   ('enrollments'),
-  ('audit_log');
+  ('audit_log'),
+  ('login_challenges');                      -- M26 (F2/D3): بلا سياسة ولا منح — دوال متحكَّم بها فقط
 
 create temp view actual as
   select c.relname::text as t, c.relrowsecurity as enabled, c.relforcerowsecurity as forced
@@ -24,12 +25,12 @@ create temp view actual as
   where c.relnamespace = 'public'::regnamespace
     and c.relkind in ('r', 'p');
 
-select plan(1 + 1 + 29 + 29 + 1 + 1);
+select plan(1 + 1 + 30 + 30 + 1 + 1);
 
-select is((select count(*)::int from expected), 29, 'the expected Foundation list has 29 tables');
+select is((select count(*)::int from expected), 30, 'the expected list has 30 tables (29 Foundation + login_challenges, M26)');
 
 select set_eq('select t from actual', 'select t from expected',
-              'public holds exactly the 29 expected Foundation tables — none missing, none unlisted');
+              'public holds exactly the 30 expected tables — none missing, none unlisted');
 
 -- لكل جدول بالاسم؛ LEFT JOIN: جدول متوقع غير موجود يُنتج فشلاً لا اختباراً ناقصاً
 select ok(coalesce(a.enabled, false), format('%s: ROW LEVEL SECURITY enabled', e.t))
@@ -44,8 +45,8 @@ select is((select count(*)::int from pg_class where relnamespace = 'app'::regnam
 --   auth_identities (G10، M13)، platform_admin_roles و platform_admin_role_permissions (service فقط، قرار 2026-09-25)
 select is((select string_agg(e.t, ',' order by e.t) from expected e
             where not exists (select 1 from pg_policies p where p.schemaname = 'public' and p.tablename = e.t and p.cmd in ('SELECT','ALL'))),
-          'auth_identities,platform_admin_role_permissions,platform_admin_roles',
-          'T3: every Foundation table has a SELECT policy except the three documented exceptions');
+          'auth_identities,login_challenges,platform_admin_role_permissions,platform_admin_roles',
+          'T3: every table has a SELECT policy except the four documented exceptions (login_challenges: M26)');
 
 select * from finish();
 rollback;

@@ -153,6 +153,7 @@ ALTER TABLE schools ADD CONSTRAINT schools_group_same_tenant_fk
 | 27 | `sections` | S | |
 | 28 | `audit_log` | A | |
 | (29) | `auth_identities` | P | ✅ G10 — حصرية هوية Tenant/Platform |
+| (30) | `login_challenges` | T | ✅ M26 (F2/D3) — تحديات OTP لحسابات Tenant؛ بلا وصول عميل (§2.27) |
 
 ---
 
@@ -549,10 +550,14 @@ CONSTRAINT membership_scopes_shape_chk CHECK (
 | `hire_date` | date | NULL | — | |
 | `status` | text | NOT NULL | `'active'` | `active`, `on_leave`, `ended`, `archived` |
 | `archived_at` | timestamptz | NULL | — | حذف ناعم — **لا hard delete** |
+| `failed_login_count` | int | NOT NULL | `0` | ✅ M26 (D3): نظير `guardians` — إخفاقات كلمة المرور المتتالية |
+| `locked_until` | timestamptz | NULL | — | ✅ M26: قفل مؤقت بعد 5 إخفاقات؛ يفكه نجاح OTP |
+| `last_login_at` | timestamptz | NULL | — | ✅ M26 |
 | الأعمدة المشتركة | | | | |
 
 **القيود:**
 - `UNIQUE (platform_tenant_id, employee_code)`
+- ✅ M26: `staff_tenant_email_uq` — `UNIQUE (platform_tenant_id, lower(btrim(email))) WHERE email IS NOT NULL` (tenant + بريد ⇒ حساب واحد)؛ `staff_failed_login_chk` (`failed_login_count >= 0`)
 - `UNIQUE (id, platform_tenant_id)`
 - `FOREIGN KEY (profile_id, platform_tenant_id) REFERENCES profiles (id, platform_tenant_id)`
 - `UNIQUE (profile_id) WHERE profile_id IS NOT NULL` — حساب واحد لا يمثل موظفَين
@@ -1055,6 +1060,26 @@ CREATE TRIGGER audit_log_no_truncate
 الطبقتان معاً: صلاحيات + trigger. الأولى وحدها لا تمنع مالك الجدول. **و`TRUNCATE` يحتاج trigger على مستوى الجملة** — trigger الصف لا يعمل عنده، و`service_role` في Supabase يملك `TRUNCATE` (M02، 2026-09-24).
 
 **الفهارس:** `(platform_tenant_id, created_at DESC)`, `(entity_type, entity_id)` (ERD §8)، `(actor_id, created_at DESC)`
+
+---
+
+### 2.27 `login_challenges` — [T] ✅ M26 (F2/D3)
+
+تحديات OTP لدخول حسابات Tenant (ولي الأمر بالهاتف، الموظف بالبريد). **بلا سياسة ولا منح لأي دور عميل** (ولا `service_role`) — تقرؤه وتكتبه دوال M26 وحدها. **بلا T7**: لا تُنسخ الـhashes إلى `audit_log`؛ نتائج الدخول تُدقَّق على `guardians`/`staff` (T7 بأفعال `otp_login`، `password_login`، `password_login_failed`).
+
+| العمود | النوع | NULL | افتراضي | ملاحظات |
+|---|---|---|---|---|
+| `id` | bigint | NOT NULL | IDENTITY | PK |
+| `platform_tenant_id` | uuid | NOT NULL | — | FK → `platform_tenants` |
+| `account_id` | uuid | NOT NULL | — | FK → `auth_identities` (= معرّف الكيان، I2) |
+| `kind` | text | NOT NULL | — | `guardian` \| `staff` |
+| `code_hash` | text | NOT NULL | — | bcrypt (cost 8) — الرمز نفسه لا يُخزَّن |
+| `attempts` | int | NOT NULL | `0` | 0..5 — الخامسة الخاطئة تُسقط التحدي |
+| `expires_at` | timestamptz | NOT NULL | — | 5 دقائق |
+| `consumed_at` | timestamptz | NULL | — | استهلاك، أو إبطال بإصدار جديد، أو إسقاط |
+| `created_at` | timestamptz | NOT NULL | `now()` | |
+
+**القيود:** `login_challenges_pkey`، `login_challenges_tenant_fk`، `login_challenges_account_fk`، `login_challenges_kind_chk`، `login_challenges_attempts_chk`. **الفهارس:** `login_challenges_account_idx (account_id, id DESC)`.
 
 ---
 

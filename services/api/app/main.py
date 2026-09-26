@@ -19,10 +19,11 @@ import psycopg
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from . import first_login, student_login, students
+from . import account_login, accounts, first_login, student_login, students
 from .audit import write_access_audit
 from .auth_admin import AuthAdmin
 from .config import load_settings
+from .otp_sender import load_sender
 from .db import Database
 from .deps import claims, db
 from .security import TokenVerifier
@@ -32,7 +33,8 @@ from .security import TokenVerifier
 async def lifespan(app: FastAPI):
     settings = load_settings()
     app.state.settings = settings
-    app.state.auth_admin = AuthAdmin(settings.supabase_url)
+    app.state.auth_admin = AuthAdmin(settings.supabase_url, settings.publishable_key)
+    app.state.otp_sender = load_sender()
     app.state.login_limiter = student_login.AttemptLimiter(limit=10, window_s=300)
     app.state.verifier = TokenVerifier.from_jwks(
         settings.jwks_url,
@@ -53,6 +55,8 @@ app = FastAPI(title="SMas API", lifespan=lifespan)
 app.include_router(student_login.router)
 app.include_router(students.router)
 app.include_router(first_login.router)
+app.include_router(account_login.router)
+app.include_router(accounts.router)
 
 
 @app.exception_handler(psycopg.errors.InsufficientPrivilege)

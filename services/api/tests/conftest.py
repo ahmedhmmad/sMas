@@ -20,13 +20,13 @@ from psycopg.rows import dict_row
 ROOT = pathlib.Path(__file__).resolve().parents[3]
 DEV_PASSWORD = "DevOnly-Seed-2026"        # حسابات seed التطوير فقط (E5) — لا وجود لها خارج local/CI
 DEV_TENANT = "d0000000-0000-4000-8000-000000000001"
+# بريد حساب Auth: المنصة و tenant_admin (bootstrap) بريد حقيقي؛ الموظفون هوية اصطناعية (D3/I2) — المعرّف = معرّف الموظف
+STAFF_ID = {"school_admin": "a0000000-0000-4000-8000-000000000003", "secretary": "a0000000-0000-4000-8000-000000000004",
+            "accountant": "a0000000-0000-4000-8000-000000000005", "teacher": "a0000000-0000-4000-8000-000000000006"}
 EMAIL = {
     "platform": "platform@dev.smas.test",
     "tenant_admin": "tenant.admin@dev.smas.test",
-    "school_admin": "school.admin@dev.smas.test",
-    "secretary": "secretary@dev.smas.test",
-    "accountant": "accountant@dev.smas.test",
-    "teacher": "teacher@dev.smas.test",
+    **{who: f"{sid}@staff.smas.invalid" for who, sid in STAFF_ID.items()},
 }
 
 
@@ -47,6 +47,7 @@ def _load_env() -> dict[str, str]:
         os.environ.setdefault("SUPABASE_PUBLISHABLE_KEY", status["PUBLISHABLE_KEY"])
         os.environ.setdefault("SUPABASE_SECRET_KEY", status["SECRET_KEY"])
     # الخدمة: authenticator بكلمة مرور قاعدة البيانات المحلية
+    os.environ.setdefault("API_OTP_SENDER", "local")          # D3: مرسل محلي للاختبار (القناة الحقيقية: المرحلة 5)
     os.environ.setdefault(
         "API_DATABASE_URL", os.environ["TEST_ADMIN_DB_URL"].replace("://postgres:", "://authenticator:", 1)
     )
@@ -83,8 +84,10 @@ def ids(admin):
     pa = admin.execute(
         "select su.id from public.system_users su join auth.users u on u.id = su.auth_user_id where u.email = %s",
         [EMAIL["platform"]]).fetchone()["id"]
+    # المفتاح البريد الحقيقي: staff.email للموظفين، وبريد Auth لغيرهم
     profiles = {r["email"]: str(r["id"]) for r in admin.execute(
-        "select u.email, p.id from public.profiles p join auth.users u on u.id = p.auth_user_id")}
+        "select coalesce(s.email, u.email) as email, p.id from public.profiles p join auth.users u on u.id = p.auth_user_id"
+        " left join public.staff s on s.id = p.auth_user_id")}
     assert set(schools) == {"SA", "SB", "SS"}, "seed E5 مفقود — شغّل npx supabase db reset"
     return {"school": schools, "pa_system_user": str(pa), "profile": profiles, "tenant": DEV_TENANT}
 

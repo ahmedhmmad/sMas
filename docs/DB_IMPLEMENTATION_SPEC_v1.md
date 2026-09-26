@@ -309,7 +309,7 @@ CHECK (start_date >= year_start_date AND end_date <= year_end_date)
 
 ### 4.5 تغطية RLS — enforcement 29/29؛ سياسات التطبيق 28
 
-> **M13 (2026-09-25، معتمد):** Foundation = **29 جدولاً**. **RLS enforcement coverage = 29/29** (ENABLE + FORCE على كل جدول، مثبت في `13_rls_enable`). **Application policy coverage = الـ28 أدناه**، و`auth_identities` (G10) **مستثنى صراحةً** بتصميمه: بلا أي سياسة عميل، لا يقرؤه إلا دوال `app_owner` للسياق الأمني، فأي عميل يرى 0 صفوف. لا تُضاف له سياسة اصطناعية.
+> **M13 (2026-09-25، معتمد):** Foundation = **29 جدولاً**. **RLS enforcement coverage = 29/29** (ENABLE + FORCE على كل جدول، مثبت في `13_rls_enable`). **Application policy coverage = الـ28 أدناه**، و`auth_identities` (G10) — **ومنذ M26 `login_challenges` (F2/D3، الجدول 30)** — **مستثنى صراحةً** بتصميمه: بلا أي سياسة عميل، لا يقرؤه إلا دوال `app_owner` للسياق الأمني، فأي عميل يرى 0 صفوف. لا تُضاف له سياسة اصطناعية.
 
 | الجدول | SELECT | INSERT | UPDATE | DELETE |
 |---|---|---|---|---|
@@ -498,6 +498,7 @@ grant execute on function app.archive_student(uuid, text) to authenticated;
 | `app.provision_staff(...)` | staff + أول `staff_school_assignment` | `staff.create` + `staff.assign` + `can_access_school` |
 | `app.provision_guardian(student_id, ...)` | guardian + `student_guardians` + (family) | `guardian.create` + `guardian.link` + `student_in_scope` |
 | `app.provision_account(kind, id, auth_user_id)` | profile + membership + دور + (نطاق) لموظف/ولي أمر قائم | صلاحية المورد + علاقة في النطاق |
+| `app.otp_issue` / `app.otp_verify` / `app.password_login_account` / `app.password_login_result` ✅ M26 (F2/D3) | لا إنشاء هوية — دخول حسابات Tenant قبل JWT (الفئة 4) | EXECUTE لـ`service_role` وحده؛ المحلّل الداخلي `login_account` و`login_outcome` لا لأحد؛ I1؛ `docs/F2_AUTHENTICATION.md` §4.2 |
 | `app.resolve_student_login(tenant_code, school_slug, identifier)` ✅ M24 (F2/D1) | لا كتابة — معرّف الحساب أو NULL (الفئة 4: تجاوز RLS بعد تحقق صريح) | قبل JWT: EXECUTE لـ`service_role` وحده؛ NULL واحد لكل فشل؛ لا tenant/school/بيانات |
 | `app.bootstrap_tenant(...)` | tenant + profile + membership + `tenant_admin` + نطاق tenant | PA `tenant.create` — **✅ M22 (2026-09-26): بـJWT الـPlatform Admin لا service**؛ T8 بإعفاء ضيق (سياق المنصة + `tenant.create`، INSERT في `membership_roles`/`membership_scopes`) |
 

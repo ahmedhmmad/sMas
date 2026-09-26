@@ -182,20 +182,26 @@ select pg_temp.run('pg.sb',      'sb',  pg_temp.pg('d2000000-0000-0000-0000-0000
 select pg_temp.run('pg.phone',   'sec', pg_temp.pg('d3000000-0000-0000-0000-000000000003', 'e1000000-0000-0000-0000-000000000001', '+201000000001'));
 
 -- ============ provision_account ============
-select pg_temp.run('pa.guardian', 'sec', format($q$select (app.provision_account('guardian', 'd1000000-0000-0000-0000-000000000001', %L) is not null)::text$q$, pg_temp.a('gacc')));
-select pg_temp.run('pa.again',    'sec', format($q$select (app.provision_account('guardian', 'd1000000-0000-0000-0000-000000000001', %L) is not null)::text$q$, pg_temp.a('gacc')));
+-- I2 (M26): حساب Auth معرّفه = معرّف ولي الأمر/الموظف
+create function pg_temp.acct(p uuid) returns uuid language plpgsql as $$
+begin
+  insert into auth.users (id, email) values (p, p::text || '@accounts.m22.invalid') on conflict (id) do nothing;
+  return p;
+end $$;
+select pg_temp.run('pa.guardian', 'sec', format($q$select (app.provision_account('guardian', 'd1000000-0000-0000-0000-000000000001', %L) is not null)::text$q$, pg_temp.acct('d1000000-0000-0000-0000-000000000001')));
+select pg_temp.run('pa.again',    'sec', format($q$select (app.provision_account('guardian', 'd1000000-0000-0000-0000-000000000001', %L) is not null)::text$q$, pg_temp.acct('d1000000-0000-0000-0000-000000000001')));
 select pg_temp.run('pa.conflict', 'sec', format($q$select app.provision_account('guardian', 'd1000000-0000-0000-0000-000000000001', %L)::text$q$, pg_temp.a('dup')));
-select pg_temp.run('pa.staff',    'sec', format($q$select (app.provision_account('staff', 'c1000000-0000-0000-0000-000000000001', %L) is not null)::text$q$, pg_temp.a('facc')));
-select pg_temp.run('pa.sb',       'sb',  format($q$select app.provision_account('guardian', 'd1000000-0000-0000-0000-000000000001', %L)::text$q$, pg_temp.a('dup')));
-select pg_temp.run('pa.kind',     'sec', format($q$select app.provision_account('student', 'e1000000-0000-0000-0000-000000000001', %L)::text$q$, pg_temp.a('dup')));
+select pg_temp.run('pa.staff',    'sec', format($q$select (app.provision_account('staff', 'c1000000-0000-0000-0000-000000000001', %L) is not null)::text$q$, pg_temp.acct('c1000000-0000-0000-0000-000000000001')));
+select pg_temp.run('pa.sb',       'sb',  format($q$select app.provision_account('guardian', 'd1000000-0000-0000-0000-000000000001', %L)::text$q$, pg_temp.acct('d1000000-0000-0000-0000-000000000001')));
+select pg_temp.run('pa.kind',     'sec', format($q$select app.provision_account('student', 'e1000000-0000-0000-0000-000000000001', %L)::text$q$, pg_temp.acct('e1000000-0000-0000-0000-000000000001')));
 select pg_temp.rec('pa.shape', $q$select
-     (select g.profile_id = p.id from public.guardians g join public.profiles p on p.auth_user_id = (select auth from ids where label = 'gacc') where g.id = 'd1000000-0000-0000-0000-000000000001')::text
+     (select g.profile_id = p.id from public.guardians g join public.profiles p on p.auth_user_id = 'd1000000-0000-0000-0000-000000000001' where g.id = 'd1000000-0000-0000-0000-000000000001')::text
   || '|' || (select string_agg(r.code, ',') from public.profiles p join public.memberships m on m.profile_id = p.id join public.membership_roles mr on mr.membership_id = m.id join public.roles r on r.id = mr.role_id
-             where p.auth_user_id = (select auth from ids where label = 'gacc'))
+             where p.auth_user_id = 'd1000000-0000-0000-0000-000000000001')
   || '|' || (select count(*) from public.profiles p join public.memberships m on m.profile_id = p.id join public.membership_roles mr on mr.membership_id = m.id
-             where p.auth_user_id = (select auth from ids where label = 'facc'))
+             where p.auth_user_id = 'c1000000-0000-0000-0000-000000000001')
   || '|' || (select count(*) from public.profiles p join public.memberships m on m.profile_id = p.id join public.membership_scopes ms on ms.membership_id = m.id
-             where p.auth_user_id = (select auth from ids where label = 'facc'))$q$);
+             where p.auth_user_id = 'c1000000-0000-0000-0000-000000000001')$q$);
 
 -- ============ bootstrap_tenant ============
 create function pg_temp.bt(p_id uuid, p_code text, p_auth text) returns text language sql as $$
@@ -268,7 +274,7 @@ select ok((select v from r where k = 'pg.phone')     like 'ERR 23505%guardians_t
 -- ---------- provision_account ----------
 select is((select v from r where k = 'pa.guardian'), 'true', 'provision_account: guardian account');
 select is((select v from r where k = 'pa.again'),    'true', 'provision_account: idempotent for the same Auth user');
-select ok((select v from r where k = 'pa.conflict')  like 'ERR 23505%already has an account%', 'provision_account: a second account for the same guardian → conflict');
+select ok((select v from r where k = 'pa.conflict')  like 'ERR 22023%invariant: account id must equal the guardian/staff id (D3/I2)%', 'I2 (M26): an account whose id is not the guardian''s own is refused');
 select is((select v from r where k = 'pa.staff'),    'true', 'provision_account: staff account');
 select ok((select v from r where k = 'pa.sb')        like 'ERR P0002%not found%', 'provision_account: a guardian outside the scope → not found');
 select ok((select v from r where k = 'pa.kind')      like 'ERR 22023%kind must be staff or guardian%', 'provision_account: students get their account only through provision_student');

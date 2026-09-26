@@ -1,6 +1,6 @@
 # Gate F2 — المصادقة
 
-**الحالة:** D1/M24 🔒 (CI `3f4ae05`) · D2/M25 🔒 (CI `62c76b1`) · D3 🔬 **Spike ✅ المعايير الثمانية** (§4.1) — التنفيذ بانتظار المراجعة · D4 ⚠️ دلالات A/B/C (§5)
+**الحالة:** D1/M24 🔒 (CI `3f4ae05`) · D2/M25 🔒 (CI `62c76b1`) · D3 ✅ **منفذ — M26** (§4.2) بانتظار المراجعة · D4 ⚠️ دلالات A/B/C (§5)
 **الترتيب المعتمد:** M24 → D1 → D2 → D3 Spike → D3 → D4 → E2E لكل الأدوار
 
 ---
@@ -231,6 +231,55 @@ access_token (ES256، kid من JWKS، sub = الحساب، amr = otp) + refresh_
 | I5 | `generate_link` لا يخضع لحد إرسال البريد (≥ 12 رابطاً مع `email_sent = 2`/ساعة)، ويُسجَّل في سجل Supabase Auth كـ`user_recovery_requested` + `login` — **لا `user_updated_password`** ⇒ لا تداخل مع تفعيل D2 |
 | I6 | الموظف بالبريد: الآلية نفسها (البريد الحقيقي في `staff`، الهوية اصطناعية) — لم يُختبر منفصلاً |
 | I7 | قناة الإرسال (WhatsApp/SMS) خارج الـSpike — واجهة مرسل فقط (D4 / المرحلة 5) |
+
+### 4.2 المعتمد والمنفذ — M26 + FastAPI
+
+**القرار (2026-09-26):** **D3 — Tenant accounts synthetic identity (معتمد بعد الـSpike):** ولي الأمر (هاتف) والموظف (بريد): الهاتف/البريد الحقيقي في `guardians`/`staff`، وحساب Auth اصطناعي؛ الجلسة يصدرها Supabase Auth عبر Admin `generate_link` (magiclink) ثم `/verify` في الخادم — FastAPI لا يصدر JWT، والبريد الاصطناعي والـtoken_hash ورابط الجلسة والأسرار لا تصل إلى العميل. **I1:** الحساب الموقوف لا يبدأ مصادقة أصلاً (لا OTP ولا جلسة) بالرد الخارجي نفسه. **I2:** `auth.users.id = guardian_id` / `staff_id` — قاعدة موحدة مع D1: **Domain entity ID = Supabase Auth user ID**. **I4:** حدود معدّل Supabase Auth لكل IP = Production configuration dependency، لا مانع لـD3. **I6:** مسار الموظف مختبر قبل إغلاق D3. **I7:** قناة WhatsApp/SMS — المرحلة 5؛ مرسل محلي في D3
+
+```text
+tenant + (هاتف | بريد) ──otp_issue──► رمز (bcrypt في login_challenges) ──► مرسل (محلي في D3)
+                        ──otp_verify──► account_id ──► Admin generate_link ──► /verify ──► جلسة Supabase Auth
+                                                                                         auth.uid() = guardian_id / staff_id ──► RLS
+```
+
+**قاعدة البيانات — M26 `tenant_account_login`:**
+
+| العنصر | |
+|---|---|
+| `staff` | أعمدة القفل (نظير `guardians`) + `staff_tenant_email_uq` — tenant + بريد ⇒ حساب واحد |
+| `login_challenges` (الجدول 30) | bcrypt؛ صلاحية 5 دقائق؛ 5 محاولات؛ إصدار جديد يُبطل السابق؛ **بلا وصول عميل ولا T7** |
+| `login_account` (داخلية) | tenant + هاتف/بريد ⇒ حساب **نشط**: الكيان `active`، الـprofile `active`، الـTenant `active` (**I1**) |
+| `otp_issue` / `otp_verify` | الرمز لـFastAPI ليرسله / معرّف الحساب أو NULL؛ نجاح OTP يفك القفل (PLAN §7.8) |
+| `password_login_account` / `password_login_result` | قبل الـgrant (لا مقفل) / بعده (5 إخفاقات ⇒ 15 دقيقة) |
+| `provision_account` | **I2 مفروض في DB**: معرّف الحساب = معرّف ولي الأمر/الموظف (`22023`) |
+
+**FastAPI:** `POST /accounts` (Saga: Admin API ← `provision_account` بـJWT المستدعي ← تعويض)؛ `POST /auth/otp/request` (`202` دائماً)؛ `POST /auth/otp/verify` و`POST /auth/password/login` (الجلسة أو `401 invalid_credentials`)؛ `otp_sender.py` (مرسل محلي؛ بلا قناة ⇒ `503`)؛ `auth_admin.issue_session` (الـtoken_hash لا يغادره). مواضع دور `service_role`: `audit.py`، `student_login.py`، `account_login.py`.
+
+**الـseed (E5) على I2:** الموظفون وولي الأمر معرّف الحساب = معرّف الكيان، بريد Auth اصطناعي، والبريد الحقيقي في `staff.email`.
+
+**الاختبارات:** pgTAP `26_account_login` — 46؛ pytest `test_account_login` — 16 (المجموع 97/97):
+
+| | ولي الأمر | الموظف (I6) |
+|---|---|---|
+| حساب اصطناعي بمعرّف الكيان، بلا هاتف في `auth.users` | ✅ | ✅ |
+| OTP ⇒ جلسة Supabase (ES256، kid في JWKS)، `auth.uid()` = الكيان، السياق DEV | ✅ | ✅ (بريد بأحرف مختلفة) |
+| الهاتف/البريد نفسه في Tenant آخر = حساب آخر؛ رمز A لا يعمل على B؛ جلسة B لا ترى DEV | ✅ | ✅ |
+| لا كشف: هاتف في B فقط / مجهول ⇒ الرد نفسه ولا رسالة | ✅ | (المحلّل نفسه) |
+| I1: الموقوف لا رمز ولا جلسة ولا كلمة مرور — حتى برمز صدر قبل الإيقاف | ✅ | ✅ |
+| كلمة المرور، رفضها على B، القفل بعد 5، فكه بـOTP | ✅ | ✅ |
+| الرمز لمرة واحدة؛ حقول الجلسة وحدها للعميل؛ حد الطلبات متساوٍ للموجود وغير الموجود | ✅ | ✅ |
+
+**الضوابط السلبية — كلها تُفشل الاختبارات:** verify بلا فحص الرمز ← 6؛ إرسال لحساب غير موجود ← 4؛ تسريب `hashed_token` ← 3؛ المحلّل بلا حالة الـprofile ← pgTAP 4 + pytest 2؛ المحلّل بلا الـTenant ← pgTAP 16 + pytest 10.
+
+**للمراجعة:**
+
+| # | |
+|---|---|
+| R1 | **افتراضيات:** صلاحية الرمز 5 د؛ 5 محاولات للتحدي؛ 5 إخفاقات كلمة مرور ⇒ قفل 15 د؛ الموظف يدخل بحالة `active` فقط (`on_leave` لا) |
+| R2 | **تنبيه ولي الأمر والمدرسة عند القفل** (PLAN §7.8) غير منفذ — يحتاج القناة (المرحلة 5) |
+| R3 | **`tenant_admin` المُقلَع** (`bootstrap_tenant`) بلا كيان `staff` ⇒ خارج D3: هويته بريد حقيقي — قرار مستقل |
+| R4 | `login_challenges` بلا T7 — استثناء صريح من B7 (لا hashes في `audit_log`)؛ النتائج تُدقَّق على الكيان |
+| R5 | حد المحاولات في ذاكرة العملية (كـD1)؛ وI4 (حدود Supabase Auth لكل IP) شرط إنتاج |
 
 ---
 

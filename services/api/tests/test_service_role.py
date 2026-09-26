@@ -1,7 +1,8 @@
 """F4 §4 — `service_role` خادمي فقط، ولا يصير طريقاً لتجاوز التفويض.
 
 الخدمة لا تحمل مفتاح service_role القديم (JWT) أصلاً؛ تتصل بـ`authenticator` وتبدّل إلى دور `service_role` في
-موضعين مسمّيين فقط: إدراج صف التدقيق (audit.py، F4) وحل معرّف دخول الطالب قبل JWT (student_login.py، D1).
+ثلاثة مواضع مسمّاة فقط: إدراج صف التدقيق (audit.py، F4)، حل معرّف دخول الطالب (student_login.py، D1)،
+ودوال دخول حسابات Tenant قبل JWT (account_login.py، D3).
 المفتاح السري لـAuth Admin API (Saga §5.4) يقرؤه auth_admin.py وحده. المفتاح المقدَّم كـBearer مرفوض في test_tokens.
 """
 
@@ -29,7 +30,7 @@ def test_secret_key_read_only_by_auth_admin():
 
 def test_role_switch_to_service_role_only_in_named_places():
     switches = {n for n, src in _sources().items() if re.search(r"set_config\('role',\s*'service_role'", src)}
-    assert switches == {"audit.py", "student_login.py"}
+    assert switches == {"audit.py", "student_login.py", "account_login.py"}
 
 
 def test_every_user_transaction_runs_as_authenticated():

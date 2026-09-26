@@ -122,9 +122,9 @@ select is((select count(*)::int from pg_trigger t join pg_class c on c.oid = t.t
            where c.relnamespace = 'public'::regnamespace and t.tgfoid = 'app.tg_audit()'::regprocedure and not t.tgisinternal), 28,
           'T7 attached to 28 tables');
 select is((select coalesce(string_agg(c.relname, ','), '<none>') from pg_class c
-           where c.relnamespace = 'public'::regnamespace and c.relkind = 'r' and c.relname <> 'audit_log'
+           where c.relnamespace = 'public'::regnamespace and c.relkind = 'r' and c.relname not in ('audit_log', 'login_challenges')
              and not exists (select 1 from pg_trigger t where t.tgrelid = c.oid and t.tgfoid = 'app.tg_audit()'::regprocedure)),
-          '<none>', 'every Foundation table except audit_log is audited');
+          '<none>', 'every Foundation table is audited except audit_log and login_challenges (M26: OTP hashes are never copied into audit_log)');
 select ok((select pg_get_userbyid(proowner) = 'app_owner' and prosecdef from pg_proc where oid = 'app.tg_audit()'::regprocedure)
       and not has_function_privilege('anon', 'app.tg_audit()', 'EXECUTE'),
           'T7: SECURITY DEFINER owned by app_owner, no EXECUTE for anon');

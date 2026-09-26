@@ -25,6 +25,7 @@ insert into expected values
   ('academic_years',            'end_date,name,school_id,start_date', 'end_date,name,start_date'),
   ('audit_log',                 '', ''),
   ('auth_identities',           '', ''),
+  ('login_challenges',          '', ''),     -- M26: لا منح للعميل إطلاقاً
   ('enrollments',               'academic_year_id,effective_from,enrollment_no,grade_level_id,identity_scope_id,platform_tenant_id,school_id,scope_owner_id,section_id,student_id', 'enrollment_no'),
   ('families',                  '', 'address,family_name'),   -- M20b: family_code غير قابل للتعديل (قاعدة الثوابت)
   ('grade_levels',              'name,school_id,sequence_no,stage_id,status', 'name,school_id,sequence_no,stage_id,status'),
@@ -126,13 +127,13 @@ select pg_temp.rec('x.uncategorized', $q$select coalesce(string_agg(p.oid::regpr
 select pg_temp.rec('x.allowlist_missing', $q$select coalesce(string_agg(f::text, ','), 'none') from controlled_allowlist
   where not has_function_privilege('authenticated', f, 'EXECUTE')$q$);
 
-select plan(29 + 1 + 24 + 7 + 5 + 1);
+select plan(30 + 1 + 24 + 7 + 5 + 1);
 
 -- ---------- السجل: كل جدول بالاسم ----------
 select is(coalesce(a.ins, '<missing>') || ' | ' || coalesce(a.upd, '<missing>'), e.ins || ' | ' || e.upd,
           format('%s: INSERT | UPDATE columns match §4.6', e.t))
   from expected e left join actual a using (t) order by e.t;
-select set_eq('select t from actual', 'select t from expected', 'the registry covers exactly the 29 Foundation tables');
+select set_eq('select t from actual', 'select t from expected', 'the registry covers exactly the 30 tables (29 Foundation + login_challenges)');
 
 -- ---------- الرفض السلوكي ----------
 select ok((select v from r where k = 'b.roles_status')     like 'ERR 42501%permission denied%roles%',                    'M19: roles.status is not client-writable');
@@ -170,8 +171,9 @@ select is((select count(*)::int from pg_class c, unnest(array['TRUNCATE','TRIGGE
 select is((select string_agg(c.relname, ',' order by c.relname) from pg_class c
             where c.relnamespace = 'public'::regnamespace and c.relkind = 'r' and has_table_privilege('authenticated', c.oid, 'DELETE')),
           'membership_roles,membership_scopes,role_permissions', 'authenticated: DELETE only on the three G2 tables');
-select is((select count(*)::int from pg_class c where c.relnamespace = 'public'::regnamespace and c.relkind = 'r'
-            and not has_table_privilege('authenticated', c.oid, 'SELECT')), 0, 'authenticated: SELECT on every table — RLS decides the rows');
+select is((select coalesce(string_agg(c.relname, ','), 'none') from pg_class c where c.relnamespace = 'public'::regnamespace and c.relkind = 'r'
+            and not has_table_privilege('authenticated', c.oid, 'SELECT')), 'login_challenges',
+          'authenticated: SELECT on every table (RLS decides the rows) — except login_challenges, which no client reads (M26)');
 select is((select v from r where k = 'd.future'), 'authenticated:SELECT', 'default privileges: a future table gives anon nothing and authenticated SELECT only');
 select ok(has_table_privilege('service_role', 'public.groups', 'INSERT') and has_table_privilege('service_role', 'public.groups', 'UPDATE'),
           'service_role keeps its privileges (FastAPI, provisioning)');

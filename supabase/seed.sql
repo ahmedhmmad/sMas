@@ -61,7 +61,13 @@ grant select on dev to authenticated;
 -- ------------------------------------------------------------------
 -- 0. استثناء 1: حسابات Auth (Admin API في Production)
 -- ------------------------------------------------------------------
-select pg_temp.dev_auth_user(auth, email) from dev;
+-- D3 (M26): حسابات الموظفين وولي الأمر هوية اصطناعية (المعرّف = معرّف الكيان، I2)؛ البريد/الهاتف الحقيقي في staff/guardians
+select pg_temp.dev_auth_user(auth, case
+         when role_code in ('group_manager','school_admin','secretary','accountant','teacher','counselor','bus_supervisor')
+           then auth::text || '@staff.smas.invalid'
+         when label = 'guardian' then auth::text || '@guardians.smas.invalid'
+         else email end)
+  from dev;
 
 -- ------------------------------------------------------------------
 -- 0. استثناء 2: إقلاع Platform Admin (service — G8)
@@ -110,11 +116,12 @@ insert into public.sections (school_id, academic_year_id, grade_level_id, name)
 
 -- الموظفون السبعة (provision_staff) في School A، ثم حساباتهم (provision_account)
 select app.provision_staff(
-         ('c0000000-0000-4000-8000-0000000000' || right(d.auth::text, 2))::uuid,
+         d.auth,                                                             -- I2: معرّف الموظف = معرّف حسابه
          (select id from public.schools where school_code = 'SA'),
-         upper(d.label), initcap(replace(d.label, '_', ' ')), 'Dev', initcap(replace(d.label, '_', ' ')), '2026-09-01')
+         upper(d.label), initcap(replace(d.label, '_', ' ')), 'Dev', initcap(replace(d.label, '_', ' ')), '2026-09-01',
+         p_email => d.email)
   from dev d where d.role_code in ('group_manager','school_admin','secretary','accountant','teacher','counselor','bus_supervisor');
-select app.provision_account('staff', ('c0000000-0000-4000-8000-0000000000' || right(d.auth::text, 2))::uuid, d.auth)
+select app.provision_account('staff', d.auth, d.auth)
   from dev d where d.role_code in ('group_manager','school_admin','secretary','accountant','teacher','counselor','bus_supervisor');
 
 -- الأدوار والنطاقات تحت RLS (role.assign / scope.assign) و T8
@@ -147,7 +154,7 @@ select app.provision_student('e0000000-0000-4000-8000-000000000001', 'e0000000-0
          '2026-09-01', 'Omar', 'Hassan', p_father_name => 'Ahmad', p_grandfather_name => 'Mahmoud',
          p_official_id => '30101010100000', p_official_id_type => 'national_id', p_gender => 'male',
          p_new_family_name => 'Hassan');
-select app.provision_guardian('f0000000-0000-4000-8000-000000000001', 'e0000000-0000-4000-8000-000000000001',
+select app.provision_guardian('a0000000-0000-4000-8000-000000000009', 'e0000000-0000-4000-8000-000000000001',
          'father', '+201000000001', 'Ahmad', 'Hassan', '2026-09-01', p_father_name => 'Mahmoud', p_is_primary => true);
 reset role;
 
@@ -156,7 +163,7 @@ reset role;
 -- ------------------------------------------------------------------
 select pg_temp.act('a0000000-0000-4000-8000-000000000001');
 set local role authenticated;
-select app.provision_account('guardian', 'f0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000009');
+select app.provision_account('guardian', 'a0000000-0000-4000-8000-000000000009', 'a0000000-0000-4000-8000-000000000009');
 reset role;
 
 select set_config('request.jwt.claims', '', true), set_config('request.jwt.claim.sub', '', true);
