@@ -153,6 +153,7 @@ ALTER TABLE schools ADD CONSTRAINT schools_group_same_tenant_fk
 | 27 | `sections` | S | |
 | 28 | `audit_log` | A | |
 | (29) | `auth_identities` | P | ✅ G10 — حصرية هوية Tenant/Platform |
+| ✅ M27 | `schools.guardian_first_login_mode` | S | عمود — نمط أول دخول ولي الأمر (§5 من F2) |
 | (30) | `login_challenges` | T | ✅ M26 (F2/D3) — تحديات OTP لحسابات Tenant؛ بلا وصول عميل (§2.27) |
 
 ---

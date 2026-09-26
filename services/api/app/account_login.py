@@ -36,10 +36,11 @@ class _Base(BaseModel):
 
 
 class OtpRequest(_Base):
-    pass
+    # D4: مدرسة سياق الدخول (F3: من الـsubdomain) — تُشترط لأول دخول ولي أمر لم يُستكمل onboarding، وتُهمل بعده
+    school: str | None = Field(default=None, max_length=63)
 
 
-class OtpVerify(_Base):
+class OtpVerify(OtpRequest):
     code: str = Field(min_length=1, max_length=12)
 
 
@@ -66,7 +67,7 @@ def otp_request(body: OtpRequest, request: Request, database: Database = Depends
     if sender is None:
         raise _NO_CHANNEL
     _limit(request, body)
-    code = _call(database, "select app.otp_issue(%s, %s, %s) as v", [body.tenant, body.kind, body.contact])
+    code = _call(database, "select app.otp_issue(%s, %s, %s, %s) as v", [body.tenant, body.kind, body.contact, body.school])
     if code is not None:
         sender.send(body.kind, body.contact.strip(), code)
     return {"status": "sent"}
@@ -77,7 +78,8 @@ def otp_verify(body: OtpVerify, request: Request, database: Database = Depends(d
     if request.app.state.otp_sender is None:
         raise _NO_CHANNEL
     _limit(request, body)
-    account = _call(database, "select app.otp_verify(%s, %s, %s, %s) as v", [body.tenant, body.kind, body.contact, body.code])
+    account = _call(database, "select app.otp_verify(%s, %s, %s, %s, %s) as v",
+                    [body.tenant, body.kind, body.contact, body.code, body.school])
     session = request.app.state.auth_admin.issue_session(body.kind, account) if account is not None else None
     if session is None:
         raise _INVALID

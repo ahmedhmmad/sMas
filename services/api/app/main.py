@@ -19,7 +19,7 @@ import psycopg
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from . import account_login, accounts, first_login, student_login, students
+from . import account_login, accounts, first_login, onboarding, student_login, students
 from .audit import write_access_audit
 from .auth_admin import AuthAdmin
 from .config import load_settings
@@ -57,6 +57,7 @@ app.include_router(students.router)
 app.include_router(first_login.router)
 app.include_router(account_login.router)
 app.include_router(accounts.router)
+app.include_router(onboarding.router)
 
 
 @app.exception_handler(psycopg.errors.InsufficientPrivilege)

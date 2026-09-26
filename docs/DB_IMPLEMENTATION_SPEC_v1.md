@@ -498,7 +498,9 @@ grant execute on function app.archive_student(uuid, text) to authenticated;
 | `app.provision_staff(...)` | staff + أول `staff_school_assignment` | `staff.create` + `staff.assign` + `can_access_school` |
 | `app.provision_guardian(student_id, ...)` | guardian + `student_guardians` + (family) | `guardian.create` + `guardian.link` + `student_in_scope` |
 | `app.provision_account(kind, id, auth_user_id)` | profile + membership + دور + (نطاق) لموظف/ولي أمر قائم | صلاحية المورد + علاقة في النطاق |
-| `app.otp_issue` / `app.otp_verify` / `app.password_login_account` / `app.password_login_result` ✅ M26 (F2/D3) | لا إنشاء هوية — دخول حسابات Tenant قبل JWT (الفئة 4) | EXECUTE لـ`service_role` وحده؛ المحلّل الداخلي `login_account` و`login_outcome` لا لأحد؛ I1؛ `docs/F2_AUTHENTICATION.md` §4.2 |
+| `app.set_guardian_first_login_mode(school, mode, reason)` ✅ M27 (F2/D4) | تغيير نمط المدرسة | `security.manage` + `can_access_school` + سبب |
+| `app.begin_guardian_temporary_password` / `app.arm_guardian_temporary_password` ✅ M27 (C) | إصدار كلمة مؤقتة لحساب غير مُستكمل | `security.manage` + `guardian_in_scope`؛ fail-closed بين الخطوتين |
+| `app.otp_issue` / `app.otp_verify` / `app.password_login_account` / `app.password_login_result` ✅ M26 (F2/D3)؛ M27: `otp_*` بمعامل المدرسة (اختياري) وبوابة onboarding | لا إنشاء هوية — دخول حسابات Tenant قبل JWT (الفئة 4) | EXECUTE لـ`service_role` وحده؛ المحلّل الداخلي `login_account` و`login_outcome` لا لأحد؛ I1؛ `docs/F2_AUTHENTICATION.md` §4.2 |
 | `app.resolve_student_login(tenant_code, school_slug, identifier)` ✅ M24 (F2/D1) | لا كتابة — معرّف الحساب أو NULL (الفئة 4: تجاوز RLS بعد تحقق صريح) | قبل JWT: EXECUTE لـ`service_role` وحده؛ NULL واحد لكل فشل؛ لا tenant/school/بيانات |
 | `app.bootstrap_tenant(...)` | tenant + profile + membership + `tenant_admin` + نطاق tenant | PA `tenant.create` — **✅ M22 (2026-09-26): بـJWT الـPlatform Admin لا service**؛ T8 بإعفاء ضيق (سياق المنصة + `tenant.create`، INSERT في `membership_roles`/`membership_scopes`) |
 

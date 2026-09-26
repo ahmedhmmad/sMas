@@ -3,7 +3,7 @@
 **المشروع:** نظام إدارة المدارس متعدد المستأجرين (Multi-Tenant SMS)
 **تاريخ الإنشاء:** 2026-09-22
 **آخر تحديث:** 2026-09-23
-**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (**Gate C 🔒 مكتمل: M01–M23**؛ **Gate E 🔒 مغلق تقنياً: E1–E6** — Production Backup Policy TBD؛ Gate F: **F4 🔒**؛ F2: **D1/M24 🔒، D2/M25 🔒، D3/M26 🔒**؛ التالي D4 — قراران قبل التنفيذ)
+**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (**Gate C 🔒 مكتمل: M01–M23**؛ **Gate E 🔒 مغلق تقنياً: E1–E6** — Production Backup Policy TBD؛ Gate F: **F4 🔒**؛ F2: **D1–D3 🔒**؛ **D4 منفذ (M27)** بانتظار المراجعة؛ التالي E2E لكل الأدوار)
 
 ---
 
@@ -390,6 +390,7 @@ Platform Admin → Role → Permission + Platform-level scope
 | M24 | `student_login` (F2/D1) | ✅ 26/26 | `resolve_student_login` قبل JWT: EXECUTE لـservice_role وحده، NULL واحد لكل فشل، tenant+slug (الـslug فريد داخل الـTenant فقط)؛ D1 مفروض في `provision_student`؛ `22` و seed E5 على شكل D1 |
 | M25 | `first_login_credential` (F2/D2-B) | ✅ 36/36 | حالة الحساب في `auth_identities`؛ بوابة الجذر؛ `arm_first_login`/`activate_first_login` بإشارة سجل Supabase Auth؛ **استثناء R2 موسّع** (دالتان ملك postgres لقراءة `auth`)؛ `05` حارس القائمة المغلقة |
 | M26 | `tenant_account_login` (F2/D3) | ✅ 46/46 | OTP وكلمة المرور لحسابات Tenant قبل JWT؛ `login_challenges` (الجدول 30، بلا وصول عميل ولا T7)؛ أعمدة قفل `staff` + بريد فريد داخل الـTenant؛ I1؛ **I2 مفروض في `provision_account`**؛ 11/13/14/20/22 على الجدول 30 و I2 |
+| M27 | `guardian_onboarding` (F2/D4) | ✅ 41/41 | `schools.guardian_first_login_mode`؛ حساب ولي الأمر يولد pending؛ بوابة OTP بالمدرسة الهدف (A: يبدأ، B: يفعّل، C: لا OTP)؛ إصدار C بـ`security.manage`؛ `otp_*` بمعامل المدرسة (استبدلت نسختي M26) |
 
 **✅ H1 محسوم (2026-09-24) — السماح، بلا Group Scope:**
 > **H1 — A secretary may register a new student in a school that belongs to a group. The secretary requires `student.create` with school scope; this does not grant group scope. When the target school belongs to a group, the student's identity scope is derived from the target school's group and is not client-selectable. The student's enrollment is created for the target school in the same controlled provisioning operation.**
@@ -547,6 +548,11 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | `audit_log.id` هو `bigint IDENTITY` وليس uuid، وبلا FK على `actor_id`/`entity_id` | ترتيب زمني طبيعي وحجم أصغر؛ وFK على الكيانات يخلق تبعية عكسية تكسر السجل عند الأرشفة |
 | 2026-09-22 | **O1** — `profiles.auth_user_id` فريد عالمياً؛ نفس Auth User لا يعبر Tenantين | شرط حتمية `app.current_tenant_id()` وصحة §1.1. التفاصيل: §1.1 + `DATA_DICTIONARY_v1.md` §2.7 |
 | 2026-09-22 | **O2** — `students.gender` و`birth_date` قابلان لـNULL؛ OCR ليس شرطاً ولا مصدراً نهائياً | اكتمال البيانات قاعدة أعمال في المرحلة 4 لا قيد صف. يلزم معالجة NULL صراحةً في قواعد التوزيع والتقارير |
+| 2026-09-26 | **D4.1:** نمط A/B/C لولي الأمر يحكم **أول دخول (onboarding) فقط**؛ بعده تحكم طرق الحساب نفسه: كلمة المرور إن وُجدت، وOTP للاسترداد/فك القفل (وفي B يبقى OTP ما لم تُضبط كلمة مرور) | F2 — قرارات D4 |
+| 2026-09-26 | **D4.2:** النمط الافتراضي **A** — OTP ← إنشاء كلمة مرور إجبارياً ← الدخول اللاحق بكلمة المرور، وOTP للاسترداد/فك القفل | F2 — قرارات D4 |
+| 2026-09-26 | **D4 — التخزين:** عمود `schools.guardian_first_login_mode` (`A`|`B`|`C`، افتراضي A)، لا يكتبه العميل؛ تغييره بدالة متحكَّم بها: `security.manage` + نطاق المدرسة + سبب، مُدقَّق (T7)؛ ينتقل إلى وحدة إعدادات المدرسة (المرحلة 2) إن لزم | F2 — قرارات D4 |
+| 2026-09-26 | **D4 — المدرسة الهدف:** مدرسة سياق الدخول (من الـsubdomain، F3)، ويجب أن تكون **المدرسة الحالية لابن نشط الارتباط** (أحدث تسجيل — H2)؛ وإلا الرد العام نفسه بلا كشف. نمطها يحكم الـonboarding | F2 — قرارات D4 |
+| 2026-09-26 | **D4 — C:** إصدار كلمة المرور المؤقتة بـ**`security.manage`** + ولي الأمر في النطاق الحالي، عملية متحكَّم بها مُدقَّقة؛ للحساب غير المُستكمل فقط (إعادة الضبط مسار 5c مستقل) | F2 — قرارات D4 |
 | 2026-09-26 | **F2 defaults — OTP:** صلاحية الرمز **5 دقائق**، **5 محاولات** لكل تحدٍّ، والطلب الجديد يُلغي السابق | F2 — مراجعة D3 |
 | 2026-09-26 | **F2 defaults — كلمة المرور:** **5 إخفاقات ⇒ قفل 15 دقيقة**؛ نجاح OTP يفك القفل (PLAN §7.8). تبقى **configuration** لا افتراضات أعمال ثابتة متى سمح التصميم (اليوم ثوابت في M26 — نقلها إلى إعداد متابعة) | F2 — مراجعة D3 |
 | 2026-09-26 | **Staff authentication requires `status = active`:** `on_leave` لا يحصل على جلسة (fail-closed)؛ أي دخول محدود لموظف في إجازة قرار مستقل لاحق | F2 — مراجعة D3 |
@@ -603,6 +609,7 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | ✅ **C3** — اعتماد `platform_admin_roles → platform_admin_role_permissions → permissions`؛ `is_platform_admin()` اختبار هوية فقط، و`has_permission()` توحّد المسارين. الكتالوج 73 مفتاحاً بعد K4 (`tenant.create`) | `docs/ROLE_PERMISSION_SEED_v1.md`, `AUTHORIZATION_MATRIX_v1.md`, `docs/DATA_DICTIONARY_v1.md`, `CLAUDE.md` |
 | 2026-09-22 | ✅ **A3** — RLS Model: 7 دوال، سياسات كل الجداول، حل تعارض FORCE RLS/recursion، 30 اختبار pgTAP، و6 بنود معلّقة | `docs/RLS_MODEL_v1.md`, `CLAUDE.md` |
 | 2026-09-23 | ✅ **A5** — اعتماد A1–A4 كـFoundation Design Baseline | — |
+| 2026-09-26 | ✅ **F2/D4 + M27** — onboarding ولي الأمر A/B/C بالمدرسة الهدف؛ D4.1 و D4.2؛ إصدار C؛ pgTAP 27: 41؛ pytest 103/103؛ 6 ضوابط سلبية | `supabase/migrations/20260926200000_guardian_onboarding.sql`, `supabase/tests/{20,26,27}_*.test.sql`, `services/api/**`, `docs/*`, `CLAUDE.md` |
 | 2026-09-26 | 🔒 **D3/M26 مغلقان** — CI أخضر (`bdfce09`)؛ الافتراضيات والاستثناءات معتمدة (§6)؛ `tenant_admin` خارج D3 بقرار | `CLAUDE.md`, `docs/F2_AUTHENTICATION.md`, `docs/PLAN_v3.md` |
 | 2026-09-26 | ✅ **F2/D3 + M26** — دخول حسابات Tenant (ولي الأمر، الموظف) بـOTP وكلمة المرور؛ جلسة من Supabase Auth؛ I1، I2 في DB؛ الـseed على I2؛ pgTAP 26: 46؛ pytest 97/97؛ 5 ضوابط سلبية | `supabase/migrations/20260926180000_tenant_account_login.sql`, `supabase/tests/{11,13,14,20,22,26}_*.test.sql`, `supabase/seed.sql`, `services/api/**`, `docs/*`, `.env.example`, `CLAUDE.md` |
 | 2026-09-26 | 🔬 **D3 Spike ✅ 8/8** — هوية اصطناعية لكل حساب Tenant؛ جلسة من Supabase Auth عبر `generate_link`(magiclink) + `/verify` في الخادم؛ الهاتف نفسه في Tenantين بلا كشف؛ القفل، الحظر، كلمة المرور، رموز مزوّرة مرفوضة في FastAPI و PostgREST؛ شرط إنتاج: حدود معدّل Supabase Auth لكل IP (تمس D1) | `spikes/d3/*`, `docs/F2_AUTHENTICATION.md`, `CLAUDE.md` |

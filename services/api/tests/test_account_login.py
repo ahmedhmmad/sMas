@@ -62,6 +62,14 @@ def world(client, admin):
     created = {k: client.post("/accounts", json={"kind": k, "target_id": i}, headers=auth("tenant_admin")).status_code
                for k, i in (("guardian", g_a), ("staff", s_a))}
 
+    # D4 (M27): حساب ولي الأمر يولد pending — onboarding بالنمط A عبر مدرسة ابنه (school-a): OTP ← كلمة مرور ← تفعيل
+    client.post("/auth/otp/request", json={"tenant": "DEV", "kind": "guardian", "contact": phone, "school": "school-a"})
+    code = [c for _, to, c in client.app.state.otp_sender.messages if to == phone][-1]
+    s = client.post("/auth/otp/verify", json={"tenant": "DEV", "kind": "guardian", "contact": phone, "code": code,
+                                             "school": "school-a"}).json()["access_token"]
+    httpx.put(f"{AUTH}/user", headers={**PUB, "Authorization": f"Bearer {s}"}, json={"password": "Onboard-" + secrets.token_hex(4)})
+    assert client.post("/auth/activate", headers={"Authorization": f"Bearer {s}"}).json() == {"state": "active"}
+
     b_code = "ZB" + secrets.token_hex(2).upper()
     b = str(admin.execute("insert into public.platform_tenants (tenant_code, name) values (%s, 'B') returning id", [b_code]).fetchone()["id"])
 

@@ -206,7 +206,7 @@ select ok(not exists (select 1 from pg_trigger t where t.tgrelid = 'public.login
 select ok((select relrowsecurity and relforcerowsecurity from pg_class where oid = 'public.login_challenges'::regclass), 'login_challenges: RLS enabled and forced');
 select ok(has_column_privilege('authenticated', 'public.staff', 'locked_until', 'select') and not has_column_privilege('authenticated', 'public.staff', 'locked_until', 'update')
       and not has_column_privilege('authenticated', 'public.staff', 'failed_login_count', 'update'), 'staff lock columns: readable like guardians'', never client-writable');
-select is((select string_agg(pg_get_userbyid(proowner) || ':' || prosecdef, ',') from pg_proc where oid = 'app.otp_verify(text,text,text,text)'::regprocedure), 'app_owner:true', 'owned by app_owner, SECURITY DEFINER (R2)');
+select is((select string_agg(pg_get_userbyid(proowner) || ':' || prosecdef, ',') from pg_proc where oid = 'app.otp_verify(text,text,text,text,text)'::regprocedure), 'app_owner:true', 'owned by app_owner, SECURITY DEFINER (R2)');
 
 select * from finish();
 rollback;
