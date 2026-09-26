@@ -3,7 +3,7 @@
 **المشروع:** نظام إدارة المدارس متعدد المستأجرين (Multi-Tenant SMS)
 **تاريخ الإنشاء:** 2026-09-22
 **آخر تحديث:** 2026-09-23
-**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (**Gate C 🔒 مكتمل: M01–M23**؛ **Gate E 🔒 مغلق تقنياً: E1–E6** — Production Backup Policy TBD؛ Gate F: **F4 ✅ بانتظار المراجعة**)
+**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (**Gate C 🔒 مكتمل: M01–M23**؛ **Gate E 🔒 مغلق تقنياً: E1–E6** — Production Backup Policy TBD؛ Gate F: **F4 🔒**؛ التالي F2 — يبدأ بقرارين)
 
 ---
 
@@ -469,8 +469,8 @@ Platform Admin → Role → Permission + Platform-level scope
 - [ ] **F1.** تطبيق الويب: Vite + TS + Tailwind RTL، خط عربي (IBM Plex Sans Arabic / Cairo)، i18n، تنقل حسب الدور.
 - [ ] **F2.** المصادقة: Supabase Auth + JWT للموظفين؛ حساب الطالب المستقل؛ حساب ولي الأمر OTP/كلمة مرور حسب إعداد المدرسة.
 - [ ] **F3.** تحديد المدرسة من الـsubdomain (سياق واجهة فقط — لا يمنح أي صلاحية).
-- [ ] **F4.** هيكل FastAPI: التحقق من Supabase JWT، استخراج Tenant/Scope/Role، طبقة تفويض مشتركة.
-      ✅ **منفذ — بانتظار المراجعة** (`docs/F4_API_SECURITY.md`): JWT ← FastAPI ← DB (RLS + `app.*`) ← البيانات؛ لا تفويض موازٍ في FastAPI. اتصال `authenticator`؛ P3 بمفتاح التصدير نفسه عبر `has_permission` + `can_access_school`؛ N5 مُدقَّق ذرياً؛ 48/48 pytest + 4 ضوابط سلبية؛ خطوة CI.
+- [x] **F4.** هيكل FastAPI: التحقق من Supabase JWT، استخراج Tenant/Scope/Role، طبقة تفويض مشتركة.
+      🔒 **مغلق (2026-09-26، CI `addae39`)** (`docs/F4_API_SECURITY.md`): JWT ← FastAPI ← DB (RLS + `app.*`) ← البيانات؛ لا تفويض موازٍ في FastAPI. اتصال `authenticator`؛ P3 بمفتاح التصدير نفسه عبر `has_permission` + `can_access_school`؛ N5 مُدقَّق ذرياً؛ 48/48 pytest + 4 ضوابط سلبية؛ خطوة CI.
 
 ### معايير إنجاز المرحلة 1
 
@@ -543,6 +543,7 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | `audit_log.id` هو `bigint IDENTITY` وليس uuid، وبلا FK على `actor_id`/`entity_id` | ترتيب زمني طبيعي وحجم أصغر؛ وFK على الكيانات يخلق تبعية عكسية تكسر السجل عند الأرشفة |
 | 2026-09-22 | **O1** — `profiles.auth_user_id` فريد عالمياً؛ نفس Auth User لا يعبر Tenantين | شرط حتمية `app.current_tenant_id()` وصحة §1.1. التفاصيل: §1.1 + `DATA_DICTIONARY_v1.md` §2.7 |
 | 2026-09-22 | **O2** — `students.gender` و`birth_date` قابلان لـNULL؛ OCR ليس شرطاً ولا مصدراً نهائياً | اكتمال البيانات قاعدة أعمال في المرحلة 4 لا قيد صف. يلزم معالجة NULL صراحةً في قواعد التوزيع والتقارير |
+| 2026-09-26 | **O1 — Platform Admin audit visibility:** Tenant Admin may see audit records for Platform Admin reads affecting their own tenant, subject to the existing tenant audit visibility policy. No special F4 exception is introduced. | لا تعديل على M18 ولا إعادة فتح Gate C |
 | 2026-09-26 | **FastAPI ← قاعدة البيانات عبر `authenticator` (F4):** اتصال بدور `authenticator` (آلية PostgREST)؛ كل طلب معاملة واحدة بـ`role = authenticated` و`request.jwt.claims` = الـpayload الذي تحقق منه FastAPI (ES256 عبر JWKS)؛ RLS ودوال `app.*` تقرر. الخدمة لا تحمل مفتاح `service_role`؛ تبدّل إلى دور `service_role` لإدراج تدقيق القراءة/التصدير وحده في المعاملة نفسها (fail closed). تدقيق التصدير صف لكل طالب | تمرير JWT إلى PostgREST لا يصل إلى `app.*` والتدقيق فيه غير ذري |
 | 2026-09-26 | **البذر من القوائم الصريحة (M23)** — قوائم §4 (المطابقة لكتالوج Matrix §4) هي المرجع لا أعداد العناوين؛ `group_manager`/`school_admin` بقاعدتي الطرح؛ الأعداد: 71/62/59/19/11/11/10/2/6/4 | عناوين §4 وجدول §5 كانت متقادمة |
 | 2026-09-26 | **bootstrap_tenant (M22):** يُستدعى بـJWT الـPlatform Admin (`has_platform_permission('tenant.create')`) فالفاعل مُتحقَّق منه في DB ومُدقَّق كـ`platform_admin`؛ T8 يُعفى إعفاءً ضيقاً: سياق المنصة + `tenant.create`، على INSERT في `membership_roles`/`membership_scopes` فقط (Platform Admin بلا سياسة RLS عليهما) | T8 كان سيرفض bootstrap (Platform Admin بلا صلاحيات Tenant — G10)؛ وسياق service يُسقط التحقق من الفاعل (§5.0.2) |
@@ -583,6 +584,7 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | ✅ **C3** — اعتماد `platform_admin_roles → platform_admin_role_permissions → permissions`؛ `is_platform_admin()` اختبار هوية فقط، و`has_permission()` توحّد المسارين. الكتالوج 73 مفتاحاً بعد K4 (`tenant.create`) | `docs/ROLE_PERMISSION_SEED_v1.md`, `AUTHORIZATION_MATRIX_v1.md`, `docs/DATA_DICTIONARY_v1.md`, `CLAUDE.md` |
 | 2026-09-22 | ✅ **A3** — RLS Model: 7 دوال، سياسات كل الجداول، حل تعارض FORCE RLS/recursion، 30 اختبار pgTAP، و6 بنود معلّقة | `docs/RLS_MODEL_v1.md`, `CLAUDE.md` |
 | 2026-09-23 | ✅ **A5** — اعتماد A1–A4 كـFoundation Design Baseline | — |
+| 2026-09-26 | 🔒 **F4 مغلق** — CI أخضر (`addae39`)؛ O1 قرار مسجل؛ تدقيق التصدير صف لكل طالب معتمد؛ ملاحظة الإنتاج (ES256) باقية | `CLAUDE.md`, `docs/F4_API_SECURITY.md`, `docs/PLAN_v3.md` |
 | 2026-09-26 | ✅ **F4** — هيكل FastAPI: تحقق ES256 عبر JWKS، معاملة `authenticated` لكل طلب عبر `authenticator`، P3 و N5 بتدقيق ذري؛ 48/48؛ ملاحظة O1 (tenant_admin يرى قراءات المنصة لـTenant نفسه) | `services/api/**`, `docs/F4_API_SECURITY.md`, `.github/workflows/ci.yml`, `.env.example`, `docs/E6_BACKUP_RESTORE.md`, `CLAUDE.md`, `docs/PLAN_v3.md` |
 | 2026-09-26 | 🔒 **E6 التقني و Gate E مغلقان (E1–E6)** — CI أخضر (`c985a0d`، https://github.com/ahmedhmmad/sMas/actions/runs/36200782679)؛ **Production Backup Policy: TBD** (RPO، RTO، retention، frequency، PITR، مكان الحفظ، encryption/access، restore procedure، واستعادة إلى خادم جديد بالكامل بأدواره مثل `app_owner`) — حد نطاق لا فشل؛ لا إعادة فتح لـE1–E5 | `CLAUDE.md`, `docs/E6_BACKUP_RESTORE.md`, `docs/PLAN_v3.md` |
 | 2026-09-26 | ✅ **E6 (التقني)** — اختبار الاستعادة من backup كامل: البصمة + الحزمة على النسخة المستعادة + CI؛ كشف ف1 (خصائص القاعدة لا يحملها `pg_dump` بلا `--create` ← `public` بلا CREATE) و ف2 (`07` I12 طابق القيد الخطأ بمصادفة ترتيب الفهارس ← عُزل)؛ السياسة TBD | `scripts/restore-test.sh`, `scripts/db-fingerprint.sql`, `docs/E6_BACKUP_RESTORE.md`, `supabase/tests/07_memberships.test.sql`, `docs/TRACEABILITY_E1_E4.md`, `.github/workflows/ci.yml`, `CLAUDE.md` |

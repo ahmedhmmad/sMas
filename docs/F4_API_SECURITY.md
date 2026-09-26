@@ -1,6 +1,6 @@
 # Gate F4 — هيكل FastAPI وحد الأمان
 
-**الحالة:** ✅ منفذ (2026-09-26) — بانتظار المراجعة · **الكود:** `services/api/` · **الاختبارات:** 48/48 (pytest، CI)
+**الحالة:** 🔒 **CLOSED** (2026-09-26، CI `addae39`) · **الكود:** `services/api/` · **الاختبارات:** 48/48 (pytest، CI)
 
 ---
 
@@ -85,15 +85,15 @@ select set_config('role', 'authenticated', true),
 
 ---
 
-## 5. ملاحظات للمراجعة — لا تغيير
+## 5. ملاحظات المراجعة — لا تغيير في F4
 
 | # | الملاحظة |
 |---|---|
-| O1 | **`tenant_admin` يرى صفوف قراءة Platform Admin لـTenant نفسه** (صف tenant-level بلا `school_id` — فرع `can_access_tenant` في `audit_log_tenant_select`، M18). شفافية للعميل بما قرأه مشغّل المنصة؛ نتيجة السياسات القائمة لا سياسة جديدة. إن كان غير مرغوب فقرار مستقل |
+| O1 | ✅ **قرار:** **O1 — Platform Admin audit visibility:** Tenant Admin may see audit records for Platform Admin reads affecting their own tenant, subject to the existing tenant audit visibility policy. No special F4 exception is introduced. — **الأصل:** `tenant_admin` يرى صفوف قراءة Platform Admin لـTenant نفسه (صف tenant-level بلا `school_id` — فرع `can_access_tenant` في `audit_log_tenant_select`، M18). شفافية للعميل بما قرأه مشغّل المنصة؛ نتيجة السياسات القائمة لا سياسة جديدة |
 | O2 | تصدير بلا صفوف لا يكتب صف تدقيق (لا كيان يُسجَّل عليه ولا بيانات خرجت) |
 | O3 | `404` لغير المرئي (لا يميّز «غير موجود» من «خارج النطاق»)؛ `403` لرفض صلاحية صريح (التصدير، مسار المنصة) |
 | O4 | `ip_address` في صفوف تدقيق الوصول فارغ — يُضاف مع F1/البنية (proxy موثوق) |
-| O5 | الإنتاج: إن بقي مشروع Supabase على مفتاح JWT قديم (HS256) فالتحقق يحتاج السر المشترك — التصميم الحالي يفترض مفاتيح توقيع غير متماثلة (JWKS)؛ يُحسم مع هدف النشر |
+| O5 | **Production JWT verification assumes an asymmetric Supabase signing-key configuration supporting the tested ES256 path.** — الإنتاج: إن بقي مشروع Supabase على مفتاح JWT قديم (HS256) فالتحقق يحتاج السر المشترك — التصميم الحالي يفترض مفاتيح توقيع غير متماثلة (JWKS)؛ يُحسم مع هدف النشر |
 | O6 | endpoints الإثبات بصيغة JSON؛ صيغ التصدير (CSV/PDF) وحدود الحجم مع وحداتها |
 
 **خارج F4:** F1 (الواجهة)، F2 (المصادقة: معرّف الطالب الاصطناعي، OTP ولي الأمر)، F3 (subdomain — اختبار أنه لا يرفع السلطة يُكتب هناك؛ F4 أثبت أن أي سياق في الطلب لا يؤثر).
