@@ -21,14 +21,15 @@ def test_export_with_permission_is_audited_per_student(client, ids, audit):
     r = client.get(f"/schools/{sa}/students/export", headers=auth("school_admin"))
     assert r.status_code == 200
     exported = r.json()["rows"]
-    assert exported == read and len(exported) == 1          # الصفوف نفسها تحت RLS، لا أكثر
+    assert exported == read and len(exported) >= 1          # الصفوف نفسها تحت RLS، لا أكثر
     rows = audit.new(action="export")
-    assert [(x["entity_type"], x["entity_id"]) for x in rows] == [("students", exported[0]["id"])]
+    assert sorted((x["entity_type"], x["entity_id"]) for x in rows) == sorted(("students", e["id"]) for e in exported)
+    assert len({x["new_values"]["export_id"] for x in rows}) == 1             # عملية تصدير واحدة تجمع صفوفها
     row = rows[0]
     assert row["actor_type"] == "tenant_user"
     assert str(row["actor_id"]) == ids["profile"]["school.admin@dev.smas.test"]     # من DB لا من الـclaims
     assert str(row["school_id"]) == sa and str(row["platform_tenant_id"]) == ids["tenant"]
-    assert row["source"] == "api" and row["new_values"]["row_count"] == 1
+    assert row["source"] == "api" and row["new_values"]["row_count"] == len(exported)
 
 
 @pytest.mark.parametrize("school", ["SB", "SS"])

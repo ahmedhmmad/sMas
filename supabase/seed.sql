@@ -54,7 +54,8 @@ insert into dev values
   ('counselor',      'a0000000-0000-4000-8000-000000000007', 'counselor@dev.smas.test',      'counselor',      'SA'),
   ('bus_supervisor', 'a0000000-0000-4000-8000-000000000008', 'bus.supervisor@dev.smas.test', 'bus_supervisor', 'SA'),
   ('guardian',       'a0000000-0000-4000-8000-000000000009', 'guardian@dev.smas.test',       'guardian',       null),
-  ('student',        'a0000000-0000-4000-8000-000000000010', 'student@dev.smas.test',        'student',        null);
+  -- D1 (M24): حساب الطالب = معرّف الطالب وبريده اصطناعي؛ الدخول بالـOfficial ID عبر FastAPI
+  ('student',        'e0000000-0000-4000-8000-000000000001', 'e0000000-0000-4000-8000-000000000001@students.smas.invalid', 'student', null);
 grant select on dev to authenticated;
 
 -- ------------------------------------------------------------------
@@ -140,7 +141,7 @@ reset role;
 -- ------------------------------------------------------------------
 select pg_temp.act('a0000000-0000-4000-8000-000000000004');
 set local role authenticated;
-select app.provision_student('e0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000010',
+select app.provision_student('e0000000-0000-4000-8000-000000000001', 'e0000000-0000-4000-8000-000000000001',
          (select s.id from public.sections s join public.grade_levels g on g.id = s.grade_level_id
           join public.schools sc on sc.id = s.school_id where sc.school_code = 'SA' and g.sequence_no = 1),
          '2026-09-01', 'Omar', 'Hassan', p_father_name => 'Ahmad', p_grandfather_name => 'Mahmoud',

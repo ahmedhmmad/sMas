@@ -122,32 +122,44 @@ insert into public.families (id, platform_tenant_id, family_name) values ('f0000
 -- حسابات Auth للكيانات الجديدة
 select pg_temp.auth(l) from unnest(array['st1','st2','st3','stw','stx','gacc','facc','adm3','dup']) l;
 
+-- D1 (M24): حساب الطالب معرّفه = معرّف الطالب. 'self' ⇒ حساب Auth بمعرّف الطالب وبريد D1 الاصطناعي
+create function pg_temp.sa(p uuid) returns uuid language plpgsql as $$
+begin
+  insert into auth.users (id, email) values (p, p::text || '@students.smas.invalid') on conflict (id) do nothing;
+  return p;
+end $$;
 create function pg_temp.ps(p_student uuid, p_auth text, p_sec text, p_extra text default '') returns text language sql as $$
-  select format($f$select app.provision_student(%L, %L, %L, '2026-09-01', 'Ali', 'Hasan'%s)::text$f$, p_student, pg_temp.a(p_auth), pg_temp.sec(p_sec), p_extra) $$;
+  select format($f$select app.provision_student(%L, %L, %L, '2026-09-01', 'Ali', 'Hasan'%s)::text$f$, p_student,
+                case when p_auth = 'self' then pg_temp.sa(p_student) else pg_temp.a(p_auth) end, pg_temp.sec(p_sec), p_extra) $$;
 
 -- ============ provision_student ============
-select pg_temp.run('ps.ok',       'sec',  pg_temp.ps('e1000000-0000-0000-0000-000000000001', 'st1', 'SA1', ', p_new_family_name => ''Hasan'''));
-select pg_temp.run('ps.again',    'sec',  pg_temp.ps('e1000000-0000-0000-0000-000000000001', 'st1', 'SA1', ', p_new_family_name => ''Hasan'''));
-select pg_temp.run('ps.conflict', 'sec',  pg_temp.ps('e1000000-0000-0000-0000-000000000001', 'st2', 'SA1'));
+select pg_temp.run('ps.ok',       'sec',  pg_temp.ps('e1000000-0000-0000-0000-000000000001', 'self', 'SA1', ', p_new_family_name => ''Hasan'''));
+select pg_temp.run('ps.again',    'sec',  pg_temp.ps('e1000000-0000-0000-0000-000000000001', 'self', 'SA1', ', p_new_family_name => ''Hasan'''));
+-- المعرّف نفسه لمدرسة أخرى (سكرتير SS) = بيانات مختلفة
+select pg_temp.run('ps.conflict', 'secs', pg_temp.ps('e1000000-0000-0000-0000-000000000001', 'self', 'SS'));
+-- D1: حساب بمعرّف آخر مرفوض قبل أي كتابة
+select pg_temp.run('ps.d1',       'sec',  pg_temp.ps('e8000000-0000-0000-0000-000000000008', 'st2', 'SA1'));
+select pg_temp.rec('ps.d1_trace', $q$select count(*)::text from public.students where id = 'e8000000-0000-0000-0000-000000000008'$q$);
 select pg_temp.run('ps.visible',  'sec',  $q$select count(*)::text from public.students where id = 'e1000000-0000-0000-0000-000000000001'$q$);
 select pg_temp.rec('ps.shape', $q$select (st.identity_scope_id = (select id from public.identity_scopes where group_id = 'a1000000-0000-0000-0000-00000000000a'))::text
   || '|' || (st.temporary_id ~ '^TMP-[0-9]{4}-[0-9]{6,}$')::text
   || '|' || (select string_agg(e.status || ':' || sc.school_code, ',') from public.enrollments e join public.schools sc on sc.id = e.school_id where e.student_id = st.id)
   || '|' || (select string_agg(r.code, ',') from public.memberships m join public.membership_roles mr on mr.membership_id = m.id join public.roles r on r.id = mr.role_id where m.profile_id = st.student_profile_id)
   || '|' || (select family_name from public.families f where f.id = st.family_id)
-  || '|' || (select count(*) from public.profiles p where p.auth_user_id = (select auth from ids where label = 'st1'))
+  || '|' || (select count(*) from public.profiles p where p.auth_user_id = 'e1000000-0000-0000-0000-000000000001')
   from public.students st where st.id = 'e1000000-0000-0000-0000-000000000001'$q$);
-select pg_temp.run('ps.standalone','secs', pg_temp.ps('e2000000-0000-0000-0000-000000000002', 'st2', 'SS'));
+select pg_temp.run('ps.standalone','secs', pg_temp.ps('e2000000-0000-0000-0000-000000000002', 'self', 'SS'));
 select pg_temp.rec('ps.standalone_scope', $q$select (identity_scope_id = (select id from public.identity_scopes where school_id = '55000000-0000-0000-0000-000000000004'))::text from public.students where id = 'e2000000-0000-0000-0000-000000000002'$q$);
-select pg_temp.run('ps.sb',       'sb',   pg_temp.ps('e3000000-0000-0000-0000-000000000003', 'st3', 'SA1'));
-select pg_temp.run('ps.nop',      'nop',  pg_temp.ps('e3000000-0000-0000-0000-000000000003', 'st3', 'SA1'));
-select pg_temp.run('ps.weak',     'weak', pg_temp.ps('e4000000-0000-0000-0000-000000000004', 'stw', 'SA1'));   -- T8 داخل الإنشاء
-select pg_temp.rec('ps.weak_trace', $q$select (select count(*) from public.profiles where auth_user_id = (select auth from ids where label = 'stw'))
-  || '/' || (select count(*) from public.auth_identities where auth_user_id = (select auth from ids where label = 'stw'))
+select pg_temp.run('ps.sb',       'sb',   pg_temp.ps('e3000000-0000-0000-0000-000000000003', 'self', 'SA1'));
+select pg_temp.run('ps.nop',      'nop',  pg_temp.ps('e3000000-0000-0000-0000-000000000003', 'self', 'SA1'));
+select pg_temp.run('ps.weak',     'weak', pg_temp.ps('e4000000-0000-0000-0000-000000000004', 'self', 'SA1'));   -- T8 داخل الإنشاء
+select pg_temp.rec('ps.weak_trace', $q$select (select count(*) from public.profiles where auth_user_id = 'e4000000-0000-0000-0000-000000000004')
+  || '/' || (select count(*) from public.auth_identities where auth_user_id = 'e4000000-0000-0000-0000-000000000004')
   || '/' || (select count(*) from public.students where id = 'e4000000-0000-0000-0000-000000000004')$q$);
-select pg_temp.run('ps.reused_auth','sec', pg_temp.ps('e5000000-0000-0000-0000-000000000005', 'sec', 'SA1'));   -- حساب Auth مستعمل (O1/G10)
-select pg_temp.rec('ps.reused_trace', $q$select count(*)::text from public.students where id = 'e5000000-0000-0000-0000-000000000005'$q$);
-select pg_temp.run('ps.hidden_family','sec', pg_temp.ps('e6000000-0000-0000-0000-000000000006', 'stx', 'SA1', ', p_family_id => ''f0000000-0000-0000-0000-00000000000f'''));
+-- حساب Auth مستعمل (O1/G10): معرّف الطالب = حساب السكرتير القائم، فيمر D1 ويصطدم بحصرية الهوية
+select pg_temp.run('ps.reused_auth','sec', pg_temp.ps(pg_temp.a('sec'), 'self', 'SA1'));
+select pg_temp.rec('ps.reused_trace', format($q$select count(*)::text from public.students where id = %L$q$, pg_temp.a('sec')));
+select pg_temp.run('ps.hidden_family','sec', pg_temp.ps('e6000000-0000-0000-0000-000000000006', 'self', 'SA1', ', p_family_id => ''f0000000-0000-0000-0000-00000000000f'''));
 select pg_temp.run('ps.direct',   'sec',  format($q$insert into public.students (platform_tenant_id, identity_scope_id, student_profile_id, first_name, family_name, official_id, official_id_type)
   values ('10000000-0000-0000-0000-000000000001', (select id from public.identity_scopes limit 1), gen_random_uuid(), 'x', 'x', 'X1', 'national_id') returning 'ok'$q$));
 
@@ -205,7 +217,7 @@ select pg_temp.run('bt.pa_direct', 'pa', format($q$insert into public.membership
 
 -- ============ إيقاف الـTenant (M21b) ============
 update public.platform_tenants set status = 'suspended', suspended_at = now() where id = '10000000-0000-0000-0000-000000000001';
-select pg_temp.run('susp.ps', 'sec', pg_temp.ps('e7000000-0000-0000-0000-000000000007', 'stx', 'SA1'));
+select pg_temp.run('susp.ps', 'sec', pg_temp.ps('e7000000-0000-0000-0000-000000000007', 'self', 'SA1'));
 update public.platform_tenants set status = 'active', suspended_at = null where id = '10000000-0000-0000-0000-000000000001';
 
 -- ============ البنية ============
@@ -217,12 +229,14 @@ insert into fn values
   ('app.provision_guardian(uuid,uuid,text,text,text,text,date,text,text,text,text,text,boolean)'),
   ('app.provision_account(text,uuid,uuid)');
 
-select plan(52);
+select plan(54);
 
 -- ---------- provision_student ----------
 select is((select v from r where k = 'ps.ok'),       'e1000000-0000-0000-0000-000000000001', 'provision_student: a school-scoped secretary in a grouped school (H1)');
 select is((select v from r where k = 'ps.again'),    'e1000000-0000-0000-0000-000000000001', 'idempotency: the same request returns the existing student');
 select ok((select v from r where k = 'ps.conflict')  like 'ERR 23505%conflict: student%', 'idempotency: the same id with different data is a conflict');
+select ok((select v from r where k = 'ps.d1')        like 'ERR 22023%invariant: student account id must equal student id (D1)%', 'D1 (M24): the account id must be the student id');
+select is((select v from r where k = 'ps.d1_trace'),  '0', 'D1: rejected before anything is written');
 select is((select v from r where k = 'ps.visible'),  '1', '§5.1: the created student is visible to its creator (the enrollment was created with it)');
 select is((select v from r where k = 'ps.shape'),    'true|true|active:SA1|student|Hasan|1',
           'H1 + shape: identity scope = the target school''s group; temporary_id generated (O3); active enrollment; student role; new family; exactly one profile');

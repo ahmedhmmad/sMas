@@ -39,7 +39,7 @@ def test_user_a_reaches_school_a(client, ids):
     sa = ids["school"]["SA"]
     assert client.get(f"/schools/{sa}", headers=auth("secretary")).json()["school_code"] == "SA"
     rows = client.get(f"/schools/{sa}/students", headers=auth("secretary")).json()["rows"]
-    assert len(rows) == 1
+    assert "e0000000-0000-4000-8000-000000000001" in {r["id"] for r in rows}      # طالب الـseed (قد تضيف اختبارات D1 غيره)
 
 
 @pytest.mark.parametrize("school", ["SB", "SS"])

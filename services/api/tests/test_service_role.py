@@ -1,7 +1,8 @@
 """F4 §4 — `service_role` خادمي فقط، ولا يصير طريقاً لتجاوز التفويض.
 
-الخدمة لا تحمل مفتاح service_role أصلاً (تتصل بـ`authenticator`)، وتبدّل إلى دور `service_role` في موضع واحد:
-إدراج صف التدقيق (audit.py). المفتاح المقدَّم كـBearer مرفوض في test_tokens.
+الخدمة لا تحمل مفتاح service_role القديم (JWT) أصلاً؛ تتصل بـ`authenticator` وتبدّل إلى دور `service_role` في
+موضعين مسمّيين فقط: إدراج صف التدقيق (audit.py، F4) وحل معرّف دخول الطالب قبل JWT (student_login.py، D1).
+المفتاح السري لـAuth Admin API (Saga §5.4) يقرؤه auth_admin.py وحده. المفتاح المقدَّم كـBearer مرفوض في test_tokens.
 """
 
 import pathlib
@@ -18,12 +19,17 @@ def _sources() -> dict[str, str]:
 
 def test_service_does_not_read_the_service_role_key():
     for name, src in _sources().items():
-        assert "SERVICE_ROLE_KEY" not in src and "SECRET_KEY" not in src, name
+        assert "SERVICE_ROLE_KEY" not in src, name
 
 
-def test_role_switch_to_service_role_only_in_audit():
+def test_secret_key_read_only_by_auth_admin():
+    readers = {n for n, src in _sources().items() if "SECRET_KEY" in src}
+    assert readers == {"auth_admin.py"}
+
+
+def test_role_switch_to_service_role_only_in_named_places():
     switches = {n for n, src in _sources().items() if re.search(r"set_config\('role',\s*'service_role'", src)}
-    assert switches == {"audit.py"}
+    assert switches == {"audit.py", "student_login.py"}
 
 
 def test_every_user_transaction_runs_as_authenticated():
@@ -33,7 +39,7 @@ def test_every_user_transaction_runs_as_authenticated():
 
 
 def test_responses_carry_no_credentials(client, ids):
-    secrets = [ENV["TEST_SERVICE_ROLE_KEY"], ENV["API_DATABASE_URL"], ENV["TEST_ADMIN_DB_URL"]]
+    secrets = [ENV["TEST_SERVICE_ROLE_KEY"], ENV["SUPABASE_SECRET_KEY"], ENV["API_DATABASE_URL"], ENV["TEST_ADMIN_DB_URL"]]
     sa = ids["school"]["SA"]
     calls = [
         ("/health", {}), ("/me", auth("secretary")), (f"/schools/{sa}", auth("secretary")),

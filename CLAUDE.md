@@ -3,7 +3,7 @@
 **المشروع:** نظام إدارة المدارس متعدد المستأجرين (Multi-Tenant SMS)
 **تاريخ الإنشاء:** 2026-09-22
 **آخر تحديث:** 2026-09-23
-**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (**Gate C 🔒 مكتمل: M01–M23**؛ **Gate E 🔒 مغلق تقنياً: E1–E6** — Production Backup Policy TBD؛ Gate F: **F4 🔒**؛ التالي F2 — يبدأ بقرارين)
+**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (**Gate C 🔒 مكتمل: M01–M23**؛ **Gate E 🔒 مغلق تقنياً: E1–E6** — Production Backup Policy TBD؛ Gate F: **F4 🔒**؛ F2: D1 ✅ بانتظار المراجعة، D2 آلية بانتظار التأكيد)
 
 ---
 
@@ -387,6 +387,7 @@ Platform Admin → Role → Permission + Platform-level scope
 | M21b | `tenant_suspension` | ✅ 15/15 | الإيقاف في جذر سياق الـTenant: `current_profile_id` و`current_tenant_id` معاً (ضابط سلبي: الثانية وحدها تترك المستخدم يرى مدرسته 0/1/1) |
 | M22 | `provisioning_functions` | ✅ 52/52 (1120/1120) | 5 دوال إنشاء بالعقد السباعي؛ H1 مشتق من المدرسة وبلا معامل؛ idempotency بمعرّف العميل؛ الـSaga ذرية (فشل لا يترك profile/identity/student)؛ T8 داخل الإنشاء؛ إعفاء T8 ضيق لـbootstrap (ضابط سلبي: بدونه يُرفض)؛ allowlist = 20 |
 | M23 | `reference_data` | ✅ 35/35 (1155/1155) | 73 permission، 10 أدوار، 255 ربطاً، `platform_admin` بتسع؛ مولّدة من الوثيقة نفسها وحارس داخل الـmigration؛ كشف الانحراف مُثبت بضابط سلبي؛ عناوين §4 و§5 المتقادمة صُحِّحت؛ اختبارات 05–22 تستعمل البذر أو أكواداً اختبارية `zt_*` |
+| M24 | `student_login` (F2/D1) | ✅ 26/26 | `resolve_student_login` قبل JWT: EXECUTE لـservice_role وحده، NULL واحد لكل فشل، tenant+slug (الـslug فريد داخل الـTenant فقط)؛ D1 مفروض في `provision_student`؛ `22` و seed E5 على شكل D1 |
 
 **✅ H1 محسوم (2026-09-24) — السماح، بلا Group Scope:**
 > **H1 — A secretary may register a new student in a school that belongs to a group. The secretary requires `student.create` with school scope; this does not grant group scope. When the target school belongs to a group, the student's identity scope is derived from the target school's group and is not client-selectable. The student's enrollment is created for the target school in the same controlled provisioning operation.**
@@ -468,6 +469,7 @@ Platform Admin → Role → Permission + Platform-level scope
 
 - [ ] **F1.** تطبيق الويب: Vite + TS + Tailwind RTL، خط عربي (IBM Plex Sans Arabic / Cairo)، i18n، تنقل حسب الدور.
 - [ ] **F2.** المصادقة: Supabase Auth + JWT للموظفين؛ حساب الطالب المستقل؛ حساب ولي الأمر OTP/كلمة مرور حسب إعداد المدرسة.
+      `docs/F2_AUTHENTICATION.md` — الترتيب: M24 → D1 → D2 → D3 Spike → D3 → D4 → E2E. **D1 ✅** (M24 + `POST /students` Saga + `POST /auth/student/login`؛ 24: 26/26، pytest 68/68)؛ D2 آلية مقترحة (trigger على `auth.users`) بانتظار التأكيد؛ D3 Spike؛ D4 دلالات A/B/C.
 - [ ] **F3.** تحديد المدرسة من الـsubdomain (سياق واجهة فقط — لا يمنح أي صلاحية).
 - [x] **F4.** هيكل FastAPI: التحقق من Supabase JWT، استخراج Tenant/Scope/Role، طبقة تفويض مشتركة.
       🔒 **مغلق (2026-09-26، CI `addae39`)** (`docs/F4_API_SECURITY.md`): JWT ← FastAPI ← DB (RLS + `app.*`) ← البيانات؛ لا تفويض موازٍ في FastAPI. اتصال `authenticator`؛ P3 بمفتاح التصدير نفسه عبر `has_permission` + `can_access_school`؛ N5 مُدقَّق ذرياً؛ 48/48 pytest + 4 ضوابط سلبية؛ خطوة CI.
@@ -543,6 +545,10 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | `audit_log.id` هو `bigint IDENTITY` وليس uuid، وبلا FK على `actor_id`/`entity_id` | ترتيب زمني طبيعي وحجم أصغر؛ وFK على الكيانات يخلق تبعية عكسية تكسر السجل عند الأرشفة |
 | 2026-09-22 | **O1** — `profiles.auth_user_id` فريد عالمياً؛ نفس Auth User لا يعبر Tenantين | شرط حتمية `app.current_tenant_id()` وصحة §1.1. التفاصيل: §1.1 + `DATA_DICTIONARY_v1.md` §2.7 |
 | 2026-09-22 | **O2** — `students.gender` و`birth_date` قابلان لـNULL؛ OCR ليس شرطاً ولا مصدراً نهائياً | اكتمال البيانات قاعدة أعمال في المرحلة 4 لا قيد صف. يلزم معالجة NULL صراحةً في قواعد التوزيع والتقارير |
+| 2026-09-26 | **D1 — Student Auth identity (A):** `auth.users.id = student_id` (UUID يولده العميل، مفتاح الـSaga)؛ بريد Auth `student_id@students.smas.invalid` لا يراه الطالب؛ الدخول بـOfficial/Temporary ID يُحَل في FastAPI داخل نطاق الهوية؛ Temporary ← Official لا يغيّر هوية Auth؛ دالة lookup ضيقة قبل JWT (M24) لا تكشف tenant/school/بيانات الطالب ولا تختلف بين موجود وغير موجود، مع rate limiting | F2 |
+| 2026-09-26 | **D2 — First-login password change = DB/RLS boundary:** أثناء `pending` ترجع `current_tenant_id()` و`current_profile_id()` NULL؛ التغيير عبر Supabase Auth بجلسة المستخدم؛ انتقال الحالة موثوق — لا عمليتان منفصلتان تسمحان بحالة غير متسقة | F2 — الآلية `docs/F2_AUTHENTICATION.md` §3 |
+| 2026-09-26 | **D3 — Tenant users synthetic identity (ii):** لا `guardian phone → auth.users.phone` ولا `staff email → auth.users.email` كهوية Auth عالمية؛ الهاتف/البريد الحقيقي في جدول النطاق؛ الشخص نفسه يملك حساباً مستقلاً لكل Tenant دون أن يكشف Tenant وجوده في آخر. **D3 = Synthetic identity per tenant account APPROVED; session/OTP mechanism = SPIKE REQUIRED.** | F2 — `auth.users.phone`/`email` فريدان عالمياً (مُثبت: `phone_exists`) ⇒ الهوية الأصلية تمنع حساب Tenant ثانٍ وتكشف الوجود عبر الـTenants |
+| 2026-09-26 | **D4 — Guardian first-login:** سياسة first-login لولي الأمر تُحدَّد حسب المدرسة المستهدفة أثناء الدخول/الـonboarding، لا حسب المدرسة التي أنشأت الحساب؛ دلالات A/B/C تُثبَّت من PLAN قبل التنفيذ | F2 |
 | 2026-09-26 | **O1 — Platform Admin audit visibility:** Tenant Admin may see audit records for Platform Admin reads affecting their own tenant, subject to the existing tenant audit visibility policy. No special F4 exception is introduced. | لا تعديل على M18 ولا إعادة فتح Gate C |
 | 2026-09-26 | **FastAPI ← قاعدة البيانات عبر `authenticator` (F4):** اتصال بدور `authenticator` (آلية PostgREST)؛ كل طلب معاملة واحدة بـ`role = authenticated` و`request.jwt.claims` = الـpayload الذي تحقق منه FastAPI (ES256 عبر JWKS)؛ RLS ودوال `app.*` تقرر. الخدمة لا تحمل مفتاح `service_role`؛ تبدّل إلى دور `service_role` لإدراج تدقيق القراءة/التصدير وحده في المعاملة نفسها (fail closed). تدقيق التصدير صف لكل طالب | تمرير JWT إلى PostgREST لا يصل إلى `app.*` والتدقيق فيه غير ذري |
 | 2026-09-26 | **البذر من القوائم الصريحة (M23)** — قوائم §4 (المطابقة لكتالوج Matrix §4) هي المرجع لا أعداد العناوين؛ `group_manager`/`school_admin` بقاعدتي الطرح؛ الأعداد: 71/62/59/19/11/11/10/2/6/4 | عناوين §4 وجدول §5 كانت متقادمة |
@@ -584,6 +590,7 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | ✅ **C3** — اعتماد `platform_admin_roles → platform_admin_role_permissions → permissions`؛ `is_platform_admin()` اختبار هوية فقط، و`has_permission()` توحّد المسارين. الكتالوج 73 مفتاحاً بعد K4 (`tenant.create`) | `docs/ROLE_PERMISSION_SEED_v1.md`, `AUTHORIZATION_MATRIX_v1.md`, `docs/DATA_DICTIONARY_v1.md`, `CLAUDE.md` |
 | 2026-09-22 | ✅ **A3** — RLS Model: 7 دوال، سياسات كل الجداول، حل تعارض FORCE RLS/recursion، 30 اختبار pgTAP، و6 بنود معلّقة | `docs/RLS_MODEL_v1.md`, `CLAUDE.md` |
 | 2026-09-23 | ✅ **A5** — اعتماد A1–A4 كـFoundation Design Baseline | — |
+| 2026-09-26 | ✅ **F2/D1 + M24** — هوية الطالب الاصطناعية؛ `resolve_student_login`؛ Saga الإنشاء والدخول بالمعرّف؛ D1 مفروض في DB؛ 24: 26/26، 22: 54، pytest 68/68، 4 ضوابط سلبية؛ قرارات D1–D4 مسجلة | `supabase/migrations/20260926140000_student_login.sql`, `supabase/tests/{22,24}_*.test.sql`, `supabase/seed.sql`, `services/api/**`, `docs/F2_AUTHENTICATION.md`, `docs/DB_IMPLEMENTATION_SPEC_v1.md`, `.env.example`, `CLAUDE.md`, `docs/PLAN_v3.md` |
 | 2026-09-26 | 🔒 **F4 مغلق** — CI أخضر (`addae39`)؛ O1 قرار مسجل؛ تدقيق التصدير صف لكل طالب معتمد؛ ملاحظة الإنتاج (ES256) باقية | `CLAUDE.md`, `docs/F4_API_SECURITY.md`, `docs/PLAN_v3.md` |
 | 2026-09-26 | ✅ **F4** — هيكل FastAPI: تحقق ES256 عبر JWKS، معاملة `authenticated` لكل طلب عبر `authenticator`، P3 و N5 بتدقيق ذري؛ 48/48؛ ملاحظة O1 (tenant_admin يرى قراءات المنصة لـTenant نفسه) | `services/api/**`, `docs/F4_API_SECURITY.md`, `.github/workflows/ci.yml`, `.env.example`, `docs/E6_BACKUP_RESTORE.md`, `CLAUDE.md`, `docs/PLAN_v3.md` |
 | 2026-09-26 | 🔒 **E6 التقني و Gate E مغلقان (E1–E6)** — CI أخضر (`c985a0d`، https://github.com/ahmedhmmad/sMas/actions/runs/36200782679)؛ **Production Backup Policy: TBD** (RPO، RTO، retention، frequency، PITR، مكان الحفظ، encryption/access، restore procedure، واستعادة إلى خادم جديد بالكامل بأدواره مثل `app_owner`) — حد نطاق لا فشل؛ لا إعادة فتح لـE1–E5 | `CLAUDE.md`, `docs/E6_BACKUP_RESTORE.md`, `docs/PLAN_v3.md` |

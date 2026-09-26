@@ -498,6 +498,7 @@ grant execute on function app.archive_student(uuid, text) to authenticated;
 | `app.provision_staff(...)` | staff + أول `staff_school_assignment` | `staff.create` + `staff.assign` + `can_access_school` |
 | `app.provision_guardian(student_id, ...)` | guardian + `student_guardians` + (family) | `guardian.create` + `guardian.link` + `student_in_scope` |
 | `app.provision_account(kind, id, auth_user_id)` | profile + membership + دور + (نطاق) لموظف/ولي أمر قائم | صلاحية المورد + علاقة في النطاق |
+| `app.resolve_student_login(tenant_code, school_slug, identifier)` ✅ M24 (F2/D1) | لا كتابة — معرّف الحساب أو NULL (الفئة 4: تجاوز RLS بعد تحقق صريح) | قبل JWT: EXECUTE لـ`service_role` وحده؛ NULL واحد لكل فشل؛ لا tenant/school/بيانات |
 | `app.bootstrap_tenant(...)` | tenant + profile + membership + `tenant_admin` + نطاق tenant | PA `tenant.create` — **✅ M22 (2026-09-26): بـJWT الـPlatform Admin لا service**؛ T8 بإعفاء ضيق (سياق المنصة + `tenant.create`، INSERT في `membership_roles`/`membership_scopes`) |
 
 **قواعد ملزمة لكل دالة في القائمة** (إضافة إلى المتطلبات السبعة في §5.0.2):
@@ -545,6 +546,8 @@ grant execute on function app.archive_student(uuid, text) to authenticated;
 **تصحيح (2026-09-23):** النسخة الأولى من §5.2 أغفلت الـenrollment داخل `provision_student`، فكان الطالب المُنشأ **غير مرئي لمنشئه** — نفس المشكلة التي وُضع G4 لحلها. مخطط المراجعة (profile → student → enrollment داخل المعاملة) هو الصحيح.
 
 **لا ربط معاملاتي بين Supabase Auth و PostgreSQL** — يبقى هذا قيداً ثابتاً على F2.
+
+**✅ D1 (M24، 2026-09-26):** `auth.users.id = student_id`، بريد `student_id@students.smas.invalid`؛ `provision_student` يرفض معرّف حساب مختلفاً (`22023`)؛ كلمة المرور الأولية = المعرّف تُضبط بعد الـcommit (الخطوة 6 أعلاه تبقى تعويضاً). `docs/F2_AUTHENTICATION.md` §2.
 
 **قيد على F2:** معرّف Auth للطالب **لا يجوز** أن يعتمد على قيمة تُولَّد داخل معاملة DB (مثل `temporary_id`)، لأن الحساب يُنشأ قبلها. الدخول بـOfficial/Temporary ID يُحَل في FastAPI: بحث عن الطالب ← معرّف Auth المشتق ← تسجيل الدخول.
 

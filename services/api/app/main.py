@@ -19,15 +19,21 @@ import psycopg
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
+from . import student_login, students
 from .audit import write_access_audit
+from .auth_admin import AuthAdmin
 from .config import load_settings
 from .db import Database
-from .security import TokenVerifier, bearer_token
+from .deps import claims, db
+from .security import TokenVerifier
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = load_settings()
+    app.state.settings = settings
+    app.state.auth_admin = AuthAdmin(settings.supabase_url)
+    app.state.login_limiter = student_login.AttemptLimiter(limit=10, window_s=300)
     app.state.verifier = TokenVerifier.from_jwks(
         settings.jwks_url,
         algorithms=settings.jwt_algorithms,
@@ -40,22 +46,17 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         app.state.db.close()
+        app.state.auth_admin.close()
 
 
 app = FastAPI(title="SMas API", lifespan=lifespan)
+app.include_router(student_login.router)
+app.include_router(students.router)
 
 
 @app.exception_handler(psycopg.errors.InsufficientPrivilege)
 async def _insufficient_privilege(_: Request, __: Exception) -> JSONResponse:
     return JSONResponse(status_code=403, content={"detail": "forbidden"})
-
-
-def claims(request: Request) -> dict[str, Any]:
-    return request.app.state.verifier.verify(bearer_token(request))
-
-
-def db(request: Request) -> Database:
-    return request.app.state.db
 
 
 _NOT_FOUND = HTTPException(status_code=404, detail="not_found")   # غير موجود = غير مرئي: لا يُكشف وجود ما لا يُرى

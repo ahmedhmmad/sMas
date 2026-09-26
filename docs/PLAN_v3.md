@@ -248,7 +248,7 @@
 - [ ] دوال RLS الموحدة: `app.can_access_tenant()`, `app.can_access_group()`, `app.can_access_school()`, `app.has_permission()`، مع helper اختياري `app.user_school_ids()` كتحسين أداء وليس كمصدر الصلاحية الوحيد
 - [ ] قالب اختبار pgTAP للعزل بين مدرستين
 - [ ] trigger عام لتسجيل التغييرات في `audit_log`
-- [ ] المصادقة: دخول الموظفين مع Supabase Auth وJWT؛ حساب الطالب مستقل وفق القرار المعتمد، وحساب ولي الأمر يدعم OTP/كلمة المرور وفق إعداد المدرسة
+- [ ] المصادقة: دخول الموظفين مع Supabase Auth وJWT؛ حساب الطالب مستقل وفق القرار المعتمد، وحساب ولي الأمر يدعم OTP/كلمة المرور وفق إعداد المدرسة — F2 جارٍ (`docs/F2_AUTHENTICATION.md`): D1 ✅
 - [ ] تحديد المدرسة من الـ subdomain
 - [ ] هيكل تطبيق الويب: RTL، خط عربي (IBM Plex Sans Arabic أو Cairo)، قائمة تنقل حسب الدور، ملفات الترجمة
 - [x] هيكل FastAPI مع التحقق من Supabase JWT واستخراج المدرسة والدور — 🔒 F4 مغلق (`docs/F4_API_SECURITY.md`، CI `addae39`)؛ السياق يُشتق في DB لا من الـJWT
@@ -793,6 +793,10 @@
 | 2026-09-21 | اعتماد ERD + Data Dictionary + Authorization Matrix + RLS Model كمتطلبات إلزامية قبل بناء وحدات الأعمال |
 | 2026-09-21 | اعتماد Audit للعمليات الحساسة، export مستقل، transactions/idempotency/concurrency، وعدم تعديل migrations المنفذة |
 | 2026-09-24 | **تعدد علاقات الـprofile:** A profile may have multiple legitimate relationships/roles within the same Tenant, including student, employee, and guardian. No database invariant prohibits these combinations. Authorization remains determined independently by role, permission, and scope. (`Profile` = الشخص/الحساب داخل الـTenant، لا نوع المستخدم؛ حساب الطالب «المستقل» في §7.19 لا يستلزم profile ثانياً لنفس الشخص) |
+| 2026-09-26 | **D1 — Student Auth identity (A):** `auth.users.id = student_id` (UUID يولده العميل، مفتاح الـSaga)؛ بريد Auth `student_id@students.smas.invalid` لا يراه الطالب؛ الدخول بـOfficial/Temporary ID يُحَل في FastAPI داخل نطاق الهوية؛ Temporary ← Official لا يغيّر هوية Auth؛ دالة lookup ضيقة قبل JWT (M24) لا تكشف tenant/school/بيانات الطالب ولا تختلف بين موجود وغير موجود، مع rate limiting |
+| 2026-09-26 | **D2 — First-login password change = DB/RLS boundary:** أثناء `pending` ترجع `current_tenant_id()` و`current_profile_id()` NULL؛ التغيير عبر Supabase Auth بجلسة المستخدم؛ انتقال الحالة موثوق — لا عمليتان منفصلتان تسمحان بحالة غير متسقة |
+| 2026-09-26 | **D3 — Tenant users synthetic identity (ii):** لا `guardian phone → auth.users.phone` ولا `staff email → auth.users.email` كهوية Auth عالمية؛ الهاتف/البريد الحقيقي في جدول النطاق؛ الشخص نفسه يملك حساباً مستقلاً لكل Tenant دون أن يكشف Tenant وجوده في آخر. **D3 = Synthetic identity per tenant account APPROVED; session/OTP mechanism = SPIKE REQUIRED.** |
+| 2026-09-26 | **D4 — Guardian first-login:** سياسة first-login لولي الأمر تُحدَّد حسب المدرسة المستهدفة أثناء الدخول/الـonboarding، لا حسب المدرسة التي أنشأت الحساب؛ دلالات A/B/C تُثبَّت من PLAN قبل التنفيذ |
 | 2026-09-26 | **O1 — Platform Admin audit visibility:** Tenant Admin may see audit records for Platform Admin reads affecting their own tenant, subject to the existing tenant audit visibility policy. No special F4 exception is introduced. |
 | 2026-09-26 | **FastAPI ← قاعدة البيانات عبر `authenticator` (F4):** اتصال بدور `authenticator` (آلية PostgREST)؛ كل طلب معاملة واحدة بـ`role = authenticated` و`request.jwt.claims` = الـpayload الذي تحقق منه FastAPI (ES256 عبر JWKS)؛ RLS ودوال `app.*` تقرر. الخدمة لا تحمل مفتاح `service_role`؛ تبدّل إلى دور `service_role` لإدراج تدقيق القراءة/التصدير وحده في المعاملة نفسها (fail closed). تدقيق التصدير صف لكل طالب |
 | 2026-09-26 | **Gate C مكتمل (M01–M23)**. ملاحظة تصميم مفتوحة: هل يعيّن `group_manager` `school_admin`؟ حالياً لا (T8 + `security.*`)؛ قرار تجاري لا تقني — لا يُمنح `security.*` حلاً |

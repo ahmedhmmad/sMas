@@ -26,6 +26,7 @@ EMAIL = {
     "school_admin": "school.admin@dev.smas.test",
     "secretary": "secretary@dev.smas.test",
     "accountant": "accountant@dev.smas.test",
+    "teacher": "teacher@dev.smas.test",
 }
 
 
@@ -43,6 +44,8 @@ def _load_env() -> dict[str, str]:
         os.environ.setdefault("TEST_ADMIN_DB_URL", status["DB_URL"])
         os.environ.setdefault("TEST_ANON_KEY", status["ANON_KEY"])
         os.environ.setdefault("TEST_SERVICE_ROLE_KEY", status["SERVICE_ROLE_KEY"])
+        os.environ.setdefault("SUPABASE_PUBLISHABLE_KEY", status["PUBLISHABLE_KEY"])
+        os.environ.setdefault("SUPABASE_SECRET_KEY", status["SECRET_KEY"])
     # الخدمة: authenticator بكلمة مرور قاعدة البيانات المحلية
     os.environ.setdefault(
         "API_DATABASE_URL", os.environ["TEST_ADMIN_DB_URL"].replace("://postgres:", "://authenticator:", 1)
@@ -59,6 +62,12 @@ from app.main import app  # noqa: E402 — بعد ضبط البيئة
 def client():
     with TestClient(app, raise_server_exceptions=False) as c:
         yield c
+
+
+@pytest.fixture(autouse=True)
+def _fresh_login_limits(client):
+    """حدّ محاولات الدخول لكل اختبار على حدة (اختبار الحد نفسه يملؤه عمداً)."""
+    client.app.state.login_limiter.reset()
 
 
 @pytest.fixture(scope="session")

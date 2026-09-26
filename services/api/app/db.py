@@ -26,6 +26,12 @@ class Database:
         self._pool.close()
 
     @contextmanager
+    def transaction(self) -> Iterator[psycopg.Connection]:
+        """معاملة بدور الاتصال نفسه (`authenticator`: لا يملك شيئاً) — للمسارات التي تسبق وجود JWT وتختار دورها صراحةً."""
+        with self._pool.connection() as conn, conn.transaction():
+            yield conn
+
+    @contextmanager
     def as_user(self, claims: dict[str, Any]) -> Iterator[psycopg.Connection]:
         with self._pool.connection() as conn, conn.transaction():
             conn.execute(
