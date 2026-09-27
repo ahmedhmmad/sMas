@@ -18,8 +18,11 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22          # F1: vitest/jsdom تتطلب Node 22+
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            apps/web/package-lock.json
 
       - uses: actions/setup-python@v5
         with:
@@ -61,3 +64,27 @@ jobs:
         run: |
           pip install -r requirements.txt
           python -m pytest
+
+      - name: Web — install (F1)
+        working-directory: apps/web
+        run: npm ci
+
+      - name: Web — lint, typecheck, unit (F1)
+        working-directory: apps/web
+        run: |
+          npm run lint
+          npm run typecheck
+          npm test
+
+      - name: Web — build (F1)
+        working-directory: apps/web
+        run: npm run build
+
+      - name: Web — browser E2E (F1)
+        # FastAPI (uvicorn) + بناء Vite على الحزمة نفسها؛ صندوق OTP ملف في .e2e/ (خارج apps/web، بلا artifacts)
+        working-directory: apps/web
+        env:
+          E2E_PYTHON: python
+        run: |
+          npx playwright install --with-deps chromium
+          npx playwright test

@@ -20,6 +20,7 @@ from psycopg.rows import dict_row
 ROOT = pathlib.Path(__file__).resolve().parents[3]
 DEV_PASSWORD = "DevOnly-Seed-2026"        # حسابات seed التطوير فقط (E5) — لا وجود لها خارج local/CI
 DEV_TENANT = "d0000000-0000-4000-8000-000000000001"
+TENANT_ADMIN_ID = "a0000000-0000-4000-8000-000000000001"
 # بريد حساب Auth: المنصة و tenant_admin (bootstrap) بريد حقيقي؛ الموظفون هوية اصطناعية (D3/I2) — المعرّف = معرّف الموظف
 STAFF_ID = {"school_admin": "a0000000-0000-4000-8000-000000000003", "secretary": "a0000000-0000-4000-8000-000000000004",
             "accountant": "a0000000-0000-4000-8000-000000000005", "teacher": "a0000000-0000-4000-8000-000000000006"}

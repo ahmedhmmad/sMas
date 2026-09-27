@@ -36,7 +36,7 @@ async def lifespan(app: FastAPI):
     app.state.settings = settings
     app.state.auth_admin = AuthAdmin(settings.supabase_url, settings.publishable_key)
     app.state.otp_sender = load_sender(settings.environment)
-    app.state.login_limiter = student_login.AttemptLimiter(limit=10, window_s=300)
+    app.state.login_limiter = student_login.AttemptLimiter(limit=settings.login_attempts, window_s=settings.login_window_s)
     app.state.verifier = TokenVerifier.from_jwks(
         settings.jwks_url,
         algorithms=settings.jwt_algorithms,

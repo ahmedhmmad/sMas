@@ -20,6 +20,8 @@ class Settings:
     min_password_length: int
     cors_origins: tuple[str, ...]
     environment: str
+    login_attempts: int
+    login_window_s: int
 
     @property
     def jwt_issuer(self) -> str:
@@ -42,6 +44,9 @@ def load_settings() -> Settings:
         min_password_length=int(os.environ.get("API_MIN_PASSWORD_LENGTH", "6")),
         cors_origins=cors_origins(),
         environment=os.environ.get("API_ENVIRONMENT", "development"),
+        # حد محاولات الدخول لكل (tenant، معرّف) ولكل عنوان — إعداد لا ثابت (قرار F2 defaults)
+        login_attempts=int(os.environ.get("API_LOGIN_ATTEMPTS", "10")),
+        login_window_s=int(os.environ.get("API_LOGIN_WINDOW_SECONDS", "300")),
     )
 
 
