@@ -3,7 +3,7 @@
 **المشروع:** نظام إدارة المدارس متعدد المستأجرين (Multi-Tenant SMS)
 **تاريخ الإنشاء:** 2026-09-22
 **آخر تحديث:** 2026-09-23
-**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (**Gate C 🔒 مكتمل: M01–M23**؛ **Gate E 🔒 مغلق تقنياً: E1–E6** — Production Backup Policy TBD؛ Gate F: **F4 🔒**؛ F2: **D1–D4 🔒**؛ E2E لكل الأدوار ✅ — F2 يُغلق بنجاح CI)
+**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (**Gate C 🔒 مكتمل: M01–M23**؛ **Gate E 🔒 مغلق تقنياً: E1–E6** — Production Backup Policy TBD؛ Gate F: **F4 🔒**؛ **F2 🔒** (D1–D4 + E2E)؛ التالي F1 Web App)
 
 ---
 
@@ -471,7 +471,8 @@ Platform Admin → Role → Permission + Platform-level scope
 ### Gate F — التطبيقات (هيكل فقط)
 
 - [ ] **F1.** تطبيق الويب: Vite + TS + Tailwind RTL، خط عربي (IBM Plex Sans Arabic / Cairo)، i18n، تنقل حسب الدور.
-- [ ] **F2.** المصادقة: Supabase Auth + JWT للموظفين؛ حساب الطالب المستقل؛ حساب ولي الأمر OTP/كلمة مرور حسب إعداد المدرسة.
+- [x] **F2.** المصادقة: Supabase Auth + JWT للموظفين؛ حساب الطالب المستقل؛ حساب ولي الأمر OTP/كلمة مرور حسب إعداد المدرسة.
+      🔒 **مغلق (2026-09-27، CI `860a14a`)** — D1/M24، D2/M25، D3/M26، D4/M27 + E2E لكل الأدوار (11 حساباً). لا إعادة فتح لـD1–D4.
       `docs/F2_AUTHENTICATION.md` — الترتيب: M24 → D1 → D2 → D3 Spike → D3 → D4 → E2E. **D1/M24 🔒** (CI `3f4ae05`؛ 24: 26/26، pytest 68/68)؛ **D2/M25 🔒** (CI `62c76b1`؛ 25: 36، pytest 81/81)؛ D3 Spike؛ D4 دلالات A/B/C.
 - [ ] **F3.** تحديد المدرسة من الـsubdomain (سياق واجهة فقط — لا يمنح أي صلاحية).
 - [x] **F4.** هيكل FastAPI: التحقق من Supabase JWT، استخراج Tenant/Scope/Role، طبقة تفويض مشتركة.
@@ -610,6 +611,7 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | ✅ **C3** — اعتماد `platform_admin_roles → platform_admin_role_permissions → permissions`؛ `is_platform_admin()` اختبار هوية فقط، و`has_permission()` توحّد المسارين. الكتالوج 73 مفتاحاً بعد K4 (`tenant.create`) | `docs/ROLE_PERMISSION_SEED_v1.md`, `AUTHORIZATION_MATRIX_v1.md`, `docs/DATA_DICTIONARY_v1.md`, `CLAUDE.md` |
 | 2026-09-22 | ✅ **A3** — RLS Model: 7 دوال، سياسات كل الجداول، حل تعارض FORCE RLS/recursion، 30 اختبار pgTAP، و6 بنود معلّقة | `docs/RLS_MODEL_v1.md`, `CLAUDE.md` |
 | 2026-09-23 | ✅ **A5** — اعتماد A1–A4 كـFoundation Design Baseline | — |
+| 2026-09-27 | 🔒 **F2 مغلق** — E2E أخضر في CI (`860a14a`، https://github.com/ahmedhmmad/sMas/actions/runs/36332097484)؛ pgTAP 1311/1311، pytest 116/116 | `CLAUDE.md`, `docs/F2_AUTHENTICATION.md`, `docs/PLAN_v3.md` |
 | 2026-09-27 | ✅ **F2 — E2E لكل الأدوار** — 11 حساباً بمسارها الحقيقي حتى البيانات المسموحة والممنوعة؛ ولي الأمر A/B/C والطالب first-login؛ 13/13 (116/116)؛ ضابطان سلبيان | `services/api/tests/test_e2e_auth.py`, `docs/F2_AUTHENTICATION.md`, `CLAUDE.md` |
 | 2026-09-27 | 🔒 **D4/M27 مغلقان** — CI أخضر (`fb71356`)؛ بوابة إغلاق F2 = E2E لكل الأدوار بالمسار الكامل | `CLAUDE.md`, `docs/F2_AUTHENTICATION.md` |
 | 2026-09-26 | ✅ **F2/D4 + M27** — onboarding ولي الأمر A/B/C بالمدرسة الهدف؛ D4.1 و D4.2؛ إصدار C؛ pgTAP 27: 41؛ pytest 103/103؛ 6 ضوابط سلبية | `supabase/migrations/20260926200000_guardian_onboarding.sql`, `supabase/tests/{20,26,27}_*.test.sql`, `services/api/**`, `docs/*`, `CLAUDE.md` |

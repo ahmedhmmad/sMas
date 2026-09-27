@@ -248,7 +248,7 @@
 - [ ] دوال RLS الموحدة: `app.can_access_tenant()`, `app.can_access_group()`, `app.can_access_school()`, `app.has_permission()`، مع helper اختياري `app.user_school_ids()` كتحسين أداء وليس كمصدر الصلاحية الوحيد
 - [ ] قالب اختبار pgTAP للعزل بين مدرستين
 - [ ] trigger عام لتسجيل التغييرات في `audit_log`
-- [ ] المصادقة: دخول الموظفين مع Supabase Auth وJWT؛ حساب الطالب مستقل وفق القرار المعتمد، وحساب ولي الأمر يدعم OTP/كلمة المرور وفق إعداد المدرسة — F2 جارٍ (`docs/F2_AUTHENTICATION.md`): D1 🔒، D2 🔒، D3 🔒 (M26)، D4 ✅ (M27)
+- [x] المصادقة: دخول الموظفين مع Supabase Auth وJWT؛ حساب الطالب مستقل وفق القرار المعتمد، وحساب ولي الأمر يدعم OTP/كلمة المرور وفق إعداد المدرسة — 🔒 F2 مغلق (CI `860a14a`) (`docs/F2_AUTHENTICATION.md`): D1 🔒، D2 🔒، D3 🔒 (M26)، D4 ✅ (M27)
 - [ ] تحديد المدرسة من الـ subdomain
 - [ ] هيكل تطبيق الويب: RTL، خط عربي (IBM Plex Sans Arabic أو Cairo)، قائمة تنقل حسب الدور، ملفات الترجمة
 - [x] هيكل FastAPI مع التحقق من Supabase JWT واستخراج المدرسة والدور — 🔒 F4 مغلق (`docs/F4_API_SECURITY.md`، CI `addae39`)؛ السياق يُشتق في DB لا من الـJWT
