@@ -36,7 +36,7 @@ describe("i18n catalog", () => {
 });
 
 describe("context is display/login only (F1 constraint 2)", () => {
-  const ALLOWED = ["auth/loginFlows.ts", "pages/Login.tsx", "components/Layout.tsx", "pages/Dashboard.tsx", "context/appContext.ts"];
+  const ALLOWED = ["auth/loginFlows.ts", "components/Layout.tsx", "pages/Dashboard.tsx", "context/appContext.ts", "devtools/DevContextPanel.tsx"];
 
   it("only the login flows and display components read the context", () => {
     const readers = sources()

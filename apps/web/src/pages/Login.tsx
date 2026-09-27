@@ -1,11 +1,10 @@
 // F1.5 — الدخول بالمسارات الحقيقية (F2). الرسائل رموز الخادم مترجمة؛ الموقوف والمقفل والخاطئ رسالة واحدة (I1).
-import { type FormEvent, useState } from "react";
+import { type FormEvent, lazy, Suspense, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { useAuth } from "../auth/AuthProvider";
 import {
   loginGuardianPassword, loginStaff, loginStudent, requestGuardianCode, verifyGuardianCode,
 } from "../auth/loginFlows";
-import { getSchoolContext, getTenantContext, setDevContext } from "../context/appContext";
 import { errorText, t } from "../i18n";
 import { ApiError } from "../lib/api";
 
@@ -128,23 +127,10 @@ function StudentForm({ done }: { done: () => void }) {
   );
 }
 
-// أداة تطوير مؤقتة (F3 يزيلها): سياق العرض وطلبات الدخول فقط
-function DevContext() {
-  const [tenant, setTenant] = useState(getTenantContext().code);
-  const [school, setSchool] = useState(getSchoolContext().slug);
-  return (
-    <details className="mt-6 text-sm text-slate-500" data-testid="dev-context">
-      <summary>{t("app.devContext")}</summary>
-      <div className="mt-2 grid gap-2">
-        <Field id="dev-tenant" labelKey="context.tenantCode" value={tenant} onChange={setTenant} />
-        <Field id="dev-school" labelKey="context.schoolSlug" value={school} onChange={setSchool} />
-        <button type="button" data-testid="dev-apply" className="rounded border px-3 py-1" onClick={() => setDevContext(tenant, school)}>
-          {t("context.apply")}
-        </button>
-      </div>
-    </details>
-  );
-}
+// W2: لوحة سياق التطوير تُحمَّل كسولاً — الشرط يُطوى عند البناء فتسقط الوحدة من بناء production
+const DevContextPanel = import.meta.env.DEV || import.meta.env.VITE_DEV_CONTEXT === "1"
+  ? lazy(() => import("../devtools/DevContextPanel"))
+  : null;
 
 export function Login() {
   const [tab, setTab] = useState<Tab>("staff");
@@ -174,7 +160,7 @@ export function Login() {
       <Link to="/login/admin" data-testid="admin-link" className="mt-6 block text-center text-sm text-slate-500">
         {t("login.admin")}
       </Link>
-      <DevContext />
+      {DevContextPanel && <Suspense fallback={null}><DevContextPanel /></Suspense>}
     </div>
   );
 }

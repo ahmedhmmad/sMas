@@ -60,6 +60,8 @@ export default defineConfig({
         VITE_SUPABASE_URL: s.API_URL,
         VITE_SUPABASE_PUBLISHABLE_KEY: s.PUBLISHABLE_KEY,
         VITE_API_URL: API,
+        VITE_DEV_CONTEXT: "1",                      // W2: بناء اختبار — الأداة مسموحة بتصريح صريح
+        SMAS_BUILD_TARGET: "development",
       },
     },
   ],

@@ -5,4 +5,5 @@ interface ImportMetaEnv {
   readonly VITE_API_URL?: string;
   readonly VITE_DEV_TENANT_CODE?: string;
   readonly VITE_DEV_SCHOOL_SLUG?: string;
+  readonly VITE_DEV_CONTEXT?: string;
 }

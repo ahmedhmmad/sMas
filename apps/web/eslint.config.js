@@ -17,6 +17,7 @@ export default tseslint.config(
       "smas/no-ui-literals": "error",
     },
   },
+  { files: ["scripts/**/*.mjs", "eslint-rules/**/*.js"], languageOptions: { globals: globals.node } },
   // الاختبارات تحمل بيانات اختبار نصية
   { files: ["**/*.test.{ts,tsx}", "e2e/**"], rules: { "smas/no-ui-literals": "off" } },
 );

@@ -76,9 +76,12 @@ jobs:
           npm run typecheck
           npm test
 
-      - name: Web — build (F1)
+      - name: Web — production build (F1)
+        # W2: البناء الافتراضي يخلو من أداة سياق التطوير — يُفحص الناتج
         working-directory: apps/web
-        run: npm run build
+        run: |
+          npm run build
+          npm run check:prod-bundle
 
       - name: Web — browser E2E (F1)
         # FastAPI (uvicorn) + بناء Vite على الحزمة نفسها؛ صندوق OTP ملف في .e2e/ (خارج apps/web، بلا artifacts)
