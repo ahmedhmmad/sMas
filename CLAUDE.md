@@ -3,7 +3,7 @@
 **المشروع:** نظام إدارة المدارس متعدد المستأجرين (Multi-Tenant SMS)
 **تاريخ الإنشاء:** 2026-09-22
 **آخر تحديث:** 2026-09-23
-**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (**Gate C 🔒 مكتمل: M01–M23**؛ **Gate E 🔒 مغلق تقنياً: E1–E6** — Production Backup Policy TBD؛ Gate F: **F4 🔒**؛ F2: **D1–D3 🔒**؛ **D4 منفذ (M27)** بانتظار المراجعة؛ التالي E2E لكل الأدوار)
+**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (**Gate C 🔒 مكتمل: M01–M23**؛ **Gate E 🔒 مغلق تقنياً: E1–E6** — Production Backup Policy TBD؛ Gate F: **F4 🔒**؛ F2: **D1–D4 🔒**؛ E2E لكل الأدوار ✅ — F2 يُغلق بنجاح CI)
 
 ---
 
@@ -548,6 +548,7 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | `audit_log.id` هو `bigint IDENTITY` وليس uuid، وبلا FK على `actor_id`/`entity_id` | ترتيب زمني طبيعي وحجم أصغر؛ وFK على الكيانات يخلق تبعية عكسية تكسر السجل عند الأرشفة |
 | 2026-09-22 | **O1** — `profiles.auth_user_id` فريد عالمياً؛ نفس Auth User لا يعبر Tenantين | شرط حتمية `app.current_tenant_id()` وصحة §1.1. التفاصيل: §1.1 + `DATA_DICTIONARY_v1.md` §2.7 |
 | 2026-09-22 | **O2** — `students.gender` و`birth_date` قابلان لـNULL؛ OCR ليس شرطاً ولا مصدراً نهائياً | اكتمال البيانات قاعدة أعمال في المرحلة 4 لا قيد صف. يلزم معالجة NULL صراحةً في قواعد التوزيع والتقارير |
+| 2026-09-27 | **F3 ↔ D4 (قرار 2026-09-27):** مدرسة سياق الدخول تأتي اليوم من جسم الطلب (F2)؛ عند تنفيذ F3 يصبح **tenant + school المستخرجان من الـsubdomain هما مصدر السياق** لا قيمة يختارها العميل في الجسم. 5c (إعادة ضبط حساب active) منفصل عن إصدار كلمة الـonboarding | F3 |
 | 2026-09-26 | **D4.1:** نمط A/B/C لولي الأمر يحكم **أول دخول (onboarding) فقط**؛ بعده تحكم طرق الحساب نفسه: كلمة المرور إن وُجدت، وOTP للاسترداد/فك القفل (وفي B يبقى OTP ما لم تُضبط كلمة مرور) | F2 — قرارات D4 |
 | 2026-09-26 | **D4.2:** النمط الافتراضي **A** — OTP ← إنشاء كلمة مرور إجبارياً ← الدخول اللاحق بكلمة المرور، وOTP للاسترداد/فك القفل | F2 — قرارات D4 |
 | 2026-09-26 | **D4 — التخزين:** عمود `schools.guardian_first_login_mode` (`A`|`B`|`C`، افتراضي A)، لا يكتبه العميل؛ تغييره بدالة متحكَّم بها: `security.manage` + نطاق المدرسة + سبب، مُدقَّق (T7)؛ ينتقل إلى وحدة إعدادات المدرسة (المرحلة 2) إن لزم | F2 — قرارات D4 |
@@ -609,6 +610,8 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | ✅ **C3** — اعتماد `platform_admin_roles → platform_admin_role_permissions → permissions`؛ `is_platform_admin()` اختبار هوية فقط، و`has_permission()` توحّد المسارين. الكتالوج 73 مفتاحاً بعد K4 (`tenant.create`) | `docs/ROLE_PERMISSION_SEED_v1.md`, `AUTHORIZATION_MATRIX_v1.md`, `docs/DATA_DICTIONARY_v1.md`, `CLAUDE.md` |
 | 2026-09-22 | ✅ **A3** — RLS Model: 7 دوال، سياسات كل الجداول، حل تعارض FORCE RLS/recursion، 30 اختبار pgTAP، و6 بنود معلّقة | `docs/RLS_MODEL_v1.md`, `CLAUDE.md` |
 | 2026-09-23 | ✅ **A5** — اعتماد A1–A4 كـFoundation Design Baseline | — |
+| 2026-09-27 | ✅ **F2 — E2E لكل الأدوار** — 11 حساباً بمسارها الحقيقي حتى البيانات المسموحة والممنوعة؛ ولي الأمر A/B/C والطالب first-login؛ 13/13 (116/116)؛ ضابطان سلبيان | `services/api/tests/test_e2e_auth.py`, `docs/F2_AUTHENTICATION.md`, `CLAUDE.md` |
+| 2026-09-27 | 🔒 **D4/M27 مغلقان** — CI أخضر (`fb71356`)؛ بوابة إغلاق F2 = E2E لكل الأدوار بالمسار الكامل | `CLAUDE.md`, `docs/F2_AUTHENTICATION.md` |
 | 2026-09-26 | ✅ **F2/D4 + M27** — onboarding ولي الأمر A/B/C بالمدرسة الهدف؛ D4.1 و D4.2؛ إصدار C؛ pgTAP 27: 41؛ pytest 103/103؛ 6 ضوابط سلبية | `supabase/migrations/20260926200000_guardian_onboarding.sql`, `supabase/tests/{20,26,27}_*.test.sql`, `services/api/**`, `docs/*`, `CLAUDE.md` |
 | 2026-09-26 | 🔒 **D3/M26 مغلقان** — CI أخضر (`bdfce09`)؛ الافتراضيات والاستثناءات معتمدة (§6)؛ `tenant_admin` خارج D3 بقرار | `CLAUDE.md`, `docs/F2_AUTHENTICATION.md`, `docs/PLAN_v3.md` |
 | 2026-09-26 | ✅ **F2/D3 + M26** — دخول حسابات Tenant (ولي الأمر، الموظف) بـOTP وكلمة المرور؛ جلسة من Supabase Auth؛ I1، I2 في DB؛ الـseed على I2؛ pgTAP 26: 46؛ pytest 97/97؛ 5 ضوابط سلبية | `supabase/migrations/20260926180000_tenant_account_login.sql`, `supabase/tests/{11,13,14,20,22,26}_*.test.sql`, `supabase/seed.sql`, `services/api/**`, `docs/*`, `.env.example`, `CLAUDE.md` |

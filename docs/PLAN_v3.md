@@ -793,6 +793,7 @@
 | 2026-09-21 | اعتماد ERD + Data Dictionary + Authorization Matrix + RLS Model كمتطلبات إلزامية قبل بناء وحدات الأعمال |
 | 2026-09-21 | اعتماد Audit للعمليات الحساسة، export مستقل، transactions/idempotency/concurrency، وعدم تعديل migrations المنفذة |
 | 2026-09-24 | **تعدد علاقات الـprofile:** A profile may have multiple legitimate relationships/roles within the same Tenant, including student, employee, and guardian. No database invariant prohibits these combinations. Authorization remains determined independently by role, permission, and scope. (`Profile` = الشخص/الحساب داخل الـTenant، لا نوع المستخدم؛ حساب الطالب «المستقل» في §7.19 لا يستلزم profile ثانياً لنفس الشخص) |
+| 2026-09-27 | **F3 ↔ D4 (قرار 2026-09-27):** مدرسة سياق الدخول تأتي اليوم من جسم الطلب (F2)؛ عند تنفيذ F3 يصبح **tenant + school المستخرجان من الـsubdomain هما مصدر السياق** لا قيمة يختارها العميل في الجسم. 5c (إعادة ضبط حساب active) منفصل عن إصدار كلمة الـonboarding |
 | 2026-09-26 | **D4.1:** نمط A/B/C لولي الأمر يحكم **أول دخول (onboarding) فقط**؛ بعده تحكم طرق الحساب نفسه: كلمة المرور إن وُجدت، وOTP للاسترداد/فك القفل (وفي B يبقى OTP ما لم تُضبط كلمة مرور) |
 | 2026-09-26 | **D4.2:** النمط الافتراضي **A** — OTP ← إنشاء كلمة مرور إجبارياً ← الدخول اللاحق بكلمة المرور، وOTP للاسترداد/فك القفل |
 | 2026-09-26 | **D4 — التخزين:** عمود `schools.guardian_first_login_mode` (`A`|`B`|`C`، افتراضي A)، لا يكتبه العميل؛ تغييره بدالة متحكَّم بها: `security.manage` + نطاق المدرسة + سبب، مُدقَّق (T7)؛ ينتقل إلى وحدة إعدادات المدرسة (المرحلة 2) إن لزم |
