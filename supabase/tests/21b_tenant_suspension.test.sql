@@ -85,7 +85,7 @@ select pg_temp.probe('before', 'u1');
 select pg_temp.run('pa.suspend', 'pa', $q$select 'ok' from app.suspend_tenant('10000000-0000-0000-0000-000000000001', 'unpaid')$q$);
 select pg_temp.probe('during', 'u1');
 select pg_temp.probe('other',  'u2');
-select pg_temp.run('during.pa_sees', 'pa', $q$select status from public.platform_tenants where id = '10000000-0000-0000-0000-000000000001'$q$);
+select pg_temp.run('during.pa_sees', 'pa', $q$select status from app.platform_read_tenants('10000000-0000-0000-0000-000000000001')$q$);   -- M29: المسار المُدقَّق
 -- إعادة التفعيل
 select pg_temp.run('pa.react', 'pa', $q$select 'ok' from app.reactivate_tenant('10000000-0000-0000-0000-000000000001', 'paid')$q$);
 select pg_temp.probe('after', 'u1');

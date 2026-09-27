@@ -49,7 +49,7 @@ select set_config('role', 'authenticated', true),
 | `GET /me` | السياق مشتق من DB: `current_profile_id` / `current_tenant_id` / `current_system_user_id` |
 | `GET /schools/{id}`، `GET /schools/{id}/students` | قراءة تحت RLS؛ غير المرئي = `404` (لا يُكشف وجوده) |
 | `GET /schools/{id}/students/export` | **P3:** `app.has_permission('student.export') AND app.can_access_school(id)` — مفتاح التصدير نفسه بصيغة السياسات؛ الصفوف نفسها تحت RLS؛ تدقيق |
-| `GET /platform/tenants/{id}` | **N5:** سياق المنصة من DB (G10)؛ الصف بسياسة `has_platform_permission('tenant.read')`؛ تدقيق قبل الإرجاع |
+| `GET /platform/tenants/{id}` | ⤷ **M29 (F1/W1، 2026-09-28):** القراءة والتدقيق انتقلا إلى `app.platform_read_tenants(id)` داخل DB — لا سياسة قراءة مباشرة للمنصة؛ المبدأ نفسه (N5، fail closed) بآلية أقوى. **الأصل:** **N5:** سياق المنصة من DB (G10)؛ الصف بسياسة `has_platform_permission('tenant.read')`؛ تدقيق قبل الإرجاع |
 
 **تدقيق الوصول** (`action` = `read` / `export`): سجل وصول منفصل عن صلاحية `audit.read` (عرض السجل). الفاعل من DB تحت هوية المستخدم (تصنيف T7). **التصدير: صف لكل طالب مُصدَّر** (`entity_type = students`) مع `export_id` يجمعها — فتتبع الرؤية سياسات M18 كما هي: من يرى الطالب/المدرسة يرى الصف، و**Platform Admin لا يراه** (F11). صف `entity_type = schools` كان سيظهر لـPlatform Admin.
 

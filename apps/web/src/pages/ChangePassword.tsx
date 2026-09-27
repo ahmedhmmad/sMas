@@ -1,7 +1,6 @@
 // D2 و D4 (A، C): الحساب مغلق حتى تغيير الكلمة؛ الواجهة تغيّرها بجلسة المستخدم ثم تطلب التفعيل المتحكَّم به.
 // الفتح يقرره الخادم (activate_first_login) — لا الواجهة.
 import { type FormEvent, useState } from "react";
-import { useNavigate } from "react-router";
 import { useAuth } from "../auth/AuthProvider";
 import { changePasswordAndActivate } from "../auth/loginFlows";
 import { t } from "../i18n";
@@ -12,7 +11,6 @@ export function ChangePassword() {
   const [confirm, setConfirm] = useState("");
   const { busy, error, run, setError } = useSubmit();
   const { refresh, logout } = useAuth();
-  const navigate = useNavigate();
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (password !== confirm) {
@@ -21,8 +19,7 @@ export function ChangePassword() {
     }
     void run(async () => {
       await changePasswordAndActivate(password);
-      await refresh();
-      navigate("/", { replace: true });
+      await refresh();                                   // لم يعد pending ⇒ الحارس ينقل إلى الرئيسية
     });
   };
   return (

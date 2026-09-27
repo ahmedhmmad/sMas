@@ -1,6 +1,6 @@
 // Platform Admin و tenant_admin: بريد حقيقي عبر Supabase Auth مباشرة (هوية أصلية — قرار tenant_admin المؤجل)
 import { type FormEvent, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link } from "react-router";
 import { useAuth } from "../auth/AuthProvider";
 import { loginNative } from "../auth/loginFlows";
 import { t } from "../i18n";
@@ -11,13 +11,11 @@ export function AdminLogin() {
   const [password, setPassword] = useState("");
   const { busy, error, run } = useSubmit();
   const { refresh } = useAuth();
-  const navigate = useNavigate();
   const submit = (e: FormEvent) => {
     e.preventDefault();
     void run(async () => {
       await loginNative(email, password);
-      await refresh();
-      navigate("/", { replace: true });
+      await refresh();                                   // الحارس يوجّه حسب الحالة
     });
   };
   return (

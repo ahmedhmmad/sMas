@@ -91,7 +91,7 @@ def test_platform_admin(client, admin, e2e):
     assert ctx["auth_user_id"] == "a0000000-0000-4000-8000-000000000000"
     assert ctx["system_user_id"] is not None and ctx["profile_id"] is None and ctx["tenant_id"] is None   # سياق المنصة (G10)
     assert client.get(f"/platform/tenants/{DEV_TENANT}", headers=bearer(token)).status_code == 200       # tenant.read + تدقيق N5
-    assert school_codes(token) == ["SA", "SB", "SS"]                                                      # school.read منصة
+    assert school_codes(token) == []                                                                      # W1/M29: لا قراءة مباشرة للمنصة
     assert student_ids(token) == set()                                                                    # لا بيانات عملاء (C3)
     assert client.get(f"/schools/{school_id(admin, 'SA')}/students/export", headers=bearer(token)).status_code == 403   # لا student.export
 

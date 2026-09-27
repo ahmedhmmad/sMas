@@ -1,6 +1,6 @@
 // F1.5 — الدخول بالمسارات الحقيقية (F2). الرسائل رموز الخادم مترجمة؛ الموقوف والمقفل والخاطئ رسالة واحدة (I1).
 import { type FormEvent, lazy, Suspense, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link } from "react-router";
 import { useAuth } from "../auth/AuthProvider";
 import {
   loginGuardianPassword, loginStaff, loginStudent, requestGuardianCode, verifyGuardianCode,
@@ -135,8 +135,9 @@ const DevContextPanel = import.meta.env.DEV || import.meta.env.VITE_DEV_CONTEXT 
 export function Login() {
   const [tab, setTab] = useState<Tab>("staff");
   const { refresh, expired } = useAuth();
-  const navigate = useNavigate();
-  const done = () => void refresh().then(() => navigate("/", { replace: true }));
+  // لا تنقّل صريح: حارس المسار يوجّه حسب الحالة (ready ← الرئيسية، pending ← تغيير الكلمة) — تنقلان متتاليان
+  // كانا يعيدان تركيب صفحة تغيير الكلمة ويمحوان ما كُتب (سباق كشفه E2E)
+  const done = () => void refresh();
   const tabs: Tab[] = ["staff", "guardian", "student"];
   const labels: Record<Tab, string> = { staff: "login.tabStaff", guardian: "login.tabGuardian", student: "login.tabStudent" };
   return (

@@ -121,7 +121,8 @@ insert into controlled_allowlist values   -- M21
   ('app.arm_first_login(uuid)'), ('app.activate_first_login()'),
   ('app.set_guardian_first_login_mode(uuid,text,text)'), ('app.begin_guardian_temporary_password(uuid)'),
   ('app.arm_guardian_temporary_password(uuid)'),   -- M25 (F2/D2) + M27 (F2/D4)
-  ('app.my_permissions()');                         -- M28 (F1.3): مفاتيح للواجهة، ليست حداً أمنياً
+  ('app.my_permissions()'),                         -- M28 (F1.3): مفاتيح للواجهة، ليست حداً أمنياً
+  ('app.platform_read_tenants(uuid)');              -- M29 (F1/W1): قراءة المنصة المُدقَّقة
 select pg_temp.rec('x.uncategorized', $q$select coalesce(string_agg(p.oid::regprocedure::text, ','), 'none') from pg_proc p
   where p.pronamespace = 'app'::regnamespace and has_function_privilege('authenticated', p.oid, 'EXECUTE')
     and not exists (select 1 from pg_policies pol where pol.schemaname = 'public'
@@ -186,7 +187,7 @@ select ok(not has_table_privilege('service_role', 'public.audit_log', 'UPDATE') 
 -- ---------- EXECUTE بفئتين ----------
 select is((select v from r where k = 'x.uncategorized'), 'none',
           'EXECUTE for authenticated: every function is either an RLS helper called by a policy or an allowlisted controlled function');
-select is((select v from r where k = 'x.allowlist_missing'), 'none', 'every allowlisted controlled function is executable (15 from M21 + 5 from M22 + 2 from M25 + 3 from M27 + 1 from M28)');
+select is((select v from r where k = 'x.allowlist_missing'), 'none', 'every allowlisted controlled function is executable (15 from M21 + 5 from M22 + 2 from M25 + 3 from M27 + 1 from M28 + 1 from M29)');
 select is((select count(*)::int from pg_proc p where p.pronamespace = 'app'::regnamespace and has_function_privilege('anon', p.oid, 'EXECUTE')), 0,
           'anon executes no function in app');
 select is((select count(*)::int from pg_proc p where p.pronamespace = 'app'::regnamespace

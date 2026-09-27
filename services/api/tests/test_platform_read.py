@@ -2,7 +2,6 @@
 
 import pytest
 
-import app.main
 from conftest import DEV_TENANT, auth
 
 
@@ -39,25 +38,13 @@ def test_platform_admin_without_permission_reads_nothing(client, admin, ids, aud
     assert client.get(f"/platform/tenants/{DEV_TENANT}", headers=auth("platform")).status_code == 200   # ضابط
 
 
-def test_audit_failure_returns_no_data(client, audit, monkeypatch):
-    """Fail closed: فشل كتابة التدقيق يلغي المعاملة — لا بيانات في الاستجابة ولا صف تدقيق."""
-    def broken(*_a, **_k):
-        raise RuntimeError("audit store unavailable")
-    monkeypatch.setattr(app.main, "write_access_audit", broken)
-    r = client.get(f"/platform/tenants/{DEV_TENANT}", headers=auth("platform"))
-    assert r.status_code == 500
+def test_audit_failure_returns_no_data(client, admin, audit):
+    """Fail closed (M29): القراءة والتدقيق عبارة واحدة في الدالة — فشل كتابة التدقيق يُفشل القراءة، فلا بيانات."""
+    admin.execute("revoke insert on public.audit_log from app_owner")
+    try:
+        r = client.get(f"/platform/tenants/{DEV_TENANT}", headers=auth("platform"))
+    finally:
+        admin.execute("grant insert on public.audit_log to app_owner")
+    assert r.status_code >= 400
     assert "DEV" not in r.text and "Development" not in r.text
-    assert audit.new() == []
-
-
-def test_failure_after_audit_write_rolls_it_back(client, audit, monkeypatch):
-    """الذرية: صف التدقيق في معاملة القراءة نفسها — فشل بعد كتابته يلغيه ولا يُرجع البيانات."""
-    real = app.main.write_access_audit
-
-    def then_fail(*a, **k):
-        real(*a, **k)
-        raise RuntimeError("failure after the audit insert")
-    monkeypatch.setattr(app.main, "write_access_audit", then_fail)
-    r = client.get(f"/platform/tenants/{DEV_TENANT}", headers=auth("platform"))
-    assert r.status_code == 500 and "DEV" not in r.text
     assert audit.new() == []

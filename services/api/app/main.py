@@ -8,7 +8,7 @@ FastAPI لا يقرر صلاحية بنفسه: حين يحتاج سؤالاً (�
   /me                                  السياق مشتق من قاعدة البيانات
   /schools/{id}، /schools/{id}/students قراءة تحت RLS
   /schools/{id}/students/export         قناة التصدير منفصلة عن القراءة (P3) + تدقيق
-  /platform/tenants/{id}                قراءة Platform Admin لبيانات Tenant + تدقيق (N5)
+  /platform/tenants[/{id}]              قراءة Platform Admin لبيانات Tenant — دالة M29 تقرأ وتدقّق (N5)
 """
 
 import uuid
@@ -123,15 +123,9 @@ def capabilities(c: dict = Depends(claims), database: Database = Depends(db)) ->
 
 @app.get("/platform/tenants")
 def platform_list_tenants(c: dict = Depends(claims), database: Database = Depends(db)) -> dict[str, Any]:
-    """قائمة الـTenants لـPlatform Admin — كل صف مقروء مُدقَّق (N5)، كنظير /platform/tenants/{id}."""
+    """قائمة الـTenants لـPlatform Admin — M29: الدالة تقرأ وتدقّق (N5) في المعاملة نفسها؛ لا قراءة مباشرة."""
     with database.as_user(c) as conn:
-        if conn.execute("select app.current_system_user_id() as id").fetchone()["id"] is None:
-            raise _FORBIDDEN
-        rows = conn.execute("select id, tenant_code, name, status, suspended_at from public.platform_tenants order by tenant_code").fetchall()
-        for row in rows:
-            write_access_audit(conn, action="read", entity_type="platform_tenants", entity_ids=[row["id"]],
-                               platform_tenant_id=row["id"], details={"channel": "api", "resource": "platform_tenant_list"})
-        return {"rows": rows}
+        return {"rows": conn.execute("select * from app.platform_read_tenants()").fetchall()}
 
 
 @app.get("/schools/{school_id}")
@@ -173,22 +167,9 @@ def export_students(school_id: uuid.UUID, c: dict = Depends(claims), database: D
 
 @app.get("/platform/tenants/{tenant_id}")
 def platform_get_tenant(tenant_id: uuid.UUID, c: dict = Depends(claims), database: Database = Depends(db)) -> dict[str, Any]:
+    """Tenant واحد لـPlatform Admin — M29: سياق المنصة وtenant.read والتدقيق (N5) داخل الدالة نفسها."""
     with database.as_user(c) as conn:
-        # سياق المنصة تقرره قاعدة البيانات (G10)؛ مستخدم Tenant لا يدخل مسار المنصة
-        if conn.execute("select app.current_system_user_id() as id").fetchone()["id"] is None:
-            raise _FORBIDDEN
-        # الصف يظهر فقط بسياسة platform_tenants_admin_select = has_platform_permission('tenant.read')
-        row = conn.execute(
-            "select id, tenant_code, name, status, suspended_at from public.platform_tenants where id = %s", [tenant_id]
-        ).fetchone()
-        if row is None:
-            raise _NOT_FOUND
-        write_access_audit(                                               # N5 — قبل الإرجاع، في المعاملة نفسها
-            conn,
-            action="read",
-            entity_type="platform_tenants",
-            entity_ids=[row["id"]],
-            platform_tenant_id=row["id"],
-            details={"channel": "api", "resource": "platform_tenant"},
-        )
-        return row
+        row = conn.execute("select * from app.platform_read_tenants(%s)", [tenant_id]).fetchone()
+    if row is None:
+        raise _NOT_FOUND
+    return row

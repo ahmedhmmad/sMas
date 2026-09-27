@@ -498,6 +498,7 @@ grant execute on function app.archive_student(uuid, text) to authenticated;
 | `app.provision_staff(...)` | staff + أول `staff_school_assignment` | `staff.create` + `staff.assign` + `can_access_school` |
 | `app.provision_guardian(student_id, ...)` | guardian + `student_guardians` + (family) | `guardian.create` + `guardian.link` + `student_in_scope` |
 | `app.provision_account(kind, id, auth_user_id)` | profile + membership + دور + (نطاق) لموظف/ولي أمر قائم | صلاحية المورد + علاقة في النطاق |
+| `app.platform_read_tenants([tenant_id])` ✅ M29 (F1/W1) | قراءة Platform Admin لبيانات Tenant (N5) — القراءة والتدقيق عبارة واحدة | سياق المنصة (وإلا 42501) + `has_platform_permission('tenant.read')` (وإلا لا صفوف ولا تدقيق)؛ لا سياسة قراءة مباشرة للمنصة على الجداول الثلاثة |
 | `app.set_guardian_first_login_mode(school, mode, reason)` ✅ M27 (F2/D4) | تغيير نمط المدرسة | `security.manage` + `can_access_school` + سبب |
 | `app.begin_guardian_temporary_password` / `app.arm_guardian_temporary_password` ✅ M27 (C) | إصدار كلمة مؤقتة لحساب غير مُستكمل | `security.manage` + `guardian_in_scope`؛ fail-closed بين الخطوتين |
 | `app.otp_issue` / `app.otp_verify` / `app.password_login_account` / `app.password_login_result` ✅ M26 (F2/D3)؛ M27: `otp_*` بمعامل المدرسة (اختياري) وبوابة onboarding | لا إنشاء هوية — دخول حسابات Tenant قبل JWT (الفئة 4) | EXECUTE لـ`service_role` وحده؛ المحلّل الداخلي `login_account` و`login_outcome` لا لأحد؛ I1؛ `docs/F2_AUTHENTICATION.md` §4.2 |

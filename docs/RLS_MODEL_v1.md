@@ -968,6 +968,8 @@ create policy platform_tenants_admin_update on platform_tenants for update
 
 **Audit إلزامي:** كل قراءة Platform Admin لبيانات Tenant تُسجَّل. لا يمكن لـRLS تسجيل القراءات، فيُنفَّذ في طبقة FastAPI — **دين مسجَّل، Gate F4**.
 
+> ✅ **M29 (F1/W1، 2026-09-28):** السياسات أعلاه على `platform_tenants` و`groups` و`schools` **حُذفت** (SELECT، ومعها INSERT/UPDATE). القراءة المسموحة = `app.platform_read_tenants([id])` وحدها: سياق المنصة + `tenant.read` + صف تدقيق N5 لكل Tenant في العبارة نفسها (fail closed). لا قراءة مباشرة عبر PostgREST — فلا مسار بديل يتجاوز التدقيق. كتابات المنصة دوال متحكَّم بها.
+
 ---
 
 ## 12. حالات INSERT / UPDATE / DELETE

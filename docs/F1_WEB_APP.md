@@ -1,6 +1,6 @@
 # Gate F1 — تطبيق الويب (الهيكل)
 
-**الحالة:** ✅ منفذ (2026-09-27) — بانتظار المراجعة · **الكود:** `apps/web/` · **الاختبارات:** Vitest 29 · Playwright 16 · pytest 133 · pgTAP 1331
+**الحالة:** ✅ منفذ — W1 و W2 مُصلحان (2026-09-28) · **الكود:** `apps/web/` · **الاختبارات:** Vitest 32 · Playwright 16 · pytest 132 · pgTAP 1346
 
 ---
 
@@ -94,11 +94,12 @@ npm run dev                                # VITE_SUPABASE_URL / VITE_SUPABASE_P
 
 | # | |
 |---|---|
-| W1 | **N5 عبر PostgREST:** الواجهة تقرأ الجهات عبر المسار المُدقَّق، لكن Platform Admin ما زال يستطيع قراءة `platform_tenants` عبر PostgREST مباشرة دون تدقيق (RLS لا تسجل القراءات — حد معروف §12.2) |
+| W1 | ✅ **مُصلح (M29، 2026-09-28):** الجداول الثلاثة (`platform_tenants`، `groups`، `schools`) ضمن N5 بنص RLS §11 — لا قراءة مباشرة لـPlatform Admin؛ المسار الوحيد `app.platform_read_tenants()` تقرأ وتدقّق في عبارة واحدة (fail closed)؛ `/platform/tenants[/{id}]` يستدعيها. pgTAP 29 (15) + ضابطان سلبيان (بلا تدقيق ← 4؛ إعادة سياسة القراءة ← «لا قراءة مباشرة») |
 | W2 | ✅ **مُصلح (2026-09-28): الأداة dev-only فعلياً** — وحدة مستقلة (`src/devtools/`) تُحمَّل كسولاً خلف شرط يُطوى عند البناء؛ بناء production الافتراضي يخلو منها (يفحصه `npm run check:prod-bundle` في CI)، و`VITE_DEV_CONTEXT=1` يُفشل `vite build` ما لم يُصرَّح بـ`SMAS_BUILD_TARGET=development` (بناء E2E). ضابط سلبي: بناء التطوير يحويها فيفشل الفحص؛ اختبار للحارس |
 | W3 | ولي الأمر والطالب لا يريان صف المدرسة (§6 بند 8) — لا تحتاجه شاشات F1 |
 | W4 | تنزيل Chromium الخاص بـPlaywright فشل محلياً (شبكة) — E2E المحلي بـEdge عبر `E2E_BROWSER_CHANNEL`؛ CI يثبّت Chromium |
 | W5 | ✅ **CI/runtime requirement: Node 22** (`vitest` 5 و`jsdom` 30 تتطلبانه) |
+| W7 | ✅ **سباق تنقل كشفه E2E (2026-09-28):** بعد الدخول كان تنقلان متتاليان (الحارس + `navigate('/')`) يعيدان تركيب صفحة تغيير الكلمة فيمحوان ما كُتب؛ أُزيل التنقل الصريح بعد الدخول وبعد التغيير — الحارس وحده يوجّه حسب الحالة. E2E 16/16 مرتين متتاليتين |
 | W6 | الاعتماديات مثبتة بإصدارات محددة؛ TypeScript على 5.9 (لا 7 الأصلي) لتوافق `typescript-eslint`؛ npm 10 المحلي يتعطل في حل peers لـvitest (خطأ داخلي) — التثبيت بـnpm 11، و`npm ci` يعمل بالقفل |
 
 **خارج F1 (بقرار):** F3، design system، accessibility audit متقدم، PWA/offline، Flutter، notifications، business modules، school settings UI، 5c، deployment/CDN، لغات أخرى.

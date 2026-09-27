@@ -2,7 +2,7 @@
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, loadEnv } from "vite";
-import { assertDevContextAllowed } from "./build-guard";
+import { assertDevContextAllowed } from "./build-guard.ts";
 
 export default defineConfig(({ command, mode }) => {
   assertDevContextAllowed(command, { ...loadEnv(mode, process.cwd(), ""), ...process.env });

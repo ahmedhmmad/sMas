@@ -318,7 +318,7 @@ select is((select v from r where k = 'tenants.multi'),   '<null>', 'tenants: sev
 select is((select v from r where k = 'tenants.noperm'),  '<null>', 'tenants: scope without permission → nothing (P2)');
 select is((select v from r where k = 'tenants.noscope'), '<null>', 'tenants: permission without scope → nothing (P1)');
 select is((select v from r where k = 'tenants.t2a'),     'T2',     'tenants: T2 admin sees only T2 (I1)');
-select is((select v from r where k = 'tenants.pa'),      'T1,T2',  'tenants: platform admin via has_platform_permission(tenant.read) (C3)');
+select is((select v from r where k = 'tenants.pa'),      '<null>', 'tenants: no direct Platform Admin read (M29/W1 — only the audited function, see 29)');
 select is((select v from r where k = 'tenants.pa0'),     '<null>', 'tenants: platform identity without the permission → nothing (C3: identity grants nothing)');
 select is((select v from r where k = 'tenants.parev'),   '<null>', 'tenants: revoked platform assignment → nothing');
 select ok((select v from r where k = 'tenants.anon') like 'ERR 42501%permission denied%platform_tenants%', 'tenants: anon has no privilege (M20)');
@@ -331,7 +331,7 @@ select is((select v from r where k = 'groups.multi'),   '<null>',   'groups: sev
 select is((select v from r where k = 'groups.noperm'),  '<null>',   'groups: scope without permission (P2)');
 select is((select v from r where k = 'groups.noscope'), '<null>',   'groups: permission without scope (P1)');
 select is((select v from r where k = 'groups.t2a'),     'G2',       'groups: T2 admin → T2 group only (I1)');
-select is((select v from r where k = 'groups.pa'),      'G2,GA,GB', 'groups: platform admin via group.read');
+select is((select v from r where k = 'groups.pa'),      '<null>', 'groups: no direct Platform Admin read (M29/W1)');
 select is((select v from r where k = 'groups.pa0'),     '<null>',   'groups: platform identity without the permission');
 select ok((select v from r where k = 'groups.anon') like 'ERR 42501%permission denied%groups%', 'groups: anon has no privilege (M20)');
 
@@ -343,7 +343,7 @@ select is((select v from r where k = 'schools.multi'),   'SA2,SS',              
 select is((select v from r where k = 'schools.noperm'),  '<null>',                     'schools: scope without permission (P2)');
 select is((select v from r where k = 'schools.noscope'), '<null>',                     'schools: permission without scope (P1)');
 select is((select v from r where k = 'schools.t2a'),     'S2A,S2S',                    'schools: T2 admin → T2 schools only (I1)');
-select is((select v from r where k = 'schools.pa'),      'S2A,S2S,SA1,SA2,SB1,SS',     'schools: platform admin via school.read');
+select is((select v from r where k = 'schools.pa'),      '<null>', 'schools: no direct Platform Admin read (M29/W1)');
 select is((select v from r where k = 'schools.pa0'),     '<null>',                     'schools: platform identity without the permission');
 select ok((select v from r where k = 'schools.anon') like 'ERR 42501%permission denied%schools%', 'schools: anon has no privilege (M20)');
 
@@ -404,7 +404,7 @@ select ok((select v from r where k = 'w.pa0_tenant_insert') like 'ERR 42501%perm
 select is((select v from r where k = 'w.ta_tenant_T1'), '1', 'tenants update: tenant scope + tenant.update on own tenant');
 select is((select v from r where k = 'w.ta_tenant_T2'), '0', 'tenants update: never another tenant');
 select is((select v from r where k = 'w.gm_tenant_T1'), '0', 'tenants update: group scope cannot update the tenant (F1)');
-select is((select v from r where k = 'w.pa_group_T2'),  'ok', 'groups insert: platform admin via group.create (seed)');
+select ok((select v from r where k = 'w.pa_group_T2') like 'ERR 42501%row-level security policy for table "groups"%', 'groups insert: no direct Platform Admin write (M29 — platform writes are controlled functions)');
 select is((select v from r where k = 'w.pa_group_rename'), '0', 'groups update: platform admin lacks group.update in the seed → nothing');
 select ok((select v from r where k = 'w.ta_iscope') like 'ERR 42501%permission denied%identity_scopes%', 'identity_scopes insert: no client path (T9 only, G9)');
 
@@ -421,12 +421,12 @@ select is((select v from r where k = 'exec.auth'), 'true', 'authenticated execut
 select is((select v from r where k = 'policies'), '<null>', 'every policy is TO authenticated only');
 select is((select v from r where k = 'delete_policies'), '0', 'no DELETE policy on the M14 tables (§5.2)');
 
-select policies_are('public', 'platform_tenants', array['platform_tenants_tenant_select','platform_tenants_tenant_update',
-  'platform_tenants_platform_select','platform_tenants_platform_update'], 'platform_tenants: exactly the M14 policies minus platform_insert (dropped in M20b — bootstrap_tenant is the only path)');
-select policies_are('public', 'groups', array['groups_tenant_select','groups_tenant_insert','groups_tenant_update',
-  'groups_platform_select','groups_platform_insert','groups_platform_update'], 'groups: exactly the M14 policies');
-select policies_are('public', 'schools', array['schools_tenant_select','schools_tenant_insert','schools_tenant_update',
-  'schools_platform_select','schools_platform_insert','schools_platform_update'], 'schools: exactly the M14 policies');
+select policies_are('public', 'platform_tenants', array['platform_tenants_tenant_select','platform_tenants_tenant_update'],
+  'platform_tenants: tenant policies only (M20b dropped platform_insert; M29 the platform read/update — audited function only)');
+select policies_are('public', 'groups', array['groups_tenant_select','groups_tenant_insert','groups_tenant_update'],
+  'groups: tenant policies only (M29 dropped the platform policies)');
+select policies_are('public', 'schools', array['schools_tenant_select','schools_tenant_insert','schools_tenant_update'],
+  'schools: tenant policies only (M29 dropped the platform policies)');
 select policies_are('public', 'identity_scopes', array['identity_scopes_tenant_select'], 'identity_scopes: read only');
 select policies_are('public', 'system_users', array['system_users_self_select'], 'system_users: self only');
 select policies_are('public', 'platform_admin_assignments', array['platform_admin_assignments_self_select'], 'platform_admin_assignments: self only');
