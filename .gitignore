@@ -17,6 +17,11 @@ __pycache__/
 supabase/.branches/
 supabase/.temp/
 
+# F1: صندوق OTP الملفي لـE2E (خارج apps/web، لا يدخل Git) ومخرجات Playwright
+.e2e/
+apps/web/test-results/
+apps/web/playwright-report/
+
 # مخرجات الـspike المؤقتة
 spikes/**/out/
 

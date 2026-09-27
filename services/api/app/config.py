@@ -18,6 +18,8 @@ class Settings:
     jwt_audience: str
     publishable_key: str
     min_password_length: int
+    cors_origins: tuple[str, ...]
+    environment: str
 
     @property
     def jwt_issuer(self) -> str:
@@ -38,4 +40,14 @@ def load_settings() -> Settings:
         publishable_key=os.environ["SUPABASE_PUBLISHABLE_KEY"],
         # يطابق `minimum_password_length` في إعداد Supabase Auth (كلمة المرور الأولية للطالب = معرّفه)
         min_password_length=int(os.environ.get("API_MIN_PASSWORD_LENGTH", "6")),
+        cors_origins=cors_origins(),
+        environment=os.environ.get("API_ENVIRONMENT", "development"),
     )
+
+
+def cors_origins() -> tuple[str, ...]:
+    """أصول الواجهة المسموح لها (F1) — قائمة صريحة من البيئة؛ `*` مرفوض (قرار F1)."""
+    origins = tuple(o.strip() for o in os.environ.get("API_CORS_ORIGINS", "").split(",") if o.strip())
+    if "*" in origins:
+        raise ValueError("API_CORS_ORIGINS must list explicit origins; '*' is not allowed")
+    return origins

@@ -47,7 +47,8 @@ def _load_env() -> dict[str, str]:
         os.environ.setdefault("SUPABASE_PUBLISHABLE_KEY", status["PUBLISHABLE_KEY"])
         os.environ.setdefault("SUPABASE_SECRET_KEY", status["SECRET_KEY"])
     # الخدمة: authenticator بكلمة مرور قاعدة البيانات المحلية
-    os.environ.setdefault("API_OTP_SENDER", "local")          # D3: مرسل محلي للاختبار (القناة الحقيقية: المرحلة 5)
+    os.environ.setdefault("API_OTP_SENDER", "local")
+    os.environ.setdefault("API_CORS_ORIGINS", "http://localhost:5173,http://localhost:4173")   # F1: الواجهة المحلية          # D3: مرسل محلي للاختبار (القناة الحقيقية: المرحلة 5)
     os.environ.setdefault(
         "API_DATABASE_URL", os.environ["TEST_ADMIN_DB_URL"].replace("://postgres:", "://authenticator:", 1)
     )

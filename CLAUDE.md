@@ -3,7 +3,7 @@
 **المشروع:** نظام إدارة المدارس متعدد المستأجرين (Multi-Tenant SMS)
 **تاريخ الإنشاء:** 2026-09-22
 **آخر تحديث:** 2026-09-23
-**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (**Gate C 🔒 مكتمل: M01–M23**؛ **Gate E 🔒 مغلق تقنياً: E1–E6** — Production Backup Policy TBD؛ Gate F: **F4 🔒**؛ **F2 🔒** (D1–D4 + E2E)؛ التالي F1 Web App)
+**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (**Gate C 🔒 مكتمل: M01–M23**؛ **Gate E 🔒 مغلق تقنياً: E1–E6** — Production Backup Policy TBD؛ Gate F: **F4 🔒**؛ **F2 🔒**؛ **F1 جارٍ** — الخلفية (M28 + capabilities) ✅)
 
 ---
 
@@ -391,6 +391,7 @@ Platform Admin → Role → Permission + Platform-level scope
 | M25 | `first_login_credential` (F2/D2-B) | ✅ 36/36 | حالة الحساب في `auth_identities`؛ بوابة الجذر؛ `arm_first_login`/`activate_first_login` بإشارة سجل Supabase Auth؛ **استثناء R2 موسّع** (دالتان ملك postgres لقراءة `auth`)؛ `05` حارس القائمة المغلقة |
 | M26 | `tenant_account_login` (F2/D3) | ✅ 46/46 | OTP وكلمة المرور لحسابات Tenant قبل JWT؛ `login_challenges` (الجدول 30، بلا وصول عميل ولا T7)؛ أعمدة قفل `staff` + بريد فريد داخل الـTenant؛ I1؛ **I2 مفروض في `provision_account`**؛ 11/13/14/20/22 على الجدول 30 و I2 |
 | M27 | `guardian_onboarding` (F2/D4) | ✅ 41/41 | `schools.guardian_first_login_mode`؛ حساب ولي الأمر يولد pending؛ بوابة OTP بالمدرسة الهدف (A: يبدأ، B: يفعّل، C: لا OTP)؛ إصدار C بـ`security.manage`؛ `otp_*` بمعامل المدرسة (استبدلت نسختي M26) |
+| M28 | `my_permissions` (F1.3) | ✅ 20/20 | effective keys من الجداول بشروط `has_permission`/`has_platform_permission` نفسها؛ مطابقة المحمولين على الكتالوج لكل فاعل؛ 3 ضوابط سلبية (الحالة، السياق، إسناد المنصة) |
 
 **✅ H1 محسوم (2026-09-24) — السماح، بلا Group Scope:**
 > **H1 — A secretary may register a new student in a school that belongs to a group. The secretary requires `student.create` with school scope; this does not grant group scope. When the target school belongs to a group, the student's identity scope is derived from the target school's group and is not client-selectable. The student's enrollment is created for the target school in the same controlled provisioning operation.**
@@ -549,6 +550,10 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | `audit_log.id` هو `bigint IDENTITY` وليس uuid، وبلا FK على `actor_id`/`entity_id` | ترتيب زمني طبيعي وحجم أصغر؛ وFK على الكيانات يخلق تبعية عكسية تكسر السجل عند الأرشفة |
 | 2026-09-22 | **O1** — `profiles.auth_user_id` فريد عالمياً؛ نفس Auth User لا يعبر Tenantين | شرط حتمية `app.current_tenant_id()` وصحة §1.1. التفاصيل: §1.1 + `DATA_DICTIONARY_v1.md` §2.7 |
 | 2026-09-22 | **O2** — `students.gender` و`birth_date` قابلان لـNULL؛ OCR ليس شرطاً ولا مصدراً نهائياً | اكتمال البيانات قاعدة أعمال في المرحلة 4 لا قيد صف. يلزم معالجة NULL صراحةً في قواعد التوزيع والتقارير |
+| 2026-09-27 | **F1 — خطة النطاق معتمدة (2026-09-27):** shell (React/TS/Vite/Tailwind، RTL، IBM Plex Sans Arabic، responsive، routing، حالات، logout، انتهاء الجلسة)؛ سياق عبر `getTenantContext()`/`getSchoolContext()`؛ تنقل حسب الصلاحيات (الإخفاء عرض لا أمن)؛ مسارات دخول F2 الحقيقية؛ شاشات تمثيلية فقط (Login ← Dashboard ← Students ← Detail ← Export)؛ `t(key)` بلا مكتبة؛ lint/typecheck/build + Vitest + Playwright. **خارج F1:** F3، design system، accessibility audit متقدم، PWA/offline، Flutter، notifications، business modules، school settings UI، 5c، deployment/CDN، لغات أخرى. **F3 لا يبدأ بالتوازي** | F1 |
+| 2026-09-27 | **F1 — قيد 1:** `app.my_permissions()` (M28) تستخرج **effective permission keys** داخل DB من الجداول نفسها وبشروط السياق/الحالة نفسها، **لا enumeration عبر `has_permission()`** ولا قائمة يرسلها العميل؛ مفاتيح فقط (لا أدوار ولا نطاقات ولا معرّفات)؛ tenant أو platform بلا اتحاد؛ **ليست حداً أمنياً** | F1 |
+| 2026-09-27 | **F1 — قيد 2:** `school_id` في F1 **ليس authorization input**: `getTenantContext/getSchoolContext` للعرض ولطلبات الدخول فقط؛ **لا تضيف أي data-fetching function في React `school_id` كنطاق صلاحية**؛ F3 يستبدل مصدرهما بالـsubdomain دون تغيير المستدعين | F1 |
+| 2026-09-27 | **F1 — الإضافات الأربع معتمدة:** الاعتماديات (ضمن §3.1، بلا state-management ولا مكتبة i18n)؛ M28 + `/me/capabilities`؛ CORS من البيئة (**لا `*`**)؛ مرسل OTP ملفي للتطوير/CI فقط: بلا مسار HTTP يقرؤه، مرفوض في production، الملف خارج `apps/web` وخارج Git/artifacts، ويُنظَّف بين اختبارات Playwright. E2E تعتمد مدارس الـfixture بأسمائها (SA، SB، SS) لا عددها | F1 |
 | 2026-09-27 | **F3 ↔ D4 (قرار 2026-09-27):** مدرسة سياق الدخول تأتي اليوم من جسم الطلب (F2)؛ عند تنفيذ F3 يصبح **tenant + school المستخرجان من الـsubdomain هما مصدر السياق** لا قيمة يختارها العميل في الجسم. 5c (إعادة ضبط حساب active) منفصل عن إصدار كلمة الـonboarding | F3 |
 | 2026-09-26 | **D4.1:** نمط A/B/C لولي الأمر يحكم **أول دخول (onboarding) فقط**؛ بعده تحكم طرق الحساب نفسه: كلمة المرور إن وُجدت، وOTP للاسترداد/فك القفل (وفي B يبقى OTP ما لم تُضبط كلمة مرور) | F2 — قرارات D4 |
 | 2026-09-26 | **D4.2:** النمط الافتراضي **A** — OTP ← إنشاء كلمة مرور إجبارياً ← الدخول اللاحق بكلمة المرور، وOTP للاسترداد/فك القفل | F2 — قرارات D4 |
@@ -611,6 +616,7 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | ✅ **C3** — اعتماد `platform_admin_roles → platform_admin_role_permissions → permissions`؛ `is_platform_admin()` اختبار هوية فقط، و`has_permission()` توحّد المسارين. الكتالوج 73 مفتاحاً بعد K4 (`tenant.create`) | `docs/ROLE_PERMISSION_SEED_v1.md`, `AUTHORIZATION_MATRIX_v1.md`, `docs/DATA_DICTIONARY_v1.md`, `CLAUDE.md` |
 | 2026-09-22 | ✅ **A3** — RLS Model: 7 دوال، سياسات كل الجداول، حل تعارض FORCE RLS/recursion، 30 اختبار pgTAP، و6 بنود معلّقة | `docs/RLS_MODEL_v1.md`, `CLAUDE.md` |
 | 2026-09-23 | ✅ **A5** — اعتماد A1–A4 كـFoundation Design Baseline | — |
+| 2026-09-27 | ✅ **F1 — الخلفية:** M28 `my_permissions` + `GET /me/capabilities` + `GET /platform/tenants` (مُدقَّق N5) + CORS من البيئة + مرسل OTP ملفي بحراساته؛ pgTAP 28: 20؛ pytest 133/133 | `supabase/migrations/20260927090000_my_permissions.sql`, `supabase/tests/{20,28}_*.test.sql`, `services/api/**`, `.env.example`, `.gitignore`, `CLAUDE.md`, `docs/PLAN_v3.md` |
 | 2026-09-27 | 🔒 **F2 مغلق** — E2E أخضر في CI (`860a14a`، https://github.com/ahmedhmmad/sMas/actions/runs/36332097484)؛ pgTAP 1311/1311، pytest 116/116 | `CLAUDE.md`, `docs/F2_AUTHENTICATION.md`, `docs/PLAN_v3.md` |
 | 2026-09-27 | ✅ **F2 — E2E لكل الأدوار** — 11 حساباً بمسارها الحقيقي حتى البيانات المسموحة والممنوعة؛ ولي الأمر A/B/C والطالب first-login؛ 13/13 (116/116)؛ ضابطان سلبيان | `services/api/tests/test_e2e_auth.py`, `docs/F2_AUTHENTICATION.md`, `CLAUDE.md` |
 | 2026-09-27 | 🔒 **D4/M27 مغلقان** — CI أخضر (`fb71356`)؛ بوابة إغلاق F2 = E2E لكل الأدوار بالمسار الكامل | `CLAUDE.md`, `docs/F2_AUTHENTICATION.md` |

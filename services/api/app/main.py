@@ -17,12 +17,13 @@ from typing import Any
 
 import psycopg
 from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from . import account_login, accounts, first_login, onboarding, student_login, students
 from .audit import write_access_audit
 from .auth_admin import AuthAdmin
-from .config import load_settings
+from .config import cors_origins, load_settings
 from .otp_sender import load_sender
 from .db import Database
 from .deps import claims, db
@@ -34,7 +35,7 @@ async def lifespan(app: FastAPI):
     settings = load_settings()
     app.state.settings = settings
     app.state.auth_admin = AuthAdmin(settings.supabase_url, settings.publishable_key)
-    app.state.otp_sender = load_sender()
+    app.state.otp_sender = load_sender(settings.environment)
     app.state.login_limiter = student_login.AttemptLimiter(limit=10, window_s=300)
     app.state.verifier = TokenVerifier.from_jwks(
         settings.jwks_url,
@@ -52,6 +53,11 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="SMas API", lifespan=lifespan)
+# F1: أصول الواجهة من البيئة فقط (لا `*`)؛ الـBearer في Authorization — لا cookies
+_ORIGINS = cors_origins()
+if _ORIGINS:
+    app.add_middleware(CORSMiddleware, allow_origins=list(_ORIGINS), allow_credentials=False,
+                       allow_methods=["GET", "POST"], allow_headers=["Authorization", "Content-Type"])
 app.include_router(student_login.router)
 app.include_router(students.router)
 app.include_router(first_login.router)
@@ -101,6 +107,31 @@ def _visible_school(conn: psycopg.Connection, school_id: uuid.UUID) -> dict[str,
     if row is None:
         raise _NOT_FOUND
     return row
+
+
+@app.get("/me/capabilities")
+def capabilities(c: dict = Depends(claims), database: Database = Depends(db)) -> dict[str, Any]:
+    """F1.3 — مفاتيح الصلاحيات الفعالة لإظهار عناصر الواجهة فقط (ليست حداً أمنياً — M28)."""
+    with database.as_user(c) as conn:
+        row = conn.execute(
+            "select app.my_permissions() as permissions,"
+            "       case when app.current_system_user_id() is not null then 'platform'"
+            "            when app.current_profile_id() is not null then 'tenant' end as context"
+        ).fetchone()
+    return {"context": row["context"], "permissions": row["permissions"]}
+
+
+@app.get("/platform/tenants")
+def platform_list_tenants(c: dict = Depends(claims), database: Database = Depends(db)) -> dict[str, Any]:
+    """قائمة الـTenants لـPlatform Admin — كل صف مقروء مُدقَّق (N5)، كنظير /platform/tenants/{id}."""
+    with database.as_user(c) as conn:
+        if conn.execute("select app.current_system_user_id() as id").fetchone()["id"] is None:
+            raise _FORBIDDEN
+        rows = conn.execute("select id, tenant_code, name, status, suspended_at from public.platform_tenants order by tenant_code").fetchall()
+        for row in rows:
+            write_access_audit(conn, action="read", entity_type="platform_tenants", entity_ids=[row["id"]],
+                               platform_tenant_id=row["id"], details={"channel": "api", "resource": "platform_tenant_list"})
+        return {"rows": rows}
 
 
 @app.get("/schools/{school_id}")
