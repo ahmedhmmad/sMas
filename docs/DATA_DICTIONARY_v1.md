@@ -187,6 +187,7 @@ ALTER TABLE schools ADD CONSTRAINT schools_group_same_tenant_fk
 |---|---|---|---|---|
 | `id` | uuid | NOT NULL | `gen_random_uuid()` | PK |
 | `tenant_code` | text | NOT NULL | — | فريد على مستوى المنصة، ثابت، غير معاد الاستخدام |
+| `host_label` | text | NOT NULL | — | **M30 (F3):** معرّف DNS للـTenant في الـhost (`{school}.{tenant}.{base}`، `{tenant}.{base}`) — منفصل عن `tenant_code`؛ يُحدَّد في `bootstrap_tenant`؛ لا يكتبه العميل؛ سياق لا تفويض |
 | `name` | text | NOT NULL | — | |
 | `status` | text | NOT NULL | `'active'` | `active`, `suspended` |
 | `suspended_at` | timestamptz | NULL | — | |
@@ -196,6 +197,9 @@ ALTER TABLE schools ADD CONSTRAINT schools_group_same_tenant_fk
 - `PK (id)`
 - `UNIQUE (tenant_code)`
 - `CHECK (tenant_code ~ '^[A-Z0-9][A-Z0-9_-]{1,31}$')` — أكواد الأعمال بصيغة ثابتة قابلة للطباعة
+- `UNIQUE (host_label)` — `platform_tenants_host_label_uq` (M30)
+- `CHECK (host_label ~ '^[a-z0-9][a-z0-9-]{0,62}$')` — `platform_tenants_host_label_chk` (M30)
+- `CHECK (host_label NOT IN ('admin','api','www'))` — `platform_tenants_host_label_reserved` (M30؛ `admin` = host المنصة)
 - `CHECK (status IN ('active','suspended'))`
 - `CHECK ((status = 'suspended') = (suspended_at IS NOT NULL))`
 

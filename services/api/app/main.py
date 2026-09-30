@@ -3,6 +3,7 @@
 المسار الوحيد للسلطة:  JWT (يُتحقَّق منه) → FastAPI → قاعدة البيانات (RLS + دوال app.*) → البيانات.
 FastAPI لا يقرر صلاحية بنفسه: حين يحتاج سؤالاً («هل يملك X على Y؟») يطرحه على دوال قاعدة البيانات القائمة،
 ولا يقرأ من الطلب (headers، query، body) أي tenant أو school أو دور يؤثر في السلطة.
+F3: `Origin` يحدد سياق الدخول فقط («أين يُبحث عن الحساب» — host_context.py)، ولا يدخل أي قرار صلاحية.
 
 نقاط الإثبات (F4):
   /me                                  السياق مشتق من قاعدة البيانات
@@ -23,10 +24,11 @@ from fastapi.responses import JSONResponse
 from . import account_login, accounts, first_login, onboarding, student_login, students
 from .audit import write_access_audit
 from .auth_admin import AuthAdmin
-from .config import cors_origins, load_settings
+from .config import load_settings, origin_base
 from .otp_sender import load_sender
 from .db import Database
 from .deps import claims, db
+from .host_context import OriginBase
 from .security import TokenVerifier
 
 
@@ -52,12 +54,22 @@ async def lifespan(app: FastAPI):
         app.state.auth_admin.close()
 
 
+class HostCORSMiddleware(CORSMiddleware):
+    """F3: الأصل مسموح ⟺ يحلله host_context إلى سياق (مدرسة، Tenant، منصة) — القواعد نفسها للواجهة ولسياق
+    الدخول، لا regex موازٍ. لا `*`، ولا wildcard غير مرسَّخ."""
+
+    def __init__(self, app, base: OriginBase, **kwargs):
+        super().__init__(app, allow_origins=[], **kwargs)
+        self.base = base
+
+    def is_allowed_origin(self, origin: str) -> bool:
+        return self.base.context(origin) is not None
+
+
 app = FastAPI(title="SMas API", lifespan=lifespan)
-# F1: أصول الواجهة من البيئة فقط (لا `*`)؛ الـBearer في Authorization — لا cookies
-_ORIGINS = cors_origins()
-if _ORIGINS:
-    app.add_middleware(CORSMiddleware, allow_origins=list(_ORIGINS), allow_credentials=False,
-                       allow_methods=["GET", "POST"], allow_headers=["Authorization", "Content-Type"])
+# الـBearer في Authorization — لا cookies
+app.add_middleware(HostCORSMiddleware, base=origin_base(), allow_credentials=False,
+                   allow_methods=["GET", "POST"], allow_headers=["Authorization", "Content-Type"])
 app.include_router(student_login.router)
 app.include_router(students.router)
 app.include_router(first_login.router)

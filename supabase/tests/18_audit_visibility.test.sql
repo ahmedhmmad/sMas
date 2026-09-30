@@ -47,8 +47,8 @@ end $$;
 
 -- ============ Fixture ============
 -- T1: GA (SA1, SA2)، GB (SB1) — T2: مستقلة S2
-insert into public.platform_tenants (id, tenant_code, name) values
-  ('10000000-0000-0000-0000-000000000001', 'T1', 'T1'), ('20000000-0000-0000-0000-000000000002', 'T2', 'T2');
+insert into public.platform_tenants (id, tenant_code, host_label, name) values
+  ('10000000-0000-0000-0000-000000000001', 'T1', 't1', 'T1'), ('20000000-0000-0000-0000-000000000002', 'T2', 't2', 'T2');
 insert into public.groups (id, platform_tenant_id, group_code, name) values
   ('a1000000-0000-0000-0000-00000000000a', '10000000-0000-0000-0000-000000000001', 'GA', 'GA'),
   ('a2000000-0000-0000-0000-00000000000b', '10000000-0000-0000-0000-000000000001', 'GB', 'GB');

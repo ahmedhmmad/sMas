@@ -3,6 +3,7 @@ import { type FormEvent, useState } from "react";
 import { Link } from "react-router";
 import { useAuth } from "../auth/AuthProvider";
 import { loginNative } from "../auth/loginFlows";
+import { getHostContext } from "../context/appContext";
 import { t } from "../i18n";
 import { Field, Submit, useSubmit } from "./Login";
 
@@ -27,7 +28,9 @@ export function AdminLogin() {
         {error && <p role="alert" data-testid="login-error" className="text-red-700">{error}</p>}
         <Submit labelKey="login.submit" busy={busy} testId="admin-submit" />
       </form>
-      <Link to="/login" className="mt-6 block text-center text-sm text-slate-500">{t("login.backToLogin")}</Link>
+      {getHostContext()?.kind !== "platform" && (   // host المنصة: لا نموذج آخر يُعاد إليه
+        <Link to="/login" className="mt-6 block text-center text-sm text-slate-500">{t("login.backToLogin")}</Link>
+      )}
     </div>
   );
 }

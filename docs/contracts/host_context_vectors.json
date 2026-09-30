@@ -1,0 +1,78 @@
+{
+  "_about": "F3 — متجهات قواعد سياق الـhost المشتركة. يقرؤها: Vitest (apps/web/src/context/hostContext.test.ts)، pytest (services/api/tests/test_host_context.py)، ومنها تُختبر قيود DB (M30). أي تغيير في القواعد يبدأ هنا.",
+  "hosts": {
+    "base": "localhost",
+    "cases": [
+      ["school-a.tenant-a.localhost", { "kind": "school", "tenant": "tenant-a", "school": "school-a" }],
+      ["school-a.tenant-b.localhost", { "kind": "school", "tenant": "tenant-b", "school": "school-a" }],
+      ["tenant-a.localhost", { "kind": "tenant", "tenant": "tenant-a" }],
+      ["admin.localhost", { "kind": "platform" }],
+      ["x.localhost", { "kind": "tenant", "tenant": "x" }],
+      ["admin.tenant-a.localhost", { "kind": "school", "tenant": "tenant-a", "school": "admin" }],
+      ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.localhost", { "kind": "tenant", "tenant": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }],
+      ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.localhost", null],
+      ["api.localhost", null],
+      ["www.localhost", null],
+      ["school-a.admin.localhost", null],
+      ["school-a.api.localhost", null],
+      ["school-a.www.localhost", null],
+      ["localhost", null],
+      ["evil-localhost", null],
+      ["localhost.evil.com", null],
+      ["tenant-a.localhost.evil.com", null],
+      ["a.school-a.tenant-a.localhost", null],
+      ["Tenant-A.localhost", null],
+      ["t_a.localhost", null],
+      ["-tenant.localhost", null],
+      ["s.tenant-a.localhost", null],
+      ["tenant-a.localhost.", null],
+      [".tenant-a.localhost", null],
+      ["school-a..localhost", null],
+      ["", null]
+    ]
+  },
+  "origins": {
+    "base": "http://localhost:4173",
+    "cases": [
+      ["http://school-a.tenant-a.localhost:4173", { "kind": "school", "tenant": "tenant-a", "school": "school-a" }],
+      ["http://tenant-a.localhost:4173", { "kind": "tenant", "tenant": "tenant-a" }],
+      ["http://admin.localhost:4173", { "kind": "platform" }],
+      ["https://school-a.tenant-a.localhost:4173", null],
+      ["http://school-a.tenant-a.localhost:4174", null],
+      ["http://school-a.tenant-a.localhost", null],
+      ["http://evil-localhost:4173", null],
+      ["http://localhost.evil.com:4173", null],
+      ["http://localhost:4173", null],
+      ["http://api.localhost:4173", null],
+      ["http://www.localhost:4173", null],
+      ["http://school-a.tenant-a.localhost:4173/", null],
+      ["http://user@tenant-a.localhost:4173", null],
+      ["HTTP://tenant-a.localhost:4173", null],
+      ["null", null],
+      ["*", null],
+      ["", null]
+    ]
+  },
+  "production_origins": {
+    "base": "https://smas.example",
+    "cases": [
+      ["https://school-a.tenant-a.smas.example", { "kind": "school", "tenant": "tenant-a", "school": "school-a" }],
+      ["https://school-a.tenant-a.smas.example:443", { "kind": "school", "tenant": "tenant-a", "school": "school-a" }],
+      ["https://tenant-a.smas.example", { "kind": "tenant", "tenant": "tenant-a" }],
+      ["https://admin.smas.example", { "kind": "platform" }],
+      ["http://school-a.tenant-a.smas.example", null],
+      ["https://school-a.tenant-a.smas.example:8443", null],
+      ["https://evil-smas.example", null],
+      ["https://smas.example.evil.com", null],
+      ["https://tenant-a.smas.example.evil.com", null],
+      ["https://smas.example", null]
+    ]
+  },
+  "bad_bases": ["*", "", "smas.example", "https://*.smas.example", "https://smas.example/", "https://smas.example/app",
+                "https://127.0.0.1", "https://SMAS.example", "ftp://smas.example", "https://smas..example"],
+  "tenant_labels": {
+    "valid": ["tenant-a", "x", "0abc", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+    "invalid": ["Tenant", "t_a", "-t", "", "a.b", "admin", "api", "www",
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
+  }
+}

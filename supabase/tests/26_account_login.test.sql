@@ -28,8 +28,8 @@ begin
 end $$;
 
 -- ============ Fixture: الهاتف نفسه والبريد نفسه في T1 و T2 ============
-insert into public.platform_tenants (id, tenant_code, name) values
-  ('10000000-0000-0000-0000-000000000001', 'T1', 'T1'), ('20000000-0000-0000-0000-000000000002', 'T2', 'T2');
+insert into public.platform_tenants (id, tenant_code, host_label, name) values
+  ('10000000-0000-0000-0000-000000000001', 'T1', 't1', 'T1'), ('20000000-0000-0000-0000-000000000002', 'T2', 't2', 'T2');
 
 create function pg_temp.account(p_id uuid, p_tenant uuid) returns void
 language plpgsql as $$
@@ -75,66 +75,66 @@ select pg_temp.rec('c.bad_attempts', $q$insert into public.login_challenges (pla
   values ('10000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-000000000001', 'staff', 'x', now(), 6) returning 'ok'$q$);
 
 -- ============ 2. الإصدار ============
-select pg_temp.svc('i.gA',          $q$select app.otp_issue('T1', 'guardian', '+201000000001')$q$);
+select pg_temp.svc('i.gA',          $q$select app.otp_issue('t1', 'guardian', '+201000000001')$q$);
 select pg_temp.svc('i.gB',          $q$select app.otp_issue('t2', 'guardian', ' +201000000001 ')$q$);
-select pg_temp.svc('i.only_in_T2',  $q$select app.otp_issue('T1', 'guardian', '+201000000003')$q$);
-select pg_temp.svc('i.unknown',     $q$select app.otp_issue('T1', 'guardian', '+201099999999')$q$);
-select pg_temp.svc('i.suspended',   $q$select app.otp_issue('T1', 'guardian', '+201000000004')$q$);
-select pg_temp.svc('i.archived',    $q$select app.otp_issue('T1', 'guardian', '+201000000005')$q$);
-select pg_temp.svc('i.wrong_kind',  $q$select app.otp_issue('T1', 'staff', '+201000000001')$q$);
-select pg_temp.svc('i.sA',          $q$select app.otp_issue('T1', 'staff', 'teacher@SCHOOL.test')$q$);
-select pg_temp.svc('i.staff_ended', $q$select app.otp_issue('T1', 'staff', 'ended@school.test')$q$);
+select pg_temp.svc('i.only_in_T2',  $q$select app.otp_issue('t1', 'guardian', '+201000000003')$q$);
+select pg_temp.svc('i.unknown',     $q$select app.otp_issue('t1', 'guardian', '+201099999999')$q$);
+select pg_temp.svc('i.suspended',   $q$select app.otp_issue('t1', 'guardian', '+201000000004')$q$);
+select pg_temp.svc('i.archived',    $q$select app.otp_issue('t1', 'guardian', '+201000000005')$q$);
+select pg_temp.svc('i.wrong_kind',  $q$select app.otp_issue('t1', 'staff', '+201000000001')$q$);
+select pg_temp.svc('i.sA',          $q$select app.otp_issue('t1', 'staff', 'teacher@SCHOOL.test')$q$);
+select pg_temp.svc('i.staff_ended', $q$select app.otp_issue('t1', 'staff', 'ended@school.test')$q$);
 select pg_temp.rec('i.stored', $q$select count(*) || '|' || bool_and(code_hash like '$2a$08$%') || '|' || bool_and(expires_at between now() + interval '4 minutes' and now() + interval '6 minutes')
   from public.login_challenges
   where account_id in ('91000000-0000-0000-0000-000000000001', '92000000-0000-0000-0000-000000000002', 'a1000000-0000-0000-0000-000000000001')$q$);
 select pg_temp.rec('i.hash_not_code', format($q$select (code_hash <> %L)::text from public.login_challenges where account_id = '91000000-0000-0000-0000-000000000001'$q$, (select v from r where k = 'i.gA')));
 update public.platform_tenants set status = 'suspended', suspended_at = now() where tenant_code = 'T2';
-select pg_temp.svc('i.tenant_suspended', $q$select app.otp_issue('T2', 'guardian', '+201000000001')$q$);
+select pg_temp.svc('i.tenant_suspended', $q$select app.otp_issue('t2', 'guardian', '+201000000001')$q$);
 update public.platform_tenants set status = 'active', suspended_at = null where tenant_code = 'T2';
 
 -- ============ 3. التحقق ============
 create function pg_temp.code(k text) returns text language sql as $$ select v from r where k = $1 $$;
-select pg_temp.svc('v.A_code_on_B', format($q$select app.otp_verify('T2', 'guardian', '+201000000001', %L)$q$, pg_temp.code('i.gA')));
-select pg_temp.svc('v.wrong',       $q$select app.otp_verify('T1', 'guardian', '+201000000001', 'nope')$q$);
+select pg_temp.svc('v.A_code_on_B', format($q$select app.otp_verify('t2', 'guardian', '+201000000001', %L)$q$, pg_temp.code('i.gA')));
+select pg_temp.svc('v.wrong',       $q$select app.otp_verify('t1', 'guardian', '+201000000001', 'nope')$q$);
 select pg_temp.rec('v.attempts',    $q$select attempts::text from public.login_challenges where account_id = '91000000-0000-0000-0000-000000000001' and consumed_at is null$q$);
-select pg_temp.svc('v.ok',          format($q$select app.otp_verify('T1', 'guardian', '+201000000001', %L)$q$, pg_temp.code('i.gA')));
-select pg_temp.svc('v.reuse',       format($q$select app.otp_verify('T1', 'guardian', '+201000000001', %L)$q$, pg_temp.code('i.gA')));
-select pg_temp.svc('v.B_ok',        format($q$select app.otp_verify('T2', 'guardian', '+201000000001', %L)$q$, pg_temp.code('i.gB')));
-select pg_temp.svc('v.staff_ok',    format($q$select app.otp_verify('T1', 'staff', 'TEACHER@school.test', %L)$q$, pg_temp.code('i.sA')));
+select pg_temp.svc('v.ok',          format($q$select app.otp_verify('t1', 'guardian', '+201000000001', %L)$q$, pg_temp.code('i.gA')));
+select pg_temp.svc('v.reuse',       format($q$select app.otp_verify('t1', 'guardian', '+201000000001', %L)$q$, pg_temp.code('i.gA')));
+select pg_temp.svc('v.B_ok',        format($q$select app.otp_verify('t2', 'guardian', '+201000000001', %L)$q$, pg_temp.code('i.gB')));
+select pg_temp.svc('v.staff_ok',    format($q$select app.otp_verify('t1', 'staff', 'TEACHER@school.test', %L)$q$, pg_temp.code('i.sA')));
 select pg_temp.rec('v.last_login',  $q$select (last_login_at is not null)::text from public.guardians where id = '91000000-0000-0000-0000-000000000001'$q$);
 -- رمز سابق يُبطَل بإصدار جديد
-select pg_temp.svc('i.old',  $q$select app.otp_issue('T1', 'guardian', '+201000000001')$q$);
-select pg_temp.svc('i.new',  $q$select app.otp_issue('T1', 'guardian', '+201000000001')$q$);
-select pg_temp.svc('v.old',  format($q$select app.otp_verify('T1', 'guardian', '+201000000001', %L)$q$, pg_temp.code('i.old')));
+select pg_temp.svc('i.old',  $q$select app.otp_issue('t1', 'guardian', '+201000000001')$q$);
+select pg_temp.svc('i.new',  $q$select app.otp_issue('t1', 'guardian', '+201000000001')$q$);
+select pg_temp.svc('v.old',  format($q$select app.otp_verify('t1', 'guardian', '+201000000001', %L)$q$, pg_temp.code('i.old')));
 -- 5 محاولات خاطئة تُسقط التحدي: الرمز الصحيح بعدها مرفوض
 do $$ begin for i in 1..5 loop
-  perform pg_temp.svc('v.burn' || i, $q$select app.otp_verify('T1', 'guardian', '+201000000001', 'bad')$q$);
+  perform pg_temp.svc('v.burn' || i, $q$select app.otp_verify('t1', 'guardian', '+201000000001', 'bad')$q$);
 end loop; end $$;
-select pg_temp.svc('v.after_burn', format($q$select app.otp_verify('T1', 'guardian', '+201000000001', %L)$q$, pg_temp.code('i.new')));
+select pg_temp.svc('v.after_burn', format($q$select app.otp_verify('t1', 'guardian', '+201000000001', %L)$q$, pg_temp.code('i.new')));
 -- منتهي الصلاحية
-select pg_temp.svc('i.exp', $q$select app.otp_issue('T1', 'guardian', '+201000000001')$q$);
+select pg_temp.svc('i.exp', $q$select app.otp_issue('t1', 'guardian', '+201000000001')$q$);
 update public.login_challenges set expires_at = now() - interval '1 second' where account_id = '91000000-0000-0000-0000-000000000001' and consumed_at is null;
-select pg_temp.svc('v.expired', format($q$select app.otp_verify('T1', 'guardian', '+201000000001', %L)$q$, pg_temp.code('i.exp')));
+select pg_temp.svc('v.expired', format($q$select app.otp_verify('t1', 'guardian', '+201000000001', %L)$q$, pg_temp.code('i.exp')));
 -- I1: رمز صدر ثم عُلّق الـprofile ⇒ لا حساب
-select pg_temp.svc('i.before_suspend', $q$select app.otp_issue('T1', 'staff', 'teacher@school.test')$q$);
+select pg_temp.svc('i.before_suspend', $q$select app.otp_issue('t1', 'staff', 'teacher@school.test')$q$);
 update public.profiles set status = 'suspended' where auth_user_id = 'a1000000-0000-0000-0000-000000000001';
-select pg_temp.svc('v.after_suspend', format($q$select app.otp_verify('T1', 'staff', 'teacher@school.test', %L)$q$, pg_temp.code('i.before_suspend')));
-select pg_temp.svc('p.suspended',     $q$select app.password_login_account('T1', 'staff', 'teacher@school.test')$q$);
+select pg_temp.svc('v.after_suspend', format($q$select app.otp_verify('t1', 'staff', 'teacher@school.test', %L)$q$, pg_temp.code('i.before_suspend')));
+select pg_temp.svc('p.suspended',     $q$select app.password_login_account('t1', 'staff', 'teacher@school.test')$q$);
 update public.profiles set status = 'active' where auth_user_id = 'a1000000-0000-0000-0000-000000000001';
 
 -- ============ 4. كلمة المرور: الإخفاقات والقفل وفكه بـOTP ============
-select pg_temp.svc('p.account', $q$select app.password_login_account('T1', 'staff', 'teacher@school.test')$q$);
-select pg_temp.svc('p.other_tenant', $q$select app.password_login_account('T2', 'staff', 'teacher@school.test')$q$);
+select pg_temp.svc('p.account', $q$select app.password_login_account('t1', 'staff', 'teacher@school.test')$q$);
+select pg_temp.svc('p.other_tenant', $q$select app.password_login_account('t2', 'staff', 'teacher@school.test')$q$);
 do $$ begin for i in 1..5 loop
-  perform pg_temp.svc('p.fail' || i, $q$select app.password_login_result('T1', 'staff', 'teacher@school.test', false)::text$q$);
+  perform pg_temp.svc('p.fail' || i, $q$select app.password_login_result('t1', 'staff', 'teacher@school.test', false)::text$q$);
 end loop; end $$;
 select pg_temp.rec('p.locked_row', $q$select failed_login_count || '|' || (locked_until > now()) from public.staff where id = 'a1000000-0000-0000-0000-000000000001'$q$);
-select pg_temp.svc('p.locked', $q$select app.password_login_account('T1', 'staff', 'teacher@school.test')$q$);
+select pg_temp.svc('p.locked', $q$select app.password_login_account('t1', 'staff', 'teacher@school.test')$q$);
 select pg_temp.rec('p.audit', $q$select string_agg(distinct action, ',') from public.audit_log where entity_type = 'staff' and entity_id = 'a1000000-0000-0000-0000-000000000001' and action <> 'insert'$q$);
-select pg_temp.svc('i.unlock', $q$select app.otp_issue('T1', 'staff', 'teacher@school.test')$q$);
-select pg_temp.svc('v.unlock', format($q$select app.otp_verify('T1', 'staff', 'teacher@school.test', %L)$q$, pg_temp.code('i.unlock')));
+select pg_temp.svc('i.unlock', $q$select app.otp_issue('t1', 'staff', 'teacher@school.test')$q$);
+select pg_temp.svc('v.unlock', format($q$select app.otp_verify('t1', 'staff', 'teacher@school.test', %L)$q$, pg_temp.code('i.unlock')));
 select pg_temp.rec('p.unlocked_row', $q$select failed_login_count || '|' || coalesce(locked_until::text, 'null') from public.staff where id = 'a1000000-0000-0000-0000-000000000001'$q$);
-select pg_temp.svc('p.after_unlock', $q$select app.password_login_account('T1', 'staff', 'teacher@school.test')$q$);
+select pg_temp.svc('p.after_unlock', $q$select app.password_login_account('t1', 'staff', 'teacher@school.test')$q$);
 
 -- ============ 5. الامتيازات ============
 create function pg_temp.as_role(p_key text, p_role text, p_sql text) returns void
@@ -144,10 +144,10 @@ begin
   perform pg_temp.rec(p_key, p_sql);
   execute 'reset role';
 end $$;
-select pg_temp.as_role('x.auth_issue',  'authenticated', $q$select app.otp_issue('T1', 'guardian', '+201000000001')$q$);
+select pg_temp.as_role('x.auth_issue',  'authenticated', $q$select app.otp_issue('t1', 'guardian', '+201000000001')$q$);
 select pg_temp.as_role('x.auth_table',  'authenticated', $q$select count(*)::text from public.login_challenges$q$);
 select pg_temp.as_role('x.svc_table',   'service_role',  $q$select count(*)::text from public.login_challenges$q$);
-select pg_temp.as_role('x.svc_resolve', 'service_role',  $q$select count(*)::text from app.login_account('T1', 'guardian', '+201000000001')$q$);
+select pg_temp.as_role('x.svc_resolve', 'service_role',  $q$select count(*)::text from app.login_account('t1', 'guardian', '+201000000001')$q$);
 
 select plan(46);
 

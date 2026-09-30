@@ -6,6 +6,7 @@ import psycopg
 from fastapi import HTTPException, Request
 
 from .db import Database
+from .host_context import HostContext
 from .security import bearer_token
 
 
@@ -15,6 +16,13 @@ def claims(request: Request) -> dict[str, Any]:
 
 def db(request: Request) -> Database:
     return request.app.state.db
+
+
+def login_context(request: Request) -> HostContext | None:
+    """F3: سياق الدخول من `Origin` وحده — «أين يُبحث عن الحساب»، لا سلطة. سياق Tenant أو مدرسة، وإلا None
+    (غائب، خارج الأصل الأساسي، أو host المنصة) ← فشل عام من المسار نفسه، بلا كشف وجود."""
+    ctx = request.app.state.settings.origin_base.context(request.headers.get("origin"))
+    return ctx if ctx is not None and ctx.kind in ("tenant", "school") else None
 
 
 # رموز الأخطاء التي ترفعها الدوال المتحكَّم بها (§5.0.2) ← HTTP؛ الرسالة رمز آلة لا نص معروض

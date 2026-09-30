@@ -1,7 +1,7 @@
 // F1.5 — مسارات الدخول الحقيقية من F2. كل جلسة يصدرها Supabase Auth؛ الواجهة لا ترى ولا تعرض بريداً
 // اصطناعياً ولا token_hash ولا رابط جلسة — FastAPI يعيد حقول الجلسة وحدها، فتُسلَّم لـsupabase-js.
-// السياق (tenant، مدرسة) يُرسل هنا لأنه «أين يُبحث عن الحساب» فقط — لا صلاحية (قيد 2).
-import { getSchoolContext, getTenantContext } from "../context/appContext";
+// F3: لا tenant ولا مدرسة في أي طلب — المتصفح يرسل Origin (host المدرسة/الـTenant) و FastAPI يشتق منه «أين يُبحث»
+// عن الحساب؛ الجسم يُرفض إن حملهما (لا context drift).
 import { api, ApiError } from "../lib/api";
 import { adoptSession, type Session, supabase } from "../lib/supabase";
 
@@ -32,7 +32,7 @@ async function adopt(session: Session, kind: AccountKind): Promise<void> {
 export async function loginStaff(email: string, password: string): Promise<void> {
   const session = await api<Session>("/auth/password/login", {
     method: "POST", auth: false,
-    body: { tenant: getTenantContext().code, kind: "staff", contact: email, password },
+    body: { kind: "staff", contact: email, password },
   });
   await adopt(session, "staff");
 }
@@ -40,7 +40,7 @@ export async function loginStaff(email: string, password: string): Promise<void>
 export async function loginStudent(identifier: string, password: string): Promise<void> {
   const session = await api<Session>("/auth/student/login", {
     method: "POST", auth: false,
-    body: { tenant: getTenantContext().code, school: getSchoolContext().slug, identifier, password },
+    body: { identifier, password },
   });
   await adopt(session, "student");
 }
@@ -48,14 +48,14 @@ export async function loginStudent(identifier: string, password: string): Promis
 export async function requestGuardianCode(phone: string): Promise<void> {
   await api("/auth/otp/request", {
     method: "POST", auth: false,
-    body: { tenant: getTenantContext().code, kind: "guardian", contact: phone, school: getSchoolContext().slug },
+    body: { kind: "guardian", contact: phone },
   });
 }
 
 export async function verifyGuardianCode(phone: string, code: string): Promise<void> {
   const session = await api<Session>("/auth/otp/verify", {
     method: "POST", auth: false,
-    body: { tenant: getTenantContext().code, kind: "guardian", contact: phone, code, school: getSchoolContext().slug },
+    body: { kind: "guardian", contact: phone, code },
   });
   await adopt(session, "guardian");
 }
@@ -63,7 +63,7 @@ export async function verifyGuardianCode(phone: string, code: string): Promise<v
 export async function loginGuardianPassword(phone: string, password: string): Promise<void> {
   const session = await api<Session>("/auth/password/login", {
     method: "POST", auth: false,
-    body: { tenant: getTenantContext().code, kind: "guardian", contact: phone, password },
+    body: { kind: "guardian", contact: phone, password },
   });
   await adopt(session, "guardian");
 }

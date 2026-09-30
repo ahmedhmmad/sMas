@@ -76,15 +76,16 @@ jobs:
           npm run typecheck
           npm test
 
-      - name: Web — production build (F1)
-        # W2: البناء الافتراضي يخلو من أداة سياق التطوير — يُفحص الناتج
+      - name: Web — production build (F1/F3)
+        # F3: السياق من الـhost؛ البناء يشترط النطاق الأساسي (build-guard) — لا أداة سياق تطوير في أي بناء
         working-directory: apps/web
-        run: |
-          npm run build
-          npm run check:prod-bundle
+        env:
+          VITE_BASE_DOMAIN: smas.example
+        run: npm run build
 
       - name: Web — browser E2E (F1)
         # FastAPI (uvicorn) + بناء Vite على الحزمة نفسها؛ صندوق OTP ملف في .e2e/ (خارج apps/web، بلا artifacts)
+        # F3: الصفحات على *.localhost ({school}.{tenant}، {tenant}، admin) — Chromium يحلها إلى loopback
         working-directory: apps/web
         env:
           E2E_PYTHON: python

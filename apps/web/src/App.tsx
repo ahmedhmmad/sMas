@@ -3,7 +3,8 @@
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router";
 import { AuthProvider, useAuth } from "./auth/AuthProvider";
 import { Layout } from "./components/Layout";
-import { Loading, NotFound, Unavailable } from "./components/states";
+import { Loading, NotFound, Unavailable, UnknownHost } from "./components/states";
+import { getHostContext } from "./context/appContext";
 import { AdminLogin } from "./pages/AdminLogin";
 import { ChangePassword } from "./pages/ChangePassword";
 import { Dashboard } from "./pages/Dashboard";
@@ -58,6 +59,8 @@ export function AppRoutes() {
 }
 
 export function App() {
+  // F3: host غير معروف ← صفحة ثابتة؛ لا مزود جلسة ولا موجّه (لا دخول ولا طلب إلى الخادم)
+  if (!getHostContext()) return <UnknownHost />;
   return (
     <AuthProvider>
       <BrowserRouter>

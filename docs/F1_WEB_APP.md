@@ -25,7 +25,7 @@ Browser ─► سياق التطوير (F1) / subdomain (F3) ─► tenant + sch
 | البند | التنفيذ |
 |---|---|
 | **F1.1 Shell** | React 19 + TS + Vite 8 + Tailwind 4؛ `dir="rtl"`، IBM Plex Sans Arabic (محلي، `@fontsource`)؛ شريط جانبي/درج على الهاتف؛ حالات loading / error / not-found / forbidden / unavailable؛ خروج؛ **انتهاء الجلسة**: `SIGNED_OUT` لم يطلبه المستخدم ⇒ رسالة «انتهت الجلسة» |
-| **F1.2 السياق** | `src/context/appContext.ts` — التنفيذ الحالي: متغيرات البيئة + اختيار تطوير محلي (يُزال في F3) |
+| **F1.2 السياق** | `src/context/appContext.ts` — التنفيذ الحالي: متغيرات البيئة + اختيار تطوير محلي (يُزال في F3). ⤷ **F3 (2026-10-01):** من `window.location.hostname`؛ أداة التطوير و`check:prod-bundle` أُزيلا؛ CORS من `API_CORS_ORIGIN_BASE` — `docs/F3_HOST_CONTEXT.md` |
 | **F1.3 Capabilities** | `GET /me/capabilities` ← `app.my_permissions()`: `{context, permissions}` فقط |
 | **F1.4 التنقل** | `src/components/navigation.ts` من المفاتيح: الرئيسية؛ الطلاب (`student.read` — «أبنائي» لولي الأمر، «ملفي» للطالب)؛ الجهات (`tenant.read` في سياق المنصة). **الإخفاء عرض فقط** — كل صفحة تقرأ ما تعيده RLS/FastAPI |
 | **F1.5 الدخول** | تبويبات: الموظف (`/auth/password/login`)، ولي الأمر (OTP أو كلمة مرور)، الطالب (`/auth/student/login`)؛ `/login/admin` للمنصة و`tenant_admin` (بريد أصلي)؛ الجلسة تُسلَّم لـ`supabase-js` (`setSession`)؛ **شاشة التغيير الإجباري** (D2، D4 A/C): `updateUser` ← `/auth/activate`. الرسائل رموز الخادم مترجمة؛ الموقوف والمقفل والخاطئ رسالة واحدة (I1). لا يُعرض بريد اصطناعي ولا `token_hash` ولا رابط |

@@ -36,9 +36,9 @@ insert into public.auth_identities (auth_user_id, kind) values
   ('a2000000-0000-0000-0000-000000000002', 'tenant'),
   ('a3000000-0000-0000-0000-000000000003', 'platform');
 
-insert into public.platform_tenants (id, tenant_code, name) values
-  ('10000000-0000-0000-0000-000000000001', 'PAL-01', 'Tenant One'),
-  ('20000000-0000-0000-0000-000000000002', 'PAL-02', 'Tenant Two');
+insert into public.platform_tenants (id, tenant_code, host_label, name) values
+  ('10000000-0000-0000-0000-000000000001', 'PAL-01', 'pal-01', 'Tenant One'),
+  ('20000000-0000-0000-0000-000000000002', 'PAL-02', 'pal-02', 'Tenant Two');
 
 -- profile A بلا فاعل (سياق service) ← created_by NULL
 select pg_temp.claims(null);
@@ -71,8 +71,8 @@ select pg_temp.rec('o1.same_auth_second_tenant',
   $q$insert into public.profiles (platform_tenant_id, auth_user_id, display_name) values ('20000000-0000-0000-0000-000000000002','a1000000-0000-0000-0000-000000000001','A2') returning 'ok'$q$);
 
 -- platform_tenants
-select pg_temp.rec('pt.bad_code',      $q$insert into public.platform_tenants (tenant_code, name) values ('pal 3','x') returning 'ok'$q$);
-select pg_temp.rec('pt.dup_code',      $q$insert into public.platform_tenants (tenant_code, name) values ('PAL-01','x') returning 'ok'$q$);
+select pg_temp.rec('pt.bad_code',      $q$insert into public.platform_tenants (tenant_code, host_label, name) values ('pal 3','pal-3','x') returning 'ok'$q$);
+select pg_temp.rec('pt.dup_code',      $q$insert into public.platform_tenants (tenant_code, host_label, name) values ('PAL-01','pal-01-dup','x') returning 'ok'$q$);
 select pg_temp.rec('pt.suspend_no_ts', $q$update public.platform_tenants set status = 'suspended' where tenant_code = 'PAL-01' returning 'ok'$q$);
 select pg_temp.rec('pt.suspend_ok',    $q$update public.platform_tenants set status = 'suspended', suspended_at = now() where tenant_code = 'PAL-02' returning 'ok'$q$);
 

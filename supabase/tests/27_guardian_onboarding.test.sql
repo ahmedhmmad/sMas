@@ -37,7 +37,7 @@ end $$;
 
 -- ============ Fixture ============
 -- T1: المجموعة GA (SA، SB — نطاق هوية واحد) + SC مستقلة
-insert into public.platform_tenants (id, tenant_code, name) values ('10000000-0000-0000-0000-000000000001', 'T1', 'T1');
+insert into public.platform_tenants (id, tenant_code, host_label, name) values ('10000000-0000-0000-0000-000000000001', 'T1', 't1', 'T1');
 insert into public.groups (id, platform_tenant_id, group_code, name) values ('a1000000-0000-0000-0000-00000000000a', '10000000-0000-0000-0000-000000000001', 'GA', 'GA');
 insert into public.schools (id, platform_tenant_id, group_id, school_code, name, slug) values
   ('5a000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'a1000000-0000-0000-0000-00000000000a', 'SA', 'SA', 'sa'),
@@ -154,20 +154,20 @@ select pg_temp.run('p.provision', 'c1000000-0000-0000-0000-000000000001', $q$sel
 select pg_temp.rec('p.state', $q$select credential_state || '|' || coalesce(credential_issued_at::text, 'null') from public.auth_identities where auth_user_id = '97000000-0000-0000-0000-000000000007'$q$);
 
 -- ============ 3. إصدار OTP: المدرسة الهدف والنمط ============
-select pg_temp.svc('o.no_school',      $q$select (app.otp_issue('T1', 'guardian', '+201000000001') is not null)::text$q$);
-select pg_temp.svc('o.no_child_there', $q$select (app.otp_issue('T1', 'guardian', '+201000000001', 'sb') is not null)::text$q$);
-select pg_temp.svc('o.A',              $q$select (app.otp_issue('T1', 'guardian', '+201000000001', 'SA') is not null)::text$q$);
-select pg_temp.svc('o.B',              $q$select (app.otp_issue('T1', 'guardian', '+201000000002', 'sb') is not null)::text$q$);
-select pg_temp.svc('o.C',              $q$select (app.otp_issue('T1', 'guardian', '+201000000003', 'sc') is not null)::text$q$);
-select pg_temp.svc('o.moved_old',      $q$select (app.otp_issue('T1', 'guardian', '+201000000004', 'sa') is not null)::text$q$);
-select pg_temp.svc('o.moved_new',      $q$select (app.otp_issue('T1', 'guardian', '+201000000004', 'sb') is not null)::text$q$);
-select pg_temp.svc('o.ended_link',     $q$select (app.otp_issue('T1', 'guardian', '+201000000005', 'sa') is not null)::text$q$);
-select pg_temp.svc('o.onboarded_any',  $q$select (app.otp_issue('T1', 'guardian', '+201000000006') is not null)::text$q$);
+select pg_temp.svc('o.no_school',      $q$select (app.otp_issue('t1', 'guardian', '+201000000001') is not null)::text$q$);
+select pg_temp.svc('o.no_child_there', $q$select (app.otp_issue('t1', 'guardian', '+201000000001', 'sb') is not null)::text$q$);
+select pg_temp.svc('o.A',              $q$select (app.otp_issue('t1', 'guardian', '+201000000001', 'SA') is not null)::text$q$);
+select pg_temp.svc('o.B',              $q$select (app.otp_issue('t1', 'guardian', '+201000000002', 'sb') is not null)::text$q$);
+select pg_temp.svc('o.C',              $q$select (app.otp_issue('t1', 'guardian', '+201000000003', 'sc') is not null)::text$q$);
+select pg_temp.svc('o.moved_old',      $q$select (app.otp_issue('t1', 'guardian', '+201000000004', 'sa') is not null)::text$q$);
+select pg_temp.svc('o.moved_new',      $q$select (app.otp_issue('t1', 'guardian', '+201000000004', 'sb') is not null)::text$q$);
+select pg_temp.svc('o.ended_link',     $q$select (app.otp_issue('t1', 'guardian', '+201000000005', 'sa') is not null)::text$q$);
+select pg_temp.svc('o.onboarded_any',  $q$select (app.otp_issue('t1', 'guardian', '+201000000006') is not null)::text$q$);
 
 -- ============ 4. التحقق: A و B ============
-select pg_temp.svc('a.code', $q$select app.otp_issue('T1', 'guardian', '+201000000001', 'sa')$q$);
-select pg_temp.svc('a.wrong_school', format($q$select coalesce(app.otp_verify('T1', 'guardian', '+201000000001', %L, 'sb')::text, 'null')$q$, (select v from r where k = 'a.code')));
-select pg_temp.svc('a.verify', format($q$select app.otp_verify('T1', 'guardian', '+201000000001', %L, 'sa')::text$q$, (select v from r where k = 'a.code')));
+select pg_temp.svc('a.code', $q$select app.otp_issue('t1', 'guardian', '+201000000001', 'sa')$q$);
+select pg_temp.svc('a.wrong_school', format($q$select coalesce(app.otp_verify('t1', 'guardian', '+201000000001', %L, 'sb')::text, 'null')$q$, (select v from r where k = 'a.code')));
+select pg_temp.svc('a.verify', format($q$select app.otp_verify('t1', 'guardian', '+201000000001', %L, 'sa')::text$q$, (select v from r where k = 'a.code')));
 select pg_temp.rec('a.state', $q$select credential_state || '|' || (credential_issued_at = '2026-09-26 10:00+00')::text from public.auth_identities where auth_user_id = '91000000-0000-0000-0000-000000000001'$q$);
 select pg_temp.run('a.context_closed', '91000000-0000-0000-0000-000000000001', $q$select coalesce(app.current_profile_id()::text, 'NULL')$q$);
 -- تغيير الكلمة (إشارة Supabase Auth) ثم التفعيل (D2 بلا تغيير)
@@ -176,21 +176,21 @@ insert into auth.audit_log_entries (instance_id, id, payload, created_at, ip_add
           json_build_object('action', 'user_updated_password', 'actor_id', '91000000-0000-0000-0000-000000000001'), '2026-09-26 11:00+00', '');
 select pg_temp.run('a.activate', '91000000-0000-0000-0000-000000000001', $q$select app.activate_first_login()$q$);
 
-select pg_temp.svc('b.code', $q$select app.otp_issue('T1', 'guardian', '+201000000002', 'sb')$q$);
-select pg_temp.svc('b.verify', format($q$select app.otp_verify('T1', 'guardian', '+201000000002', %L, 'sb')::text$q$, (select v from r where k = 'b.code')));
+select pg_temp.svc('b.code', $q$select app.otp_issue('t1', 'guardian', '+201000000002', 'sb')$q$);
+select pg_temp.svc('b.verify', format($q$select app.otp_verify('t1', 'guardian', '+201000000002', %L, 'sb')::text$q$, (select v from r where k = 'b.code')));
 select pg_temp.rec('b.state', $q$select credential_state || '|' || (credential_activated_at is not null)::text from public.auth_identities where auth_user_id = '92000000-0000-0000-0000-000000000002'$q$);
 select pg_temp.run('b.context_open', '92000000-0000-0000-0000-000000000002', $q$select (app.current_profile_id() is not null)::text$q$);
 select pg_temp.rec('ab.audit', $q$select string_agg(distinct action, ',' order by action) from public.audit_log where entity_type = 'auth_identities'
   and entity_id in ('91000000-0000-0000-0000-000000000001', '92000000-0000-0000-0000-000000000002') and action like 'guardian_onboarding_%'$q$);
 
 -- بوابة التحقق مستقلة عن بوابة الإصدار: رمز صدر عبر SA (A) لا يُقبل عبر SC (C)
-select pg_temp.svc('g.code', $q$select app.otp_issue('T1', 'guardian', '+201000000008', 'sa')$q$);
-select pg_temp.svc('g.verify_via_C', format($q$select coalesce(app.otp_verify('T1', 'guardian', '+201000000008', %L, 'sc')::text, 'null')$q$, (select v from r where k = 'g.code')));
-select pg_temp.svc('g.verify_via_A', format($q$select app.otp_verify('T1', 'guardian', '+201000000008', %L, 'sa')::text$q$, (select v from r where k = 'g.code')));
+select pg_temp.svc('g.code', $q$select app.otp_issue('t1', 'guardian', '+201000000008', 'sa')$q$);
+select pg_temp.svc('g.verify_via_C', format($q$select coalesce(app.otp_verify('t1', 'guardian', '+201000000008', %L, 'sc')::text, 'null')$q$, (select v from r where k = 'g.code')));
+select pg_temp.svc('g.verify_via_A', format($q$select app.otp_verify('t1', 'guardian', '+201000000008', %L, 'sa')::text$q$, (select v from r where k = 'g.code')));
 
 -- D4.1: بعد الـonboarding لا أثر للنمط
 select pg_temp.run('d41.set_C', 'c1000000-0000-0000-0000-000000000001', $q$select app.set_guardian_first_login_mode('5b000000-0000-0000-0000-000000000002', 'C', 'switch')$q$);
-select pg_temp.svc('d41.otp', $q$select (app.otp_issue('T1', 'guardian', '+201000000002') is not null)::text$q$);
+select pg_temp.svc('d41.otp', $q$select (app.otp_issue('t1', 'guardian', '+201000000002') is not null)::text$q$);
 
 -- ============ 5. C: كلمة مرور مؤقتة ============
 select pg_temp.run('c.secretary', 'c3000000-0000-0000-0000-000000000003', $q$select app.begin_guardian_temporary_password('93000000-0000-0000-0000-000000000003')::text$q$);
@@ -200,8 +200,8 @@ select pg_temp.run('c.begin',     'c1000000-0000-0000-0000-000000000001', $q$sel
 update auth.users set updated_at = '2026-09-26 12:00+00' where id = '93000000-0000-0000-0000-000000000003';   -- كتابة Admin API للكلمة
 select pg_temp.run('c.arm',       'c1000000-0000-0000-0000-000000000001', $q$select app.arm_guardian_temporary_password('93000000-0000-0000-0000-000000000003')$q$);
 select pg_temp.rec('c.state', $q$select credential_state || '|' || (credential_issued_at = '2026-09-26 12:00+00')::text from public.auth_identities where auth_user_id = '93000000-0000-0000-0000-000000000003'$q$);
-select pg_temp.svc('c.still_no_otp', $q$select (app.otp_issue('T1', 'guardian', '+201000000003', 'sc') is not null)::text$q$);
-select pg_temp.svc('c.password_ok',  $q$select app.password_login_account('T1', 'guardian', '+201000000003')::text$q$);
+select pg_temp.svc('c.still_no_otp', $q$select (app.otp_issue('t1', 'guardian', '+201000000003', 'sc') is not null)::text$q$);
+select pg_temp.svc('c.password_ok',  $q$select app.password_login_account('t1', 'guardian', '+201000000003')::text$q$);
 select pg_temp.run('c.activate_early', '93000000-0000-0000-0000-000000000003', $q$select app.activate_first_login()$q$);
 insert into auth.audit_log_entries (instance_id, id, payload, created_at, ip_address)
   values ('00000000-0000-0000-0000-000000000000', gen_random_uuid(),
@@ -209,7 +209,7 @@ insert into auth.audit_log_entries (instance_id, id, payload, created_at, ip_add
 select pg_temp.run('c.activate', '93000000-0000-0000-0000-000000000003', $q$select app.activate_first_login()$q$);
 
 -- ============ 6. الامتيازات ============
-select pg_temp.run('x.auth_otp', 'c1000000-0000-0000-0000-000000000001', $q$select app.otp_issue('T1', 'guardian', '+201000000001', 'sa')$q$);
+select pg_temp.run('x.auth_otp', 'c1000000-0000-0000-0000-000000000001', $q$select app.otp_issue('t1', 'guardian', '+201000000001', 'sa')$q$);
 select pg_temp.svc('x.svc_helper', $q$select app.guardian_onboarding_mode('91000000-0000-0000-0000-000000000001', 'sa')$q$);
 
 select plan(41);

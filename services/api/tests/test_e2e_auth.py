@@ -5,7 +5,7 @@
 
 مسار كل حساب هو مساره الحقيقي:
   Platform Admin و tenant_admin : بريد حقيقي ← Supabase Auth مباشرة (هوية أصلية — قرار tenant_admin المؤجل)
-  الموظفون السبعة               : (tenant، بريد حقيقي، كلمة مرور) ← POST /auth/password/login (D3)
+  الموظفون السبعة               : (Origin الـTenant، بريد حقيقي، كلمة مرور) ← POST /auth/password/login (D3؛ F3)
   ولي الأمر                     : A / B / C عبر POST /accounts ثم onboarding (D4)
   الطالب                        : POST /students ← الدخول بالمعرّف ← first-login ← activate (D1، D2)
 
@@ -19,7 +19,7 @@ import httpx
 import jwt
 import pytest
 
-from conftest import DEV_PASSWORD, DEV_TENANT, ENV, auth
+from conftest import DEV_PASSWORD, DEV_TENANT, ENV, auth, origin
 from test_account_login import AUTH, PUB, TENANT_ADMIN, as_user, bearer, rest
 
 REST = f"{ENV['SUPABASE_URL']}/rest/v1"
@@ -140,12 +140,12 @@ def test_tenant_admin(client, admin, e2e):
 def test_staff(client, admin, e2e, role):
     email, auth_id, schools, reads, exports = STAFF[role]
     client.app.state.login_limiter.reset()
-    r = client.post("/auth/password/login", json={"tenant": "DEV", "kind": "staff", "contact": email.upper(), "password": DEV_PASSWORD})
+    r = client.post("/auth/password/login", json={"kind": "staff", "contact": email.upper(), "password": DEV_PASSWORD}, headers=origin())
     assert r.status_code == 200, r.text
     token = assert_supabase_session(r.json())
     assert jwt.decode(token, options={"verify_signature": False})["sub"] == auth_id              # auth.uid() = staff_id (I2)
     tenant_checks(client, admin, token, auth_id, schools, reads, exports, e2e)
-    wrong = client.post("/auth/password/login", json={"tenant": "DEV", "kind": "staff", "contact": email, "password": "not-it"})
+    wrong = client.post("/auth/password/login", json={"kind": "staff", "contact": email, "password": "not-it"}, headers=origin())
     assert wrong.status_code == 401
 
 
@@ -160,10 +160,10 @@ def new_guardian(client, admin, child):
 
 def otp(client, phone, school=None):
     client.app.state.login_limiter.reset()
-    body = {"tenant": "DEV", "kind": "guardian", "contact": phone, **({"school": school} if school else {})}
-    client.post("/auth/otp/request", json=body)
+    body = {"kind": "guardian", "contact": phone}
+    client.post("/auth/otp/request", json=body, headers=origin("dev", school))
     code = [c for _, to, c in client.app.state.otp_sender.messages if to == phone][-1]
-    r = client.post("/auth/otp/verify", json={**body, "code": code})
+    r = client.post("/auth/otp/verify", json={**body, "code": code}, headers=origin("dev", school))
     assert r.status_code == 200, r.text
     return assert_supabase_session(r.json())
 
@@ -200,7 +200,7 @@ def test_guardian_mode_b(client, admin, e2e):
 def test_guardian_mode_c(client, admin, e2e):
     gid, phone = new_guardian(client, admin, e2e["ss_student"])
     temp = client.post(f"/guardians/{gid}/temporary-password", headers=auth("tenant_admin")).json()["temporary_password"]
-    r = client.post("/auth/password/login", json={"tenant": "DEV", "kind": "guardian", "contact": phone, "password": temp})
+    r = client.post("/auth/password/login", json={"kind": "guardian", "contact": phone, "password": temp}, headers=origin())
     token = assert_supabase_session(r.json())
     assert closed(client, token)
     assert httpx.put(f"{AUTH}/user", headers={**PUB, **bearer(token)}, json={"password": "E2E-C-" + secrets.token_hex(4)}).status_code == 200
@@ -218,7 +218,7 @@ def test_student_first_login(client, admin, e2e):
         "student_id": sid, "section_id": section, "effective_from": "2026-09-01",
         "first_name": "E2E", "family_name": "Student", "new_family_name": "E2E Student"}).json()["login_identifier"]
     client.app.state.login_limiter.reset()
-    r = client.post("/auth/student/login", json={"tenant": "DEV", "school": "school-a", "identifier": ident, "password": ident})
+    r = client.post("/auth/student/login", json={"identifier": ident, "password": ident}, headers=origin("dev", "school-a"))
     token = assert_supabase_session(r.json())
     assert me(client, token)["auth_user_id"] == sid and closed(client, token)                 # D2: مغلق حتى تغيير الكلمة
     assert httpx.put(f"{AUTH}/user", headers={**PUB, **bearer(token)}, json={"password": "E2E-S-" + secrets.token_hex(4)}).status_code == 200

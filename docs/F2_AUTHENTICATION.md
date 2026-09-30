@@ -24,7 +24,7 @@
 | العنصر | |
 |---|---|
 | `app.resolve_student_login(tenant_code, school_slug, identifier) → uuid` | SECURITY DEFINER (`app_owner`)، `search_path` مثبت؛ **EXECUTE لـ`service_role` وحده** (لا `authenticated`، ولا `anon` — لا يصل حتى إلى schema `app`) |
-| المدخل | `tenant_code` + `slug` — **الـslug فريد داخل الـTenant فقط** (`schools_tenant_slug_uq`)، فالمدرسة وحدها لا تكفي؛ F3 يحملهما من الـsubdomain |
+| المدخل | `tenant_code` + `slug` — **الـslug فريد داخل الـTenant فقط** (`schools_tenant_slug_uq`)، فالمدرسة وحدها لا تكفي؛ F3 يحملهما من الـsubdomain. ⤷ **M30 (F3، 2026-10-01):** `host_label` بدل `tenant_code`، والاثنان من `Origin` لا من الجسم — `docs/F3_HOST_CONTEXT.md` |
 | المخرج | معرّف الحساب أو NULL — لا شيء غيره |
 | NULL واحد لكل فشل | tenant مجهول/موقوف، مدرسة مجهولة/مؤرشفة، مجموعة أخرى، معرّف مجهول، طالب `withdrawn`/`archived`، **تطابق مزدوج** (Official لطالب = Temporary لآخر)، معرّف فارغ/NULL |
 | التطبيع | `trim`؛ `tenant_code` و بادئة `TMP-` بأحرف كبيرة، الـslug صغيرة |

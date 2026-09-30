@@ -44,8 +44,8 @@ end $$;
 create function pg_temp.a(p_label text) returns uuid language sql as $$ select auth from ids where label = p_label $$;
 
 -- ============ Fixture ============
-insert into public.platform_tenants (id, tenant_code, name) values
-  ('10000000-0000-0000-0000-000000000001', 'T1', 'T1'), ('20000000-0000-0000-0000-000000000002', 'T2', 'T2');
+insert into public.platform_tenants (id, tenant_code, host_label, name) values
+  ('10000000-0000-0000-0000-000000000001', 'T1', 't1', 'T1'), ('20000000-0000-0000-0000-000000000002', 'T2', 't2', 'T2');
 insert into public.groups (id, platform_tenant_id, group_code, name) values
   ('a1000000-0000-0000-0000-00000000000a', '10000000-0000-0000-0000-000000000001', 'GA', 'GA'),
   ('a2000000-0000-0000-0000-00000000000b', '10000000-0000-0000-0000-000000000001', 'GB', 'GB');
@@ -205,7 +205,7 @@ select pg_temp.rec('pa.shape', $q$select
 
 -- ============ bootstrap_tenant ============
 create function pg_temp.bt(p_id uuid, p_code text, p_auth text) returns text language sql as $$
-  select format($f$select app.bootstrap_tenant(%L, %L, 'New Tenant', %L, 'Admin')::text$f$, p_id, p_code, pg_temp.a(p_auth)) $$;
+  select format($f$select app.bootstrap_tenant(%L, %L, %L, 'New Tenant', %L, 'Admin')::text$f$, p_id, p_code, lower(p_code), pg_temp.a(p_auth)) $$;
 select pg_temp.run('bt.pa0',     'pa0', pg_temp.bt('30000000-0000-0000-0000-000000000003', 'T3', 'adm3'));
 select pg_temp.run('bt.tenant',  'sec', pg_temp.bt('30000000-0000-0000-0000-000000000003', 'T3', 'adm3'));
 select pg_temp.run('bt.ok',      'pa',  pg_temp.bt('30000000-0000-0000-0000-000000000003', 'T3', 'adm3'));
@@ -229,7 +229,7 @@ update public.platform_tenants set status = 'active', suspended_at = null where 
 -- ============ البنية ============
 create temp table fn (f regprocedure) on commit drop;
 insert into fn values
-  ('app.bootstrap_tenant(uuid,text,text,uuid,text)'),
+  ('app.bootstrap_tenant(uuid,text,text,text,uuid,text)'),
   ('app.provision_student(uuid,uuid,uuid,date,text,text,text,text,text,text,text,date,text,uuid,text,text)'),
   ('app.provision_staff(uuid,uuid,text,text,text,text,date,text,text,text,text,text,text,date,date)'),
   ('app.provision_guardian(uuid,uuid,text,text,text,text,date,text,text,text,text,text,boolean)'),

@@ -24,6 +24,7 @@ TENANT_ADMIN_ID = "a0000000-0000-4000-8000-000000000001"
 # بريد حساب Auth: المنصة و tenant_admin (bootstrap) بريد حقيقي؛ الموظفون هوية اصطناعية (D3/I2) — المعرّف = معرّف الموظف
 STAFF_ID = {"school_admin": "a0000000-0000-4000-8000-000000000003", "secretary": "a0000000-0000-4000-8000-000000000004",
             "accountant": "a0000000-0000-4000-8000-000000000005", "teacher": "a0000000-0000-4000-8000-000000000006"}
+WEB_BASE = "http://localhost:4173"
 EMAIL = {
     "platform": "platform@dev.smas.test",
     "tenant_admin": "tenant.admin@dev.smas.test",
@@ -49,7 +50,7 @@ def _load_env() -> dict[str, str]:
         os.environ.setdefault("SUPABASE_SECRET_KEY", status["SECRET_KEY"])
     # الخدمة: authenticator بكلمة مرور قاعدة البيانات المحلية
     os.environ.setdefault("API_OTP_SENDER", "local")
-    os.environ.setdefault("API_CORS_ORIGINS", "http://localhost:5173,http://localhost:4173")   # F1: الواجهة المحلية          # D3: مرسل محلي للاختبار (القناة الحقيقية: المرحلة 5)
+    os.environ.setdefault("API_CORS_ORIGIN_BASE", WEB_BASE)    # F3: أصل الواجهة الأساسي — منه CORS وسياق الدخول
     os.environ.setdefault(
         "API_DATABASE_URL", os.environ["TEST_ADMIN_DB_URL"].replace("://postgres:", "://authenticator:", 1)
     )
@@ -111,6 +112,12 @@ def token(who: str) -> str:
 
 def auth(who: str, **extra_headers: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token(who)}", **extra_headers}
+
+
+def origin(tenant: str = "dev", school: str | None = None) -> dict[str, str]:
+    """F3: سياق الدخول كما يرسله المتصفح — `Origin` من host المدرسة أو الـTenant (لا جسم)."""
+    host = f"{school}.{tenant}" if school else tenant
+    return {"Origin": f"http://{host}.localhost:4173"}
 
 
 class Audit:

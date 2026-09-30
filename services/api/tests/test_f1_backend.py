@@ -6,8 +6,8 @@ import uuid
 
 import pytest
 
-from app import config, otp_sender
-from conftest import DEV_TENANT, auth
+from app import otp_sender
+from conftest import DEV_TENANT, auth, origin
 
 SEED_ROLES = {"secretary": "secretary", "school_admin": "school_admin", "tenant_admin": "tenant_admin", "teacher": "teacher"}
 
@@ -51,8 +51,8 @@ def test_capabilities_pending_student_is_empty(client, admin):
         "student_id": sid, "section_id": section, "effective_from": "2026-09-01",
         "first_name": "Cap", "family_name": "Test", "new_family_name": "Cap"}).json()["login_identifier"]
     client.app.state.login_limiter.reset()
-    token = client.post("/auth/student/login", json={"tenant": "DEV", "school": "school-a", "identifier": ident,
-                                                     "password": ident}).json()["access_token"]
+    token = client.post("/auth/student/login", json={"identifier": ident, "password": ident},
+                        headers=origin("dev", "school-a")).json()["access_token"]
     assert client.get("/me/capabilities", headers={"Authorization": f"Bearer {token}"}).json() == {"context": None, "permissions": []}
 
 
@@ -77,20 +77,7 @@ def test_platform_tenant_list_is_platform_only(client, audit):
     assert audit.new() == []
 
 
-# ---------------- CORS ----------------
-
-def test_cors_allows_only_configured_origins(client):
-    ok = client.options("/me/capabilities", headers={"Origin": "http://localhost:5173", "Access-Control-Request-Method": "GET",
-                                                     "Access-Control-Request-Headers": "authorization"})
-    assert ok.headers.get("access-control-allow-origin") == "http://localhost:5173"
-    bad = client.options("/me/capabilities", headers={"Origin": "https://evil.test", "Access-Control-Request-Method": "GET"})
-    assert "access-control-allow-origin" not in bad.headers
-
-
-def test_cors_wildcard_is_refused(monkeypatch):
-    monkeypatch.setenv("API_CORS_ORIGINS", "http://localhost:5173,*")
-    with pytest.raises(ValueError):
-        config.cors_origins()
+# CORS: F3 استبدل القائمة الصريحة بأصل أساسي مرسَّخ — اختباراته في test_host_context.py
 
 
 # ---------------- مرسل OTP الملفي ----------------

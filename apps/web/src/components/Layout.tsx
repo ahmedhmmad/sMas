@@ -1,8 +1,8 @@
 import { type ReactNode, useState } from "react";
 import { NavLink } from "react-router";
 import { useAuth } from "../auth/AuthProvider";
-import { getSchoolContext, getTenantContext } from "../context/appContext";
 import { t } from "../i18n";
+import { ContextLabel } from "./ContextLabel";
 import { navItems } from "./navigation";
 
 export function Layout({ children }: { children: ReactNode }) {
@@ -49,11 +49,7 @@ export function Layout({ children }: { children: ReactNode }) {
             <span className="font-semibold">{t("app.name")}</span>
           </div>
           <div className="flex items-center gap-4 text-sm text-slate-600">
-            {capabilities.context === "tenant" && (
-              <span data-testid="context-display" title={t("app.devContext")}>
-                {t("context.tenant")}: {getTenantContext().code} · {t("context.school")}: {getSchoolContext().slug}
-              </span>
-            )}
+            {capabilities.context === "tenant" && <ContextLabel testId="context-display" />}
             <button type="button" data-testid="logout" className="text-emerald-700" onClick={() => void logout()}>
               {t("app.logout")}
             </button>

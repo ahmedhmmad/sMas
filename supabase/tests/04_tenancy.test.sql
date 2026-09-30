@@ -17,9 +17,9 @@ begin
   insert into r values (p_key, x) on conflict (k) do update set v = excluded.v;
 end $$;
 
-insert into public.platform_tenants (id, tenant_code, name) values
-  ('10000000-0000-0000-0000-000000000001', 'T1', 'Tenant One'),
-  ('20000000-0000-0000-0000-000000000002', 'T2', 'Tenant Two');
+insert into public.platform_tenants (id, tenant_code, host_label, name) values
+  ('10000000-0000-0000-0000-000000000001', 'T1', 't1', 'Tenant One'),
+  ('20000000-0000-0000-0000-000000000002', 'T2', 't2', 'Tenant Two');
 
 -- مجموعتان في T1، ومجموعة في T2 بنفس الكود (مسموح: الكود فريد داخل Tenant)
 insert into public.groups (id, platform_tenant_id, group_code, name) values

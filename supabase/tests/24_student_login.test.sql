@@ -30,8 +30,8 @@ end $$;
 
 -- ============ Fixture ============
 -- T1: GA (sa1، sa2)، GB (sb1)، مستقلة ss، مؤرشفة sx (في GA)   ·   T2: مستقلة بالـslug نفسه sa1
-insert into public.platform_tenants (id, tenant_code, name) values
-  ('10000000-0000-0000-0000-000000000001', 'T1', 'T1'), ('20000000-0000-0000-0000-000000000002', 'T2', 'T2');
+insert into public.platform_tenants (id, tenant_code, host_label, name) values
+  ('10000000-0000-0000-0000-000000000001', 'T1', 't1', 'T1'), ('20000000-0000-0000-0000-000000000002', 'T2', 't2', 'T2');
 insert into public.groups (id, platform_tenant_id, group_code, name) values
   ('a1000000-0000-0000-0000-00000000000a', '10000000-0000-0000-0000-000000000001', 'GA', 'GA'),
   ('a2000000-0000-0000-0000-00000000000b', '10000000-0000-0000-0000-000000000001', 'GB', 'GB');
@@ -71,25 +71,25 @@ select pg_temp.student('e7000000-0000-0000-0000-000000000007', '10000000-0000-00
 select pg_temp.student('e8000000-0000-0000-0000-000000000008', '10000000-0000-0000-0000-000000000001', 'SA1', null, 'TMP-2026-000103');
 
 -- ============ الحل ============
-select pg_temp.resolve('official',        'T1', 'sa1', '111');
-select pg_temp.resolve('group_school',    'T1', 'sa2', '111');               -- مدرسة أخرى في المجموعة نفسها = نطاق الهوية نفسه
-select pg_temp.resolve('standalone',      'T1', 'ss',  '111');               -- المعرّف نفسه في نطاق آخر
-select pg_temp.resolve('other_tenant',    'T2', 'sa1', '111');               -- الـslug نفسه في Tenant آخر
-select pg_temp.resolve('temporary',       'T1', 'sa1', 'TMP-2026-000102');
+select pg_temp.resolve('official',        't1', 'sa1', '111');
+select pg_temp.resolve('group_school',    't1', 'sa2', '111');               -- مدرسة أخرى في المجموعة نفسها = نطاق الهوية نفسه
+select pg_temp.resolve('standalone',      't1', 'ss',  '111');               -- المعرّف نفسه في نطاق آخر
+select pg_temp.resolve('other_tenant',    't2', 'sa1', '111');               -- الـslug نفسه في Tenant آخر
+select pg_temp.resolve('temporary',       't1', 'sa1', 'TMP-2026-000102');
 select pg_temp.resolve('normalized',      ' t1 ', ' SA1 ', ' tmp-2026-000102 ');
 -- فشل: كلها NULL واحد
-select pg_temp.resolve('other_group',     'T1', 'sb1', '111');
-select pg_temp.resolve('unknown_id',      'T1', 'sa1', '999');
-select pg_temp.resolve('unknown_slug',    'T1', 'nope', '111');
-select pg_temp.resolve('unknown_tenant',  'T9', 'sa1', '111');
-select pg_temp.resolve('withdrawn',       'T1', 'sa1', '555');
-select pg_temp.resolve('archived',        'T1', 'sa1', '666');
-select pg_temp.resolve('archived_school', 'T1', 'sx',  '111');
-select pg_temp.resolve('ambiguous',       'T1', 'sa1', 'TMP-2026-000103');
-select pg_temp.resolve('empty',           'T1', 'sa1', '');
-select pg_temp.resolve('null_id',         'T1', 'sa1', null);
+select pg_temp.resolve('other_group',     't1', 'sb1', '111');
+select pg_temp.resolve('unknown_id',      't1', 'sa1', '999');
+select pg_temp.resolve('unknown_slug',    't1', 'nope', '111');
+select pg_temp.resolve('unknown_tenant',  't9', 'sa1', '111');
+select pg_temp.resolve('withdrawn',       't1', 'sa1', '555');
+select pg_temp.resolve('archived',        't1', 'sa1', '666');
+select pg_temp.resolve('archived_school', 't1', 'sx',  '111');
+select pg_temp.resolve('ambiguous',       't1', 'sa1', 'TMP-2026-000103');
+select pg_temp.resolve('empty',           't1', 'sa1', '');
+select pg_temp.resolve('null_id',         't1', 'sa1', null);
 update public.platform_tenants set status = 'suspended', suspended_at = now() where tenant_code = 'T1';
-select pg_temp.resolve('suspended',       'T1', 'sa1', '111');
+select pg_temp.resolve('suspended',       't1', 'sa1', '111');
 update public.platform_tenants set status = 'active', suspended_at = null where tenant_code = 'T1';
 
 -- ============ الامتيازات ============
@@ -97,7 +97,7 @@ create function pg_temp.as_role(p_key text, p_role text) returns void
 language plpgsql as $$
 begin
   execute format('set local role %I', p_role);
-  perform pg_temp.rec(p_key, $q$select app.resolve_student_login('T1', 'sa1', '111')::text$q$);
+  perform pg_temp.rec(p_key, $q$select app.resolve_student_login('t1', 'sa1', '111')::text$q$);
   execute 'reset role';
 end $$;
 select pg_temp.as_role('as_authenticated', 'authenticated');

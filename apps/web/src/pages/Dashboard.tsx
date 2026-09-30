@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { useAuth } from "../auth/AuthProvider";
+import { ContextLabel } from "../components/ContextLabel";
 import { navItems } from "../components/navigation";
-import { getSchoolContext, getTenantContext } from "../context/appContext";
 import { t } from "../i18n";
 import { supabase } from "../lib/supabase";
 
@@ -28,9 +28,7 @@ export function Dashboard() {
         {capabilities.context === "platform" ? (
           <p data-testid="dashboard-platform">{t("dashboard.platform")}</p>
         ) : (
-          <p data-testid="dashboard-tenant">
-            {t("context.tenant")}: {getTenantContext().code} · {t("context.school")}: {getSchoolContext().slug}
-          </p>
+          <p><ContextLabel testId="dashboard-tenant" /></p>
         )}
       </div>
       <div className="grid gap-3 sm:grid-cols-2">

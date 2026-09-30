@@ -35,14 +35,32 @@ describe("i18n catalog", () => {
   });
 });
 
-describe("context is display/login only (F1 constraint 2)", () => {
-  const ALLOWED = ["auth/loginFlows.ts", "components/Layout.tsx", "pages/Dashboard.tsx", "context/appContext.ts", "devtools/DevContextPanel.tsx"];
+describe("context is display/login only (F1 constraint 2; F3)", () => {
+  // F3: العرض (ContextLabel)، واختيار النموذج (App، Login، AdminLogin) — لا طلب يحمل السياق
+  const ALLOWED = ["App.tsx", "components/ContextLabel.tsx", "pages/Login.tsx", "pages/AdminLogin.tsx", "context/appContext.ts"];
+  const READS = /getSchoolContext|getTenantContext|getHostContext|parseHost/;
 
-  it("only the login flows and display components read the context", () => {
+  it("only the display component and the login choice read the context", () => {
     const readers = sources()
-      .filter((f) => /getSchoolContext|getTenantContext/.test(readFileSync(f, "utf-8")))
+      .filter((f) => READS.test(readFileSync(f, "utf-8")) && !f.endsWith("hostContext.ts"))
       .map((f) => relative(SRC, f).replaceAll("\\", "/"));
     expect(readers.sort()).toEqual(ALLOWED.sort());
+  });
+
+  it("login requests carry no tenant or school (F3: the browser's Origin is the context)", () => {
+    const flows = readFileSync(join(SRC, "auth/loginFlows.ts"), "utf-8");
+    expect(flows).not.toMatch(READS);
+    const bodies = [...flows.matchAll(/body:\s*\{([^}]*)\}/g)].map((m) => m[1]);
+    expect(bodies.length).toBeGreaterThanOrEqual(5);
+    expect(bodies.filter((b) => /\b(tenant|school)\w*\s*:/.test(b))).toEqual([]);
+  });
+
+  it("no development context override remains (F3 replaced it)", () => {
+    const config = ["../vite.config.ts", "../build-guard.ts", "../playwright.config.ts"].map((f) => readFileSync(join(SRC, f), "utf-8"));
+    for (const text of [...sources().map((f) => readFileSync(f, "utf-8")), ...config]) {
+      expect(text).not.toMatch(/VITE_DEV_CONTEXT|VITE_DEV_TENANT|VITE_DEV_SCHOOL|smas\.dev\.|localStorage\.setItem/);
+    }
+    expect(sources().filter((f) => f.includes("devtools"))).toEqual([]);
   });
 
   it("no data-fetching module touches the context", () => {

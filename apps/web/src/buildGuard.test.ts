@@ -1,16 +1,19 @@
-// W2: أداة سياق التطوير لا تدخل بناء production إلا بتصريح تطوير صريح.
+// F3: البناء يشترط نطاقاً أساسياً صالحاً (build-guard.ts)
 import { describe, expect, it } from "vitest";
-import { assertDevContextAllowed } from "../build-guard";
+import { assertBaseDomain } from "../build-guard";
 
-describe("development context build guard", () => {
-  it("a production build with the tool enabled fails", () => {
-    expect(() => assertDevContextAllowed("build", { VITE_DEV_CONTEXT: "1" })).toThrow(/development-only/);
+describe("build guard (F3)", () => {
+  it("a build without a base domain fails", () => {
+    expect(() => assertBaseDomain("build", {})).toThrow(/VITE_BASE_DOMAIN/);
   });
-  it("an explicit development-target build may include it (E2E)", () => {
-    expect(() => assertDevContextAllowed("build", { VITE_DEV_CONTEXT: "1", SMAS_BUILD_TARGET: "development" })).not.toThrow();
+  it.each(["*", "*.smas.example", "https://smas.example", "smas.example/", "SMAS.example", "127.0.0.1", ".smas.example", "smas..example"])(
+    "an invalid base domain fails: %s",
+    (base) => expect(() => assertBaseDomain("build", { VITE_BASE_DOMAIN: base })).toThrow(/VITE_BASE_DOMAIN/),
+  );
+  it.each(["smas.example", "localhost", "app.smas-school.example"])("a valid base domain builds: %s", (base) => {
+    expect(() => assertBaseDomain("build", { VITE_BASE_DOMAIN: base })).not.toThrow();
   });
-  it("the default build and the dev server are unaffected", () => {
-    expect(() => assertDevContextAllowed("build", {})).not.toThrow();
-    expect(() => assertDevContextAllowed("serve", { VITE_DEV_CONTEXT: "1" })).not.toThrow();
+  it("the dev server needs no base domain (defaults to localhost)", () => {
+    expect(() => assertBaseDomain("serve", {})).not.toThrow();
   });
 });

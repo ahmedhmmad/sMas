@@ -10,7 +10,7 @@ import uuid
 import httpx
 import pytest
 
-from conftest import ENV, auth
+from conftest import ENV, auth, origin
 from test_account_login import AUTH, PUB, TENANT_ADMIN, as_user, bearer, rest
 
 SEED_STUDENT = "e0000000-0000-4000-8000-000000000001"   # في school-a
@@ -51,15 +51,15 @@ def set_mode(client, admin, code, mode, who="tenant_admin"):
 
 def request(client, phone, school=None):
     before = len(client.app.state.otp_sender.messages)
-    body = {"tenant": "DEV", "kind": "guardian", "contact": phone, **({"school": school} if school else {})}
-    assert client.post("/auth/otp/request", json=body).status_code == 202
+    body = {"kind": "guardian", "contact": phone}
+    assert client.post("/auth/otp/request", json=body, headers=origin("dev", school)).status_code == 202
     msgs = client.app.state.otp_sender.messages[before:]
     return msgs[-1][2] if msgs else None
 
 
 def verify(client, phone, code, school=None):
-    body = {"tenant": "DEV", "kind": "guardian", "contact": phone, "code": code, **({"school": school} if school else {})}
-    return client.post("/auth/otp/verify", json=body)
+    body = {"kind": "guardian", "contact": phone, "code": code}
+    return client.post("/auth/otp/verify", json=body, headers=origin("dev", school))
 
 
 def me(client, token):
@@ -127,7 +127,7 @@ def test_mode_c_temporary_password_then_forced_change(client, admin, modes):
     r = client.post(f"/guardians/{gid}/temporary-password", headers=auth("tenant_admin"))
     assert r.status_code == 201
     temp = r.json()["temporary_password"]
-    login = client.post("/auth/password/login", json={"tenant": "DEV", "kind": "guardian", "contact": phone, "password": temp})
+    login = client.post("/auth/password/login", json={"kind": "guardian", "contact": phone, "password": temp}, headers=origin())
     assert login.status_code == 200
     token = login.json()["access_token"]
     assert me(client, token)["profile_id"] is None                          # مغلق حتى التغيير
@@ -135,7 +135,7 @@ def test_mode_c_temporary_password_then_forced_change(client, admin, modes):
     assert httpx.put(f"{AUTH}/user", headers={**PUB, **bearer(token)}, json={"password": mine}).status_code == 200
     assert client.post("/auth/activate", headers=bearer(token)).json() == {"state": "active"}
     assert me(client, token)["profile_id"] is not None
-    assert client.post("/auth/password/login", json={"tenant": "DEV", "kind": "guardian", "contact": phone,
+    assert client.post("/auth/password/login", headers=origin(), json={"kind": "guardian", "contact": phone,
                                                      "password": temp}).status_code == 401
     # بعد الـonboarding: لا إعادة إصدار (إعادة الضبط مسار مستقل — 5c)
     assert client.post(f"/guardians/{gid}/temporary-password", headers=auth("tenant_admin")).status_code == 409

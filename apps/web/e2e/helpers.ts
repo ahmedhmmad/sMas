@@ -11,6 +11,12 @@ type Fixtures = {
   guardians: Record<"A" | "B" | "C", { id: string; phone: string; temporary_password?: string }>;
 };
 
+// F3: hosts البيانات التجريبية (seed E5: Tenant بـlabel‏ dev؛ المدارس school-a، school-b، standalone)
+export const HOSTS = { SA: "school-a.dev", SB: "school-b.dev", SS: "standalone.dev", tenant: "dev", platform: "admin" } as const;
+export const at = (host: string, path = "/"): string => `http://${host}.localhost:4173${path}`;
+// مسار على host الصفحة الحالية (الجلسة لكل أصل — الانتقال إلى host آخر يبدأ بلا جلسة)
+export const go = (page: Page, path: string) => page.goto(new URL(path, page.url()).href);
+
 export const fx = (): Fixtures => JSON.parse(readFileSync(resolve(E2E_DIR, "fixtures.json"), "utf-8"));
 
 export function clearOtp(): void {
@@ -27,15 +33,9 @@ export async function readOtp(contact: string): Promise<string> {
   return otpsFor(contact).at(-1)!;
 }
 
-export async function setDevContext(page: Page, tenant: string, school: string): Promise<void> {
-  await page.getByTestId("dev-context").locator("summary").click();
-  await page.getByTestId("dev-tenant").fill(tenant);
-  await page.getByTestId("dev-school").fill(school);
-  await page.getByTestId("dev-apply").click();
-}
-
-export async function staffLogin(page: Page, email: string, password = DEV_PASSWORD, expectSuccess = true): Promise<void> {
-  await page.goto("/login");
+export async function staffLogin(page: Page, email: string, password = DEV_PASSWORD, expectSuccess = true,
+                                 host: string = HOSTS.SA): Promise<void> {
+  await page.goto(at(host, "/login"));
   await page.getByTestId("tab-staff").click();
   await page.getByTestId("staff-email").fill(email);
   await page.getByTestId("staff-password").fill(password);
@@ -43,8 +43,8 @@ export async function staffLogin(page: Page, email: string, password = DEV_PASSW
   if (expectSuccess) await expect(page.getByTestId("dashboard")).toBeVisible();   // الجلسة مخزَّنة قبل أي تنقل
 }
 
-export async function adminLogin(page: Page, email: string): Promise<void> {
-  await page.goto("/login/admin");
+export async function adminLogin(page: Page, email: string, host: string): Promise<void> {
+  await page.goto(at(host, "/login/admin"));
   await page.getByTestId("admin-email").fill(email);
   await page.getByTestId("admin-password").fill(DEV_PASSWORD);
   await page.getByTestId("admin-submit").click();
@@ -60,13 +60,13 @@ export async function changePassword(page: Page, password: string): Promise<void
 }
 
 export async function studentRows(page: Page): Promise<string[]> {
-  await page.goto("/students");
+  await go(page, "/students");
   const list = page.getByTestId("students");
   await expect(list).toBeVisible();
   return list.locator("[data-testid^='student-row-']").evaluateAll((els) => els.map((e) => e.getAttribute("data-testid")!.slice(12)));
 }
 
 export async function expectNotFound(page: Page, path: string): Promise<void> {
-  await page.goto(path);
+  await go(page, path);
   await expect(page.getByTestId("state-not-found")).toBeVisible();
 }

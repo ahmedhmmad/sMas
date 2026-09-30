@@ -24,3 +24,13 @@ export const NotFound = () => <Message testId="state-not-found" textKey="state.n
 export const Forbidden = () => <Message testId="state-forbidden" textKey="state.forbidden" />;
 export const ErrorState = () => <Message testId="state-error" textKey="state.error" />;
 export const Unavailable = () => <Message testId="state-unavailable" textKey="state.unavailable" />;
+
+// F3: host ليس أحد الأشكال الثلاثة — صفحة ثابتة خارج الموجّه: لا دخول، ولا طلب إلى الخادم
+export function UnknownHost() {
+  return (
+    <div data-testid="state-unknown-host" className="mx-auto mt-16 max-w-md p-8 text-center">
+      <h1 className="mb-2 text-xl font-semibold">{t("app.name")}</h1>
+      <p className="text-slate-700">{t("state.unknownHost")}</p>
+    </div>
+  );
+}

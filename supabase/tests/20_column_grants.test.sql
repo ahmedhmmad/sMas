@@ -113,7 +113,7 @@ insert into controlled_allowlist values   -- M21
   ('app.close_enrollment(uuid,text,date,text)'), ('app.transfer_enrollment(uuid,uuid,date,text,text)'),
   ('app.set_role_status(uuid,text,text)'),
   -- M22
-  ('app.bootstrap_tenant(uuid,text,text,uuid,text)'),
+  ('app.bootstrap_tenant(uuid,text,text,text,uuid,text)'),   -- M30: + host_label
   ('app.provision_student(uuid,uuid,uuid,date,text,text,text,text,text,text,text,date,text,uuid,text,text)'),
   ('app.provision_staff(uuid,uuid,text,text,text,text,date,text,text,text,text,text,text,date,date)'),
   ('app.provision_guardian(uuid,uuid,text,text,text,text,date,text,text,text,text,text,boolean)'),

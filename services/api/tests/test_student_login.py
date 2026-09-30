@@ -6,9 +6,9 @@ import httpx
 import pytest
 
 from app.auth_admin import student_email
-from conftest import ENV, auth
+from conftest import ENV, auth, origin
 
-TENANT_CODE, SCHOOL_A, SCHOOL_B = "DEV", "school-a", "school-b"
+TENANT, SCHOOL_A, SCHOOL_B = "dev", "school-a", "school-b"     # F3: host label + slug (من Origin)
 SEED_STUDENT = "e0000000-0000-4000-8000-000000000001"
 SEED_OFFICIAL = "30101010100000"
 
@@ -31,8 +31,8 @@ def new_student(client, who, section, **extra):
     return body, client.post("/students", json=body, headers=auth(who))
 
 
-def login(client, identifier, password, tenant=TENANT_CODE, school=SCHOOL_A):
-    return client.post("/auth/student/login", json={"tenant": tenant, "school": school,
+def login(client, identifier, password, tenant=TENANT, school=SCHOOL_A):
+    return client.post("/auth/student/login", headers=origin(tenant, school), json={
                                                     "identifier": identifier, "password": password})
 
 
@@ -126,9 +126,9 @@ def test_every_login_failure_is_identical(client, case):
     args = {
         "wrong_password":      (SEED_OFFICIAL, "nope-nope"),
         "unknown_identifier":  ("99999999999999", "DevOnly-Seed-2026"),
-        "other_school":        (SEED_OFFICIAL, "DevOnly-Seed-2026", TENANT_CODE, SCHOOL_B),   # SB: مجموعة GA نفسها!
-        "unknown_school":      (SEED_OFFICIAL, "DevOnly-Seed-2026", TENANT_CODE, "nope"),
-        "unknown_tenant":      (SEED_OFFICIAL, "DevOnly-Seed-2026", "NOPE", SCHOOL_A),
+        "other_school":        (SEED_OFFICIAL, "DevOnly-Seed-2026", TENANT, SCHOOL_B),   # SB: مجموعة GA نفسها!
+        "unknown_school":      (SEED_OFFICIAL, "DevOnly-Seed-2026", TENANT, "nope"),
+        "unknown_tenant":      (SEED_OFFICIAL, "DevOnly-Seed-2026", "nope", SCHOOL_A),
         "email_as_identifier": (student_email(SEED_STUDENT), "DevOnly-Seed-2026"),
     }[case]
     r = login(client, *args)

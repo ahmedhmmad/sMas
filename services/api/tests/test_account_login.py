@@ -13,7 +13,7 @@ import jwt
 import pytest
 
 from app.auth_admin import SESSION_FIELDS, account_email
-from conftest import DEV_TENANT, ENV, auth
+from conftest import DEV_TENANT, ENV, auth, origin
 
 AUTH = f"{ENV['SUPABASE_URL']}/auth/v1"
 REST = f"{ENV['SUPABASE_URL']}/rest/v1"
@@ -63,15 +63,17 @@ def world(client, admin):
                for k, i in (("guardian", g_a), ("staff", s_a))}
 
     # D4 (M27): حساب ولي الأمر يولد pending — onboarding بالنمط A عبر مدرسة ابنه (school-a): OTP ← كلمة مرور ← تفعيل
-    client.post("/auth/otp/request", json={"tenant": "DEV", "kind": "guardian", "contact": phone, "school": "school-a"})
+    client.post("/auth/otp/request", json={"kind": "guardian", "contact": phone}, headers=origin("dev", "school-a"))
     code = [c for _, to, c in client.app.state.otp_sender.messages if to == phone][-1]
-    s = client.post("/auth/otp/verify", json={"tenant": "DEV", "kind": "guardian", "contact": phone, "code": code,
-                                             "school": "school-a"}).json()["access_token"]
+    s = client.post("/auth/otp/verify", json={"kind": "guardian", "contact": phone, "code": code},
+                    headers=origin("dev", "school-a")).json()["access_token"]
     httpx.put(f"{AUTH}/user", headers={**PUB, "Authorization": f"Bearer {s}"}, json={"password": "Onboard-" + secrets.token_hex(4)})
     assert client.post("/auth/activate", headers={"Authorization": f"Bearer {s}"}).json() == {"state": "active"}
 
     b_code = "ZB" + secrets.token_hex(2).upper()
-    b = str(admin.execute("insert into public.platform_tenants (tenant_code, name) values (%s, 'B') returning id", [b_code]).fetchone()["id"])
+    b_label = b_code.lower()
+    b = str(admin.execute("insert into public.platform_tenants (tenant_code, host_label, name) values (%s, %s, 'B') returning id",
+                          [b_code, b_label]).fetchone()["id"])
 
     def b_account(kind, contact):
         eid = str(uuid.uuid4())
@@ -92,16 +94,16 @@ def world(client, admin):
     s_b, s_b_status = b_account("staff", email)
     b_account("guardian", only_b_phone)
     return {"phone": phone, "only_b_phone": only_b_phone, "email": email, "g_a": g_a, "s_a": s_a, "g_b": g_b, "s_b": s_b,
-            "b_code": b_code, "b": b, "created": created, "b_status": (g_b_status, s_b_status)}
+            "b_code": b_code, "b_label": b_label, "b": b, "created": created, "b_status": (g_b_status, s_b_status)}
 
 
 def request_code(client, tenant, kind, contact):
-    r = client.post("/auth/otp/request", json={"tenant": tenant, "kind": kind, "contact": contact})
+    r = client.post("/auth/otp/request", json={"kind": kind, "contact": contact}, headers=origin(tenant))
     assert (r.status_code, r.json()) == (202, {"status": "sent"})
 
 
 def verify(client, tenant, kind, contact, code):
-    return client.post("/auth/otp/verify", json={"tenant": tenant, "kind": kind, "contact": contact, "code": code})
+    return client.post("/auth/otp/verify", json={"kind": kind, "contact": contact, "code": code}, headers=origin(tenant))
 
 
 def otp_session(client, tenant, kind, contact):
@@ -112,7 +114,7 @@ def otp_session(client, tenant, kind, contact):
 
 
 def password(client, tenant, kind, contact, pw):
-    return client.post("/auth/password/login", json={"tenant": tenant, "kind": kind, "contact": contact, "password": pw})
+    return client.post("/auth/password/login", json={"kind": kind, "contact": contact, "password": pw}, headers=origin(tenant))
 
 
 # ---------------- الحسابات ----------------
@@ -138,7 +140,7 @@ def test_account_saga_compensates_on_refusal(client, admin):
 @pytest.mark.parametrize("kind", ["guardian", "staff"])
 def test_otp_cycle_gives_a_supabase_session_for_the_entity(client, world, kind):
     contact = world["phone"] if kind == "guardian" else world["email"]
-    s = otp_session(client, "DEV", kind, contact if kind == "guardian" else contact.upper())
+    s = otp_session(client, "dev", kind, contact if kind == "guardian" else contact.upper())
     assert set(s) == set(SESSION_FIELDS)
     hdr = jwt.get_unverified_header(s["access_token"])
     jwks = {k["kid"] for k in httpx.get(f"{AUTH}/.well-known/jwks.json").json()["keys"]}
@@ -149,7 +151,7 @@ def test_otp_cycle_gives_a_supabase_session_for_the_entity(client, world, kind):
 
 
 def test_guardian_session_sees_own_row_and_child_only(client, world):
-    s = otp_session(client, "DEV", "guardian", world["phone"])["access_token"]
+    s = otp_session(client, "dev", "guardian", world["phone"])["access_token"]
     assert [g["id"] for g in rest(s, "guardians?select=id")] == [world["g_a"]]
     assert [x["id"] for x in rest(s, "students?select=id")] == [SEED_STUDENT]
     assert rest(s, f"guardians?select=id&id=eq.{world['g_b']}") == []
@@ -159,15 +161,15 @@ def test_guardian_session_sees_own_row_and_child_only(client, world):
 def test_same_contact_other_tenant_is_another_account(client, world, kind):
     contact = world["phone"] if kind == "guardian" else world["email"]
     a_id, b_id = world["g_a" if kind == "guardian" else "s_a"], world["g_b" if kind == "guardian" else "s_b"]
-    request_code(client, "DEV", kind, contact)
+    request_code(client, "dev", kind, contact)
     code_a = sent_to(client, contact)[-1]
-    assert verify(client, world["b_code"], kind, contact, code_a).status_code == 401           # رمز A لا يعمل على B
-    s_b = otp_session(client, world["b_code"], kind, contact)
+    assert verify(client, world["b_label"], kind, contact, code_a).status_code == 401           # رمز A لا يعمل على B
+    s_b = otp_session(client, world["b_label"], kind, contact)
     me_b = client.get("/me", headers=bearer(s_b["access_token"])).json()
     assert me_b["auth_user_id"] == b_id and me_b["tenant_id"] == world["b"]
     assert rest(s_b["access_token"], "students?select=id") == []                               # B لا يرى شيئاً من DEV
     assert rest(s_b["access_token"], f"profiles?select=id&platform_tenant_id=eq.{DEV_TENANT}") == []
-    s_a = verify(client, "DEV", kind, contact, code_a)                                          # رمز A ما زال صالحاً في A
+    s_a = verify(client, "dev", kind, contact, code_a)                                          # رمز A ما زال صالحاً في A
     assert s_a.status_code == 200
     assert client.get("/me", headers=bearer(s_a.json()["access_token"])).json()["auth_user_id"] == a_id
 
@@ -176,32 +178,32 @@ def test_same_contact_other_tenant_is_another_account(client, world, kind):
 def test_no_cross_tenant_disclosure(client, world, contact_key):
     contact = world["only_b_phone"] if contact_key == "only_b_phone" else "+2019" + f"{secrets.randbelow(10**8):08d}"
     before = len(outbox(client))
-    request_code(client, "DEV", "guardian", contact)                                            # الرد نفسه
+    request_code(client, "dev", "guardian", contact)                                            # الرد نفسه
     assert len(outbox(client)) == before                                                        # ولا رسالة
-    r = verify(client, "DEV", "guardian", contact, "123456")
+    r = verify(client, "dev", "guardian", contact, "123456")
     assert (r.status_code, r.json()) == (401, {"detail": "invalid_credentials"})
 
 
 def test_code_is_single_use(client, world):
-    request_code(client, "DEV", "staff", world["email"])
+    request_code(client, "dev", "staff", world["email"])
     code = sent_to(client, world["email"])[-1]
-    assert verify(client, "DEV", "staff", world["email"], code).status_code == 200
-    assert verify(client, "DEV", "staff", world["email"], code).status_code == 401
+    assert verify(client, "dev", "staff", world["email"], code).status_code == 200
+    assert verify(client, "dev", "staff", world["email"], code).status_code == 401
 
 
 @pytest.mark.parametrize("kind", ["guardian", "staff"])
 def test_suspended_account_cannot_start_authentication(client, admin, world, kind):
     """I1: لا رمز، ولا جلسة حتى برمز صدر قبل الإيقاف — والرد الخارجي نفسه."""
     contact, eid = (world["phone"], world["g_a"]) if kind == "guardian" else (world["email"], world["s_a"])
-    request_code(client, "DEV", kind, contact)
+    request_code(client, "dev", kind, contact)
     earlier = sent_to(client, contact)[-1]
     admin.execute("update public.profiles set status = 'suspended' where auth_user_id = %s", [eid])
     try:
         before = len(outbox(client))
-        request_code(client, "DEV", kind, contact)
+        request_code(client, "dev", kind, contact)
         assert len(outbox(client)) == before
-        assert verify(client, "DEV", kind, contact, earlier).status_code == 401
-        assert password(client, "DEV", kind, contact, "whatever-1").status_code == 401
+        assert verify(client, "dev", kind, contact, earlier).status_code == 401
+        assert password(client, "dev", kind, contact, "whatever-1").status_code == 401
     finally:
         admin.execute("update public.profiles set status = 'active' where auth_user_id = %s", [eid])
 
@@ -209,24 +211,24 @@ def test_suspended_account_cannot_start_authentication(client, admin, world, kin
 @pytest.mark.parametrize("kind", ["guardian", "staff"])
 def test_password_flow_lock_and_otp_unlock(client, admin, world, kind):
     contact, eid = (world["phone"], world["g_a"]) if kind == "guardian" else (world["email"], world["s_a"])
-    token = otp_session(client, "DEV", kind, contact)["access_token"]
+    token = otp_session(client, "dev", kind, contact)["access_token"]
     pw = "Mine-" + secrets.token_hex(4)
     assert httpx.put(f"{AUTH}/user", headers={**PUB, **bearer(token)}, json={"password": pw}).status_code == 200
-    assert password(client, "DEV", kind, contact, pw).status_code == 200
-    assert password(client, world["b_code"], kind, contact, pw).status_code == 401                 # الكلمة نفسها على B
+    assert password(client, "dev", kind, contact, pw).status_code == 200
+    assert password(client, world["b_label"], kind, contact, pw).status_code == 401                 # الكلمة نفسها على B
     for _ in range(5):
-        assert password(client, "DEV", kind, contact, "wrong-password").status_code == 401
-    assert password(client, "DEV", kind, contact, pw).status_code == 401                           # مقفل
+        assert password(client, "dev", kind, contact, "wrong-password").status_code == 401
+    assert password(client, "dev", kind, contact, pw).status_code == 401                           # مقفل
     table = "guardians" if kind == "guardian" else "staff"
     assert admin.execute(f"select locked_until > now() as l from public.{table} where id = %s", [eid]).fetchone()["l"]
     client.app.state.login_limiter.reset()               # حد المحاولات طبقة مستقلة (له اختباره) — هنا القفل وحده
-    otp_session(client, "DEV", kind, contact)                                                       # PLAN §7.8: فك القفل بـOTP
-    assert password(client, "DEV", kind, contact, pw).status_code == 200
+    otp_session(client, "dev", kind, contact)                                                       # PLAN §7.8: فك القفل بـOTP
+    assert password(client, "dev", kind, contact, pw).status_code == 200
 
 
 def test_client_receives_only_session_fields(client, world):
-    request_code(client, "DEV", "guardian", world["phone"])
-    r = verify(client, "DEV", "guardian", world["phone"], sent_to(client, world["phone"])[-1])
+    request_code(client, "dev", "guardian", world["phone"])
+    r = verify(client, "dev", "guardian", world["phone"], sent_to(client, world["phone"])[-1])
     body = r.text
     assert set(r.json()) == set(SESSION_FIELDS)
     for leak in ("hashed_token", "action_link", "email_otp", ".smas.invalid", ENV["SUPABASE_SECRET_KEY"]):
@@ -236,6 +238,6 @@ def test_client_receives_only_session_fields(client, world):
 def test_otp_request_rate_limit_is_the_same_for_existing_and_unknown(client, world):
     for contact in (world["phone"], "+2018" + f"{secrets.randbelow(10**8):08d}"):
         client.app.state.login_limiter.reset()
-        codes = [client.post("/auth/otp/request", json={"tenant": "DEV", "kind": "guardian", "contact": contact}).status_code
+        codes = [client.post("/auth/otp/request", json={"kind": "guardian", "contact": contact}, headers=origin()).status_code
                  for _ in range(11)]
         assert codes[:10] == [202] * 10 and codes[10] == 429

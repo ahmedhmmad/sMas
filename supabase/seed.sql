@@ -83,7 +83,7 @@ insert into public.platform_admin_assignments (system_user_id, platform_admin_ro
 -- ------------------------------------------------------------------
 select pg_temp.act('a0000000-0000-4000-8000-000000000000');
 set local role authenticated;
-select app.bootstrap_tenant('d0000000-0000-4000-8000-000000000001', 'DEV', 'Development Tenant',
+select app.bootstrap_tenant('d0000000-0000-4000-8000-000000000001', 'DEV', 'dev', 'Development Tenant',
                             'a0000000-0000-4000-8000-000000000001', 'Tenant Admin');
 reset role;
 

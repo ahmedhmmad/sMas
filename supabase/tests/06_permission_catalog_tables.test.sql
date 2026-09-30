@@ -25,9 +25,9 @@ begin
   perform pg_temp.rec(p_key, format('select app.has_platform_permission(%L)::text', p_code));
 end $$;
 
-insert into public.platform_tenants (id, tenant_code, name) values
-  ('10000000-0000-0000-0000-000000000001', 'T1', 'Tenant One'),
-  ('20000000-0000-0000-0000-000000000002', 'T2', 'Tenant Two');
+insert into public.platform_tenants (id, tenant_code, host_label, name) values
+  ('10000000-0000-0000-0000-000000000001', 'T1', 't1', 'Tenant One'),
+  ('20000000-0000-0000-0000-000000000002', 'T2', 't2', 'Tenant Two');
 
 insert into public.permissions (id, code, resource, operation, description) values
   ('f1000000-0000-0000-0000-000000000001', 'zt_tenant.read',   'zt_tenant',  'read',   'read tenant'),

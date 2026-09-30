@@ -1,10 +1,12 @@
 // F1.5 — الدخول بالمسارات الحقيقية (F2). الرسائل رموز الخادم مترجمة؛ الموقوف والمقفل والخاطئ رسالة واحدة (I1).
-import { type FormEvent, lazy, Suspense, useState } from "react";
-import { Link } from "react-router";
+import { type FormEvent, useState } from "react";
+import { Link, Navigate } from "react-router";
 import { useAuth } from "../auth/AuthProvider";
 import {
   loginGuardianPassword, loginStaff, loginStudent, requestGuardianCode, verifyGuardianCode,
 } from "../auth/loginFlows";
+import { ContextLabel } from "../components/ContextLabel";
+import { getHostContext } from "../context/appContext";
 import { errorText, t } from "../i18n";
 import { ApiError } from "../lib/api";
 
@@ -127,10 +129,9 @@ function StudentForm({ done }: { done: () => void }) {
   );
 }
 
-// W2: لوحة سياق التطوير تُحمَّل كسولاً — الشرط يُطوى عند البناء فتسقط الوحدة من بناء production
-const DevContextPanel = import.meta.env.DEV || import.meta.env.VITE_DEV_CONTEXT === "1"
-  ? lazy(() => import("../devtools/DevContextPanel"))
-  : null;
+// F3: النماذج حسب الـhost — عرض فقط؛ FastAPI يرفض أي دخول خارج سياقه بالرد العام نفسه
+// host المدرسة: الموظف وولي الأمر والطالب · host الـTenant: الموظف · host المنصة: دخول الإدارة وحده
+const TABS: Record<"school" | "tenant", Tab[]> = { school: ["staff", "guardian", "student"], tenant: ["staff"] };
 
 export function Login() {
   const [tab, setTab] = useState<Tab>("staff");
@@ -138,13 +139,16 @@ export function Login() {
   // لا تنقّل صريح: حارس المسار يوجّه حسب الحالة (ready ← الرئيسية، pending ← تغيير الكلمة) — تنقلان متتاليان
   // كانا يعيدان تركيب صفحة تغيير الكلمة ويمحوان ما كُتب (سباق كشفه E2E)
   const done = () => void refresh();
-  const tabs: Tab[] = ["staff", "guardian", "student"];
+  const host = getHostContext();
+  if (!host || host.kind === "platform") return <Navigate to="/login/admin" replace />;
+  const tabs = TABS[host.kind];
   const labels: Record<Tab, string> = { staff: "login.tabStaff", guardian: "login.tabGuardian", student: "login.tabStudent" };
   return (
     <div className="mx-auto mt-16 max-w-sm rounded-lg bg-white p-6 shadow">
-      <h1 className="mb-4 text-xl font-semibold">{t("login.title")}</h1>
+      <h1 className="mb-1 text-xl font-semibold">{t("login.title")}</h1>
+      <p className="mb-4 text-sm text-slate-500"><ContextLabel testId="login-context" /></p>
       {expired && <p data-testid="session-expired" className="mb-4 text-amber-700">{t("login.expired")}</p>}
-      <div role="tablist" className="mb-6 grid grid-cols-3 gap-1">
+      <div role="tablist" className={`mb-6 grid gap-1 ${tabs.length === 3 ? "grid-cols-3" : "grid-cols-1"}`}>
         {tabs.map((x) => (
           <button
             key={x} type="button" role="tab" aria-selected={tab === x} data-testid={`tab-${x}`}
@@ -161,7 +165,6 @@ export function Login() {
       <Link to="/login/admin" data-testid="admin-link" className="mt-6 block text-center text-sm text-slate-500">
         {t("login.admin")}
       </Link>
-      {DevContextPanel && <Suspense fallback={null}><DevContextPanel /></Suspense>}
     </div>
   );
 }

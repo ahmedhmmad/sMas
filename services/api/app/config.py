@@ -9,6 +9,8 @@
 import os
 from dataclasses import dataclass
 
+from .host_context import OriginBase
+
 
 @dataclass(frozen=True)
 class Settings:
@@ -18,7 +20,7 @@ class Settings:
     jwt_audience: str
     publishable_key: str
     min_password_length: int
-    cors_origins: tuple[str, ...]
+    origin_base: OriginBase
     environment: str
     login_attempts: int
     login_window_s: int
@@ -42,7 +44,7 @@ def load_settings() -> Settings:
         publishable_key=os.environ["SUPABASE_PUBLISHABLE_KEY"],
         # يطابق `minimum_password_length` في إعداد Supabase Auth (كلمة المرور الأولية للطالب = معرّفه)
         min_password_length=int(os.environ.get("API_MIN_PASSWORD_LENGTH", "6")),
-        cors_origins=cors_origins(),
+        origin_base=origin_base(),
         environment=os.environ.get("API_ENVIRONMENT", "development"),
         # حد محاولات الدخول لكل (tenant، معرّف) ولكل عنوان — إعداد لا ثابت (قرار F2 defaults)
         login_attempts=int(os.environ.get("API_LOGIN_ATTEMPTS", "10")),
@@ -50,9 +52,6 @@ def load_settings() -> Settings:
     )
 
 
-def cors_origins() -> tuple[str, ...]:
-    """أصول الواجهة المسموح لها (F1) — قائمة صريحة من البيئة؛ `*` مرفوض (قرار F1)."""
-    origins = tuple(o.strip() for o in os.environ.get("API_CORS_ORIGINS", "").split(",") if o.strip())
-    if "*" in origins:
-        raise ValueError("API_CORS_ORIGINS must list explicit origins; '*' is not allowed")
-    return origins
+def origin_base() -> OriginBase:
+    """أصل الواجهة الأساسي (F3): منه يُشتق CORS وسياق الدخول بقواعد host_context نفسها. إلزامي؛ `*` مرفوض."""
+    return OriginBase.parse(os.environ["API_CORS_ORIGIN_BASE"])

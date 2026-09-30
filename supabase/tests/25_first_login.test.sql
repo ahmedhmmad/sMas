@@ -38,7 +38,7 @@ language sql as $$
 $$;
 
 -- ============ Fixture ============
-insert into public.platform_tenants (id, tenant_code, name) values ('10000000-0000-0000-0000-000000000001', 'T1', 'T1');
+insert into public.platform_tenants (id, tenant_code, host_label, name) values ('10000000-0000-0000-0000-000000000001', 'T1', 't1', 'T1');
 insert into public.schools (id, platform_tenant_id, group_id, school_code, name, slug) values
   ('55000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', null, 'SA', 'SA', 'sa'),
   ('55000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000001', null, 'SB', 'SB', 'sb');

@@ -32,8 +32,8 @@ begin
 end $$;
 
 -- ============ Fixture: T1 (سيوقف) و T2 (يبقى نشطاً) ============
-insert into public.platform_tenants (id, tenant_code, name) values
-  ('10000000-0000-0000-0000-000000000001', 'T1', 'T1'), ('20000000-0000-0000-0000-000000000002', 'T2', 'T2');
+insert into public.platform_tenants (id, tenant_code, host_label, name) values
+  ('10000000-0000-0000-0000-000000000001', 'T1', 't1', 'T1'), ('20000000-0000-0000-0000-000000000002', 'T2', 't2', 'T2');
 insert into public.schools (id, platform_tenant_id, school_code, name, slug) values
   ('51000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'S1', 'S1', 's1'),
   ('52000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000002', 'S2', 'S2', 's2');

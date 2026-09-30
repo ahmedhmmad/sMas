@@ -1,10 +1,10 @@
 // ولي الأمر A/B/C والطالب: المسار الكامل في المتصفح حتى البيانات المسموحة والممنوعة.
 import { expect, test } from "@playwright/test";
-import { changePassword, clearOtp, expectNotFound, fx, otpsFor, readOtp, setDevContext, studentRows } from "./helpers";
+import { at, changePassword, clearOtp, expectNotFound, fx, go, HOSTS, otpsFor, readOtp, studentRows } from "./helpers";
 
-async function guardianOtp(page: import("@playwright/test").Page, phone: string, school: string) {
-  await page.goto("/login");
-  await setDevContext(page, "DEV", school);
+// F3: مدرسة سياق الدخول = host الصفحة (D4: onboarding عبر مدرسة الابن)
+async function guardianOtp(page: import("@playwright/test").Page, phone: string, host: string) {
+  await page.goto(at(host, "/login"));
   await page.getByTestId("tab-guardian").click();
   await page.getByTestId("guardian-phone").fill(phone);
   await page.getByTestId("guardian-submit").click();
@@ -15,7 +15,7 @@ test.beforeEach(() => clearOtp());
 
 test("guardian A: OTP → forced password → own child only", async ({ page }) => {
   const f = fx();
-  await guardianOtp(page, f.guardians.A.phone, "school-a");
+  await guardianOtp(page, f.guardians.A.phone, HOSTS.SA);
   await page.getByTestId("guardian-code").fill(await readOtp(f.guardians.A.phone));
   await page.getByTestId("guardian-submit").click();
   await changePassword(page, "Web-A-Parent-1");
@@ -34,7 +34,7 @@ test("guardian A: OTP → forced password → own child only", async ({ page }) 
 
 test("guardian B: OTP only — open immediately, own child only", async ({ page }) => {
   const f = fx();
-  await guardianOtp(page, f.guardians.B.phone, "school-b");
+  await guardianOtp(page, f.guardians.B.phone, HOSTS.SB);
   await page.getByTestId("guardian-code").fill(await readOtp(f.guardians.B.phone));
   await page.getByTestId("guardian-submit").click();
   await expect(page.getByTestId("dashboard")).toBeVisible();              // بلا شاشة كلمة مرور
@@ -44,7 +44,7 @@ test("guardian B: OTP only — open immediately, own child only", async ({ page 
 
 test("guardian C: no OTP onboarding; school temporary password → forced change", async ({ page }) => {
   const f = fx();
-  await guardianOtp(page, f.guardians.C.phone, "standalone");
+  await guardianOtp(page, f.guardians.C.phone, HOSTS.SS);
   await page.waitForTimeout(500);
   expect(otpsFor(f.guardians.C.phone)).toEqual([]);                     // الرد نفسه، ولا رسالة
   await page.getByTestId("guardian-mode").click();
@@ -58,14 +58,14 @@ test("guardian C: no OTP onboarding; school temporary password → forced change
 
 test("student: ID login → forced change → own record only", async ({ page }) => {
   const f = fx();
-  await page.goto("/login");
+  await page.goto(at(HOSTS.SA, "/login"));
   await page.getByTestId("tab-student").click();
   await page.getByTestId("student-identifier").fill(f.students.fresh.identifier!);
   await page.getByTestId("student-password").fill(f.students.fresh.identifier!);
   await page.getByTestId("student-submit").click();
   await expect(page.getByTestId("change-password")).toBeVisible();
   // المغلق يُعاد إلى تغيير الكلمة من أي مسار
-  await page.goto("/students");
+  await go(page, "/students");
   await changePassword(page, "Web-Student-1");
   await expect(page.getByTestId("nav-students")).toBeVisible();
   expect(await studentRows(page)).toEqual([f.students.fresh.id]);

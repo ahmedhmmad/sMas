@@ -31,7 +31,7 @@ language sql as $$ select * from public.audit_log where entity_type = p_entity_t
 
 -- ============ Fixture (سياق service: لا فاعل) ============
 select pg_temp.as_(null);
-insert into public.platform_tenants (id, tenant_code, name) values ('10000000-0000-0000-0000-000000000001', 'T1', 'T1');
+insert into public.platform_tenants (id, tenant_code, host_label, name) values ('10000000-0000-0000-0000-000000000001', 'T1', 't1', 'T1');
 insert into public.schools (id, platform_tenant_id, school_code, name, slug) values
   ('55000000-0000-0000-0000-000000000004', '10000000-0000-0000-0000-000000000001', 'SS', 'SS', 'ss');
 
