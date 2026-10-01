@@ -8,6 +8,7 @@ import { parseHost } from "./hostContext";
 type Vectors = {
   hosts: { base: string; cases: [string, object | null][] };
   tenant_labels: { valid: string[]; invalid: string[] };
+  school_slugs: { valid: string[]; invalid: string[] };
 };
 const vectors: Vectors = JSON.parse(readFileSync(join(__dirname, "../../../../docs/contracts/host_context_vectors.json"), "utf-8"));
 
@@ -20,6 +21,12 @@ describe("host rules (shared vectors)", () => {
     const hostOk = (label: string) => parseHost(`${label}.localhost`, "localhost")?.kind === "tenant";
     expect(vectors.tenant_labels.valid.filter((l) => !hostOk(l))).toEqual([]);
     expect(vectors.tenant_labels.invalid.filter(hostOk)).toEqual([]);
+  });
+
+  it("school slug rule (M30b): a slug is a school host exactly when the DB accepts it", () => {
+    const hostOk = (slug: string) => parseHost(`${slug}.dev.localhost`, "localhost")?.kind === "school";
+    expect(vectors.school_slugs.valid.filter((s) => !hostOk(s))).toEqual([]);
+    expect(vectors.school_slugs.invalid.filter(hostOk)).toEqual([]);
   });
 
   it("no base domain: nothing is recognised", () => {

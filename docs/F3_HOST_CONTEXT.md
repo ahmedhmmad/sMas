@@ -1,6 +1,6 @@
 # Gate F3 — سياق الـhost (Subdomain → Tenant/School Context)
 
-**الحالة:** ✅ منفذ (2026-10-01) — بانتظار المراجعة · **Migration:** M30 `tenant_host_context` · **الاختبارات:** pgTAP 1395 (30: 49) · pytest 213 (F3: 87) · Vitest 77 · Playwright 21
+**الحالة:** ✅ منفذ + مراجعة F3 مطبَّقة (M30b، 2026-10-01) — يُغلق بنجاح CI · **Migrations:** M30 `tenant_host_context`، M30b `host_dns_labels` · **الاختبارات:** pgTAP 1417 (30: 49، 30b: 22) · pytest 225 (F3: 95) · Vitest 87 · Playwright 21
 
 ---
 
@@ -11,7 +11,7 @@
 | # | القرار |
 |---|---|
 | 1 | **شكل الـhost:** `{school}.{tenant}.{base}` ← سياق مدرسة · `{tenant}.{base}` ← سياق Tenant · `admin.{base}` ← المنصة. `admin` و`api` و`www` محجوزة **كـtenant label** (لا يُمنع `admin` كـslug مدرسة) |
-| 2 | **M30 `platform_tenants.host_label`** بدل تعديل `tenant_code`: `tenant_code` معرّف أعمال (`_` وأحرف كبيرة)، `host_label` معرّف DNS: `^[a-z0-9][a-z0-9-]{0,62}$`، فريد على مستوى المنصة، محجوزات مرفوضة، لا يكتبه العميل، يُحدَّد في `bootstrap_tenant` |
+| 2 | **M30 `platform_tenants.host_label`** بدل تعديل `tenant_code`: `tenant_code` معرّف أعمال (`_` وأحرف كبيرة)، `host_label` معرّف DNS: `^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$` (M30b — النمط الأول كان يقبل شرطة ختامية)، فريد على مستوى المنصة، محجوزات مرفوضة، لا يكتبه العميل، يُحدَّد في `bootstrap_tenant` |
 | 3 | **`Origin` مصدر سياق الدخول في FastAPI** — **مصدر context فقط، ليس مصدر authority ولا إثبات هوية:** `Origin → أين يُبحث · JWT/auth → من المستخدم · DB/RLS → ما يصل إليه`. تزويره من عميل غير المتصفح ليس ثغرة لأنه لا يُستعمل تفويضاً. غائب أو خارج الأصل الأساسي ← **الفشل العام** بلا كشف وجود. **لا fallback من الجسم.** Flutter لاحقاً يحتاج مساراً مستقلاً — ليس في F3 |
 | 4 | **CORS مرسَّخ:** `API_CORS_ORIGIN_BASE` (`scheme://base[:port]`)؛ الأصل مسموح ⟺ يحلله **محلل F3 نفسه** إلى أحد الأشكال الثلاثة — لا regex موازٍ، لا `*`، لا wildcard غير مرسَّخ |
 | 5 | **لا بحث عام عن اسم المدرسة:** صفحة الدخول تعرض المعرّف المشتق من الـhost؛ الاسم لاحقاً بقرار مستقل (سطح enumeration) |
@@ -39,7 +39,19 @@ Browser (host: school-a.dev.example) ──Origin──► FastAPI: host_context
 | دوال الدخول | `resolve_student_login`، `login_account`، `otp_issue`، `otp_verify`، `password_login_account`، `password_login_result` — **البحث بـ`host_label`** عبر `login_context` (لا `tenant_code`)؛ الموظف وولي الأمر يقبلان مدرسة السياق أيضاً (اختيارية). النصوص كما في M24/M26/M27 عدا المحلّل؛ الامتيازات كما كانت (`service_role` وحده) |
 | `app.bootstrap_tenant(id, code, host_label, name, admin, display)` | توقيع جديد: النص M22 نفسه + `host_label` في الإدخال والـidempotency؛ allowlist M20 حُدِّث |
 
-**تفسير «سياق تشغيلي غير صالح» (قرار تنفيذي):** الـhost الذي يسمّي مدرسة **مؤرشفة أو غير موجودة** لا يجد **أي** حساب (موظف، ولي أمر، طالب) — السياق يُحَل كاملاً أو لا يُحَل؛ و host الـTenant نفسه يبقى صالحاً للموظف. الرد الخارجي نفسه لكل الحالات.
+**«سياق تشغيلي غير صالح» (✅ معتمد في مراجعة F3 — متسق مع H2: التاريخية لا تعني operational access):** الـhost الذي يسمّي مدرسة **مؤرشفة أو غير موجودة** لا يجد **أي** حساب (موظف، ولي أمر، طالب) — السياق يُحَل كاملاً أو لا يُحَل؛ و host الـTenant نفسه يبقى صالحاً للموظف. الرد الخارجي نفسه لكل الحالات.
+
+### 2.1b قاعدة البيانات — M30b `host_dns_labels` (مراجعة F3)
+
+F3 جعل `host_label` و`schools.slug` أجزاءً من hostname، ونمطا M30/M04 كانا يقبلان شرطة ختامية (`tenant-`، `school-`) — قيمة يقبلها DB وليست label DNS صالحاً.
+
+| العنصر | |
+|---|---|
+| `platform_tenants_host_label_chk` | `^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$` — 1–63، يبدأ وينتهي بحرف أو رقم |
+| `schools_slug_chk` | `^[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$` — 2–63 (الحد الأدنى القائم منذ M04 يبقى)؛ يحكم مسار العميل أيضاً (`UPDATE (slug)` في سجل §4.6) |
+| الاسمان | لم يتغيرا (استبدال لا تراكم) — الاختبارات القائمة التي تطابق الاسم تبقى صالحة |
+| البيانات القائمة | **فحص صريح قبل القيد:** أي قيمة مخالفة توقف الـmigration بقائمة مسمّاة للجدولين معاً. **لا تصحيح تلقائي** — تغيير slug أو label يغيّر عنوان المدرسة/الـTenant، فهو قرار صريح لا أثر جانبي |
+| المحللان | `TENANT_LABEL`/`SCHOOL_SLUG` في FastAPI والواجهة على النصين نفسيهما؛ المتجهات المشتركة تشمل `school_slugs` |
 
 ### 2.2 FastAPI
 
@@ -74,7 +86,7 @@ Browser (host: school-a.dev.example) ──Origin──► FastAPI: host_context
 
 ### 3.1 قاعدة واحدة، ثلاث نقاط فرض — `docs/contracts/host_context_vectors.json`
 
-متجهات مشتركة (26 host، 17 + 10 origin، 10 أصل أساسي فاسد، 13 label) يقرؤها **Vitest** (`parseHost`) و**pytest** (`parse_host`، `OriginBase`) و**pytest ← DB** (قيد M30 يقبل الـlabels نفسها بالضبط التي يقبلها المحللان). لا «Origin مقبول» يختلف عن «hostname مقبول».
+متجهات مشتركة (35 host، 19 + 10 origin، 10 أصل أساسي فاسد، 18 label، 14 slug) يقرؤها **Vitest** (`parseHost`) و**pytest** (`parse_host`، `OriginBase`) و**pytest ← DB** (قيد M30 يقبل الـlabels نفسها بالضبط التي يقبلها المحللان). لا «Origin مقبول» يختلف عن «hostname مقبول».
 
 ### 3.2 pgTAP `30_host_context` (49)
 
@@ -82,13 +94,18 @@ Browser (host: school-a.dev.example) ──Origin──► FastAPI: host_context
 
 الملفات 03–29 حُدِّثت لحقيقة ما بعد M30: `host_label` في fixtures الـTenant، ونداءات الدخول بالـlabel (24، 26، 27)، وتوقيع `bootstrap_tenant` (20، 22).
 
-### 3.3 pytest `test_host_context.py` (87)
+### 3.2b pgTAP `30b_host_dns` (22)
+
+`host_label`: `tenant-`، `-tenant`، `-`، 64 حرفاً مرفوضة باسم القيد؛ `a`، `tenant`، `tenant-a`، `abc123`، 63 حرفاً مقبولة · `slug`: `school-`، `-school`، `--`، حرف واحد، 64 مرفوضة؛ `ab`، `school-b`، 63 مقبولة · مسار العميل: tenant_admin لا يعيد تسمية مدرسة إلى slug غير DNS، والتسمية الصالحة تعمل · نص القيدين كما هو، وكل قاعدة قيد واحد (استبدال لا تراكم).
+
+### 3.3 pytest `test_host_context.py` (95)
 
 | المجموعة | يثبت |
 |---|---|
-| القواعد | المتجهات (hosts، origins محلياً وإنتاجياً)؛ الأصل الأساسي الفاسد يُرفض؛ الأصل إلزامي؛ قيد DB = المحلل |
+| القواعد | المتجهات (hosts، origins محلياً وإنتاجياً)؛ الأصل الأساسي الفاسد يُرفض؛ الأصل إلزامي؛ قيد DB = المحلل — **للـlabel وللـslug** (M30b) |
 | CORS | الأشكال الثلاثة مسموحة (preflight + بسيط، `Vary: Origin`)؛ الشبيهات مرفوضة: `evil-localhost`، `localhost.evil.com`، `school-a.dev.localhost.evil.com`، الأصل العاري، `api`، مخطط/منفذ آخر، ثلاثة labels، `*`، `null` |
 | لا context drift | 4 مسارات × 3 أشكال (`school`، `tenant`، `school_id`+`tenant_id`) ← `422 extra_forbidden`؛ الـschemas بلا حقول سياق و`additionalProperties: false` |
+| **الطالب من host مدرسة — invariant مستقل** | الاعتمادية مستبدلة بسياق Tenant ثم بسياق المنصة، وبحث DB مستبدل بما يحل طالب الـseed أياً كان السياق: FastAPI يرفض بالرد العام **ولا يبحث أصلاً**؛ والبدائل نفسها مع سياق مدرسة ← `200` (كانت ستسمح فعلاً). يفشل إذا أُزيل الفحص الصريح |
 | مصدر السياق | عقد `login_context` (المدرسة، الـTenant، المنصة ← None، الغياب ← None)؛ الطالب من host مدرسته فقط — host الـTenant، المنصة، بلا Origin، أصل أجنبي، **`Host` بلا Origin**، منفذ آخر ← الرد العام |
 | بلا سياق | OTP ← `202` بلا رسالة؛ verify وكلمة المرور ← `401` |
 | الـslug نفسه | Tenant B بمدرسة `school-a` وموظف **بالبريد نفسه**: كل host يصل إلى حسابه وحده (`sub` مختلف)، وكلمة مرور أحدهما على host الآخر ← الرد العام |
@@ -98,7 +115,7 @@ Browser (host: school-a.dev.example) ──Origin──► FastAPI: host_context
 
 وحُدِّثت اختبارات الدخول القائمة (D1–D4، E2E الخلفية، F1) إلى `Origin` بدل الجسم — بلا تغيير في ما تثبته.
 
-### 3.4 Vitest (77)
+### 3.4 Vitest (87)
 
 `hostContext.test.ts` (المتجهات + السياق من host الصفحة)؛ `hostUi.test.tsx` (host غير معروف: صفحة ثابتة **ولا `fetch`**؛ المنصة: دخول الإدارة وحده بلا «عودة»؛ الـTenant: الموظف وحده + المعرّف؛ المدرسة: الثلاثة + المعرّفات)؛ `guards.test.ts` (قارئو السياق قائمة مغلقة؛ أجسام الدخول بلا tenant/school؛ **لا بقايا أداة التطوير**)؛ `buildGuard.test.ts` (بلا نطاق/نطاق فاسد ← فشل البناء).
 
@@ -123,14 +140,19 @@ Browser (host: school-a.dev.example) ──Origin──► FastAPI: host_context
 | Web | كل النماذج على host الـTenant | 1 تفشل |
 | Web | tenant في جسم الدخول | 1 تفشل |
 | Web | تجاوز من التخزين المحلي | 1 تفشل |
+| API | فحص الطالب: إسقاط شرط `kind != "school"` | 2 تفشل (host الـTenant، host المنصة) |
+| API | فحص الطالب: حذفه كاملاً | 2 تفشل |
+| API | قاعدة slug / label تقبل شرطة ختامية | 3 / 4 تفشل (متجهات hosts و origins، وتطابق قيد DB) |
+| Web | قاعدة slug تقبل شرطة ختامية | 2 تفشل |
+| DB | M30b على بيانات مخالفة (`nc-bad-`، `school-`) | الـmigration تتوقف بالقيمتين مسمّاتين، ولا شيء يُطبَّق؛ على بيانات سليمة تُطبَّق |
 
-**دفاع بطبقتين (ملاحظة صادقة):** حذف فحص «الطالب من host مدرسة فقط» في FastAPI لا يُفشل أي اختبار — لأن DB لا تجد طالباً بلا مدرسة سياق (pgTAP `st.no_school`)؛ السلوك الخارجي واحد. الفحص في FastAPI خط أول يمنع نداء DB بلا معنى.
+**فحص الطالب صار invariant مثبتاً باختبار مستقل (مراجعة F3):** كان حذفه لا يُفشل أي اختبار لأن DB لا تجد طالباً بلا مدرسة سياق؛ الاختبار الجديد يستبدل الطبقتين الأخريين فيبقى الفحص الصريح وحده حاجزاً.
 
 ---
 
 ## 4. ملاحظات
 
-- **النمط المعتمد لـ`host_label` يقبل شرطة ختامية** (`tenant-`) — ليست label DNS صالحاً (RFC 1123)؛ وكذلك `schools_slug_chk` القائم. لم يُغيَّر (النمط معتمد نصاً)؛ إن أُريد تشديده فقرار مستقل وmigration جديدة.
+- ~~النمط المعتمد لـ`host_label` يقبل شرطة ختامية~~ — **أُصلح في M30b** (ومعه `schools.slug`).
 - **`schools.slug` قابل للتعديل** من المدرسة (سجل §4.6 منذ M20) — تغييره يغيّر host المدرسة؛ لا شيء في F3 يعتمد على ثباته غير الروابط.
 - الجلسة لكل host (تخزين المتصفح لكل أصل) — الانتقال بين hosts يبدأ بلا جلسة.
 - التطوير: `npm run dev` ثم `http://school-a.dev.localhost:5173` (Chromium/Edge يحلّان `*.localhost`)؛ الـAPI: `API_CORS_ORIGIN_BASE=http://localhost:5173`.

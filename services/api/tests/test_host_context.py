@@ -18,7 +18,8 @@ import pytest
 from app import config
 from app.auth_admin import account_email
 from app.deps import login_context
-from app.host_context import RESERVED, TENANT_LABEL, HostContext, OriginBase, parse_host
+from app import student_login
+from app.host_context import RESERVED, SCHOOL_SLUG, TENANT_LABEL, HostContext, OriginBase, parse_host
 from conftest import DEV_PASSWORD, ENV, STAFF_ID, auth, origin
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
@@ -90,6 +91,27 @@ def test_db_label_rule_is_the_same_rule(admin):
            {x: x in VECTORS["tenant_labels"]["valid"] for x in labels}
 
 
+def test_db_school_slug_rule_is_the_same_rule(admin):
+    """M30b: قيد `schools_slug_chk` = قاعدة slug في المحلل — كل slug يقبله DB صالح كـlabel في الـhost، والعكس."""
+    def db_accepts(slug):
+        code = "ZS" + secrets.token_hex(3).upper()
+        try:
+            with admin.transaction(force_rollback=True):
+                # Tenant خاص بالمعاملة: لا تصادم تفرد مع slugs الـseed — القيد المختبَر هو الصيغة وحدها
+                tenant = admin.execute("insert into public.platform_tenants (tenant_code, host_label, name) values (%s, %s, 'x')"
+                                       " returning id", [code, code.lower()]).fetchone()["id"]
+                admin.execute("insert into public.schools (platform_tenant_id, school_code, name, slug) values (%s, 'S1', 'x', %s)",
+                              [tenant, slug])
+            return True
+        except psycopg.errors.CheckViolation:
+            return False
+
+    slugs = VECTORS["school_slugs"]["valid"] + VECTORS["school_slugs"]["invalid"]
+    assert {x: db_accepts(x) for x in slugs} == \
+           {x: SCHOOL_SLUG.fullmatch(x) is not None for x in slugs} == \
+           {x: x in VECTORS["school_slugs"]["valid"] for x in slugs}
+
+
 # ======================= 2. CORS مرسَّخ =======================
 
 def preflight(client, value):
@@ -151,6 +173,29 @@ def test_login_context_contract(client, value, expected):
     """عقد الاعتمادية نفسها (دفاع أول): المنصة والغياب ← None. قاعدة البيانات دفاع ثانٍ (login_context بلا Tenant ← لا شيء)."""
     request = SimpleNamespace(app=client.app, headers={} if value is None else {"origin": value})
     assert login_context(request) == expected
+
+
+SEED_STUDENT = "e0000000-0000-4000-8000-000000000001"
+
+
+@pytest.mark.parametrize("ctx", [HostContext("tenant", "dev"), HostContext("platform")], ids=["tenant_host", "admin_host"])
+def test_student_login_requires_a_school_host_in_fastapi_itself(client, monkeypatch, ctx):
+    """Defense-in-depth invariant (مراجعة F3): FastAPI نفسه يرفض دخول الطالب خارج host مدرسة — لا بالمصادفة من DB.
+    الطبقتان الأخريان مستبدلتان بما **كان سيسمح** بالدخول: الاعتمادية تمرر السياق كما هو (حتى المنصة)، والبحث في DB
+    يُحَل إلى طالب الـseed أياً كان السياق. الفحص الصريح وحده يمنعه — وإزالته تُفشل هذا الاختبار."""
+    looked_up = []
+    monkeypatch.setattr(student_login, "resolve", lambda db, c, body: looked_up.append(c) or uuid.UUID(SEED_STUDENT))
+    body = {"identifier": SEED_OFFICIAL, "password": DEV_PASSWORD}
+    try:
+        client.app.dependency_overrides[login_context] = lambda: ctx
+        refused = client.post("/auth/student/login", json=body)
+        client.app.dependency_overrides[login_context] = lambda: HostContext("school", "dev", "school-a")   # ضابط
+        control = client.post("/auth/student/login", json=body)
+    finally:
+        client.app.dependency_overrides.pop(login_context, None)
+    assert outcome(refused) == INVALID
+    assert looked_up == [HostContext("school", "dev", "school-a")]      # لم يُبحث عن الطالب خارج host مدرسة أصلاً
+    assert control.status_code == 200                                    # البدائل كانت ستسمح فعلاً
 
 
 def test_student_context_comes_from_the_origin(client):

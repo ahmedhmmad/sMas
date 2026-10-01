@@ -7,8 +7,9 @@ export type HostContext =
   | { kind: "tenant"; tenant: string }
   | { kind: "platform" };
 
-const TENANT_LABEL = /^[a-z0-9][a-z0-9-]{0,62}$/;   // platform_tenants_host_label_chk
-const SCHOOL_SLUG = /^[a-z0-9][a-z0-9-]{1,62}$/;    // schools_slug_chk
+// labels DNS (RFC 1123): تبدأ وتنتهي بحرف أو رقم، ≤ 63 — M30b
+const TENANT_LABEL = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;   // platform_tenants_host_label_chk (1–63)
+const SCHOOL_SLUG = /^[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$/;         // schools_slug_chk (2–63)
 const RESERVED = new Set(["admin", "api", "www"]);  // platform_tenants_host_label_reserved
 const PLATFORM_LABEL = "admin";
 

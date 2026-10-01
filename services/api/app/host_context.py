@@ -16,8 +16,9 @@ docs/contracts/host_context_vectors.json — حتى لا يختلف «Origin م�
 import re
 from dataclasses import dataclass
 
-TENANT_LABEL = re.compile(r"[a-z0-9][a-z0-9-]{0,62}")    # platform_tenants_host_label_chk
-SCHOOL_SLUG = re.compile(r"[a-z0-9][a-z0-9-]{1,62}")     # schools_slug_chk
+# labels DNS (RFC 1123): تبدأ وتنتهي بحرف أو رقم، ≤ 63 — M30b
+TENANT_LABEL = re.compile(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?")   # platform_tenants_host_label_chk (1–63)
+SCHOOL_SLUG = re.compile(r"[a-z0-9][a-z0-9-]{0,61}[a-z0-9]")         # schools_slug_chk (2–63)
 RESERVED = frozenset({"admin", "api", "www"})             # platform_tenants_host_label_reserved
 PLATFORM_LABEL = "admin"
 

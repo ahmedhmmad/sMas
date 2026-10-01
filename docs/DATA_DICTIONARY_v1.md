@@ -198,7 +198,7 @@ ALTER TABLE schools ADD CONSTRAINT schools_group_same_tenant_fk
 - `UNIQUE (tenant_code)`
 - `CHECK (tenant_code ~ '^[A-Z0-9][A-Z0-9_-]{1,31}$')` — أكواد الأعمال بصيغة ثابتة قابلة للطباعة
 - `UNIQUE (host_label)` — `platform_tenants_host_label_uq` (M30)
-- `CHECK (host_label ~ '^[a-z0-9][a-z0-9-]{0,62}$')` — `platform_tenants_host_label_chk` (M30)
+- `CHECK (host_label ~ '^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$')` — `platform_tenants_host_label_chk` (M30؛ **M30b:** label DNS — لا شرطة في البداية ولا النهاية، 1–63)
 - `CHECK (host_label NOT IN ('admin','api','www'))` — `platform_tenants_host_label_reserved` (M30؛ `admin` = host المنصة)
 - `CHECK (status IN ('active','suspended'))`
 - `CHECK ((status = 'suspended') = (suspended_at IS NOT NULL))`
@@ -252,7 +252,7 @@ ALTER TABLE schools ADD CONSTRAINT schools_group_same_tenant_fk
 - `FOREIGN KEY (group_id, platform_tenant_id) REFERENCES groups (id, platform_tenant_id)` — **يمنع ربط مدرسة بمجموعة من Tenant آخر** (ERD §5 بند 2)
 - `CHECK (status IN ('active','archived'))`
 - `CHECK ((status = 'archived') = (archived_at IS NOT NULL))`
-- `CHECK (slug ~ '^[a-z0-9][a-z0-9-]{1,62}$')`
+- `CHECK (slug ~ '^[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$')` — `schools_slug_chk` (**M30b:** الـslug جزء من hostname منذ F3 — label DNS، 2–63؛ كان `^[a-z0-9][a-z0-9-]{1,62}$`)
 - `CHECK (school_code ~ '^[A-Z0-9][A-Z0-9_-]{1,31}$')`
 - `UNIQUE (id, is_standalone)` — هدف FK من `identity_scopes`
 - ✅ G3: `UNIQUE (id, scope_owner_id)` — هدف FK من `enrollments`
