@@ -978,7 +978,7 @@ create policy platform_tenants_admin_update on platform_tenants for update
 |---|---|
 | `INSERT` | `WITH CHECK` فقط. الصف الجديد يجب أن يقع داخل نطاق المُنشئ |
 | `UPDATE` | `USING` + `WITH CHECK` **دائماً**. الثانية تمنع نقل الصف خارج النطاق |
-| `DELETE` | **لا سياسة على أي جدول Foundation** = منع كامل |
+| `DELETE` | **لا سياسة على أي جدول Foundation** = منع كامل — **عدا استثناء ✅ G2 (§5.2):** `membership_roles`, `membership_scopes`, `role_permissions` (مراجعة Stage 1، 2026-10-01) |
 | الأرشفة | `UPDATE` على `archived_at`/`status`، بصلاحية `.archive` |
 
 ### 12.1 جدول الصلاحية لكل عملية
@@ -1112,7 +1112,7 @@ D7  سياسة audit_log (§13)
 | E3 | `school_admin` يمنح `membership_scope` لمدرسة أخرى ⇒ رفض |
 | E4 | `school_admin` يسند دور `tenant_admin` ⇒ رفض (trigger T8) |
 | E5 | لا دور Tenant يملك `tenant.suspend` |
-| E6 | `DELETE` على أي جدول Foundation ⇒ رفض |
+| E6 | `DELETE` على أي جدول Foundation ⇒ رفض (عدا جداول G2 الثلاثة بسياساتها) |
 | E7 | Platform Admin بلا `student.read` لا يقرأ أي طالب |
 | E8 | `is_platform_admin()` وحدها لا تمنح أي وصول |
 | E9 | 🔴 `school_admin` يمنح نفسه أو غيره نطاق `tenant` ⇒ **رفض** (F1) |

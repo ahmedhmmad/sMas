@@ -1,5 +1,5 @@
 -- E6 — بصمة حالة قاعدة البيانات: تُشغَّل على المصدر وعلى النسخة المستعادة وتُقارَن سطراً بسطر.
--- البنية (خصائص القاعدة، مالكو الـschemas وصلاحياتها، القيود، RLS + FORCE، السياسات، الدوال وملكيتها وصلاحياتها، الـtriggers، الصلاحيات على الجداول
+-- البنية (خصائص القاعدة، مالكو الـschemas وصلاحياتها، تعريف الأعمدة، مالكو الجداول، القيود، RLS + FORCE، السياسات، الدوال وملكيتها وصلاحياتها، الـtriggers، الصلاحيات على الجداول
 -- والأعمدة، الصلاحيات الافتراضية) + البيانات (عدد وhash كل جدول) + التسلسلات + سجل الـmigrations + حسابات Auth.
 -- المخرج: سطر لكل عنصر بصيغة  <فئة> | <مفتاح> | <قيمة>  مرتباً ترتيباً حتمياً.
 
@@ -27,6 +27,36 @@ tables as (
   select 'table' as k, c.relname as key,
          format('rls=%s force=%s acl=%s', c.relrowsecurity, c.relforcerowsecurity, coalesce(c.relacl::text, '-')) as val
   from pg_class c where c.relnamespace = 'public'::regnamespace and c.relkind = 'r'
+),
+-- مراجعة Stage 1 (R9): تعريف كل عمود — النوع، NULL، الافتراضي، المحسوب، identity — بترتيبه المنطقي (لا attnum الخام:
+-- عمود محذوف يترك فجوة في المصدر لا تظهر بعد الاستعادة)
+table_columns as (
+  select 'column', c.relname || '.' || a.attname,
+         format('pos=%s type=%s notnull=%s default=%s generated=%s identity=%s',
+                row_number() over (partition by c.oid order by a.attnum), format_type(a.atttypid, a.atttypmod), a.attnotnull,
+                coalesce(pg_get_expr(d.adbin, d.adrelid), '-'), coalesce(nullif(a.attgenerated::text, ''), '-'),
+                coalesce(nullif(a.attidentity::text, ''), '-'))
+  from pg_class c join pg_attribute a on a.attrelid = c.oid and a.attnum > 0 and not a.attisdropped
+  left join pg_attrdef d on d.adrelid = a.attrelid and d.adnum = a.attnum
+  where c.relnamespace = 'public'::regnamespace and c.relkind = 'r'
+),
+table_owners as (
+  select 'table_owner', c.relname::text, pg_get_userbyid(c.relowner)::text
+  from pg_class c where c.relnamespace = 'public'::regnamespace and c.relkind = 'r'
+),
+trigger_state as (
+  select 'trigger_state', t.tgrelid::regclass::text || '.' || t.tgname, t.tgenabled::text
+  from pg_trigger t join pg_class c on c.oid = t.tgrelid
+  where not t.tgisinternal and c.relnamespace = 'public'::regnamespace
+),
+-- ACL الفعلي: ACL صريح يساوي الافتراضي (المالك وحده) لا يكتبه pg_dump فيُستعاد NULL — المعنى واحد، فيُطبَّع بـacldefault
+sequence_acl as (
+  select 'sequence_acl', c.oid::regclass::text,
+         format('owner=%s acl=%s', pg_get_userbyid(c.relowner), coalesce(c.relacl, acldefault('s', c.relowner))::text)
+  from pg_class c where c.relkind = 'S' and c.relnamespace in ('app'::regnamespace, 'public'::regnamespace)
+),
+extensions as (
+  select 'extension', extname::text, format('schema=%s version=%s', extnamespace::regnamespace, extversion) from pg_extension
 ),
 columns as (
   select 'column_acl', c.relname || '.' || a.attname, a.attacl::text
@@ -83,6 +113,8 @@ select k || ' | ' || key || ' | ' || val from (
   union all select * from indexes union all select * from policies union all select * from functions
   union all select * from triggers union all select * from default_acl union all select * from roles
   union all select * from sequences union all select * from migrations union all select * from auth_users
+  union all select * from table_columns union all select * from table_owners union all select * from trigger_state
+  union all select * from sequence_acl union all select * from extensions
 ) x order by 1;
 
 -- البيانات: عدد الصفوف و hash محتوى كل جدول في public (مرتباً بتمثيله النصي)

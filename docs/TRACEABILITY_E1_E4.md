@@ -139,6 +139,8 @@ rollback;
 
 ## E3 — القيود (`DB_IMPLEMENTATION_SPEC_v1.md` §3)
 
+> **مراجعة Stage 1 (2026-10-01):** المصفوفة أدناه كما أُغلقت في Gate E (حتى M23). المصفوفة المحدَّثة حتى M30b — الآلية المصنفة ↔ الكائن في الـcatalog ↔ الاختبار — في `docs/STAGE1_REVIEW.md` §3. كشفت 7 فجوات (10 قيود منفذة لم يُطابَق اسمها في اختبار): I3 `schools_school_code_chk`؛ I4 `families/guardians/students_archived_chk`؛ I9 `identity_scopes_standalone_chk`؛ I11 `auth_identities_kind_chk`؛ I15 `membership_scopes_membership_fk`/`_group_fk`؛ I23 `guardians_profile_uq`؛ I27 `student_guardians_student_fk` — أُغلقت في `31_stage1_contract` (اختبارات فقط).
+
 كل رفض أدناه مطابق **باسم القيد** (بعد G1).
 
 | INV | القيد | الملف → التحقق (اسم القيد) | الحالة |

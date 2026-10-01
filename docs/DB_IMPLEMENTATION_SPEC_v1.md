@@ -231,8 +231,8 @@ CHECK (start_date >= year_start_date AND end_date <= year_end_date)
 |---|---|---|---|
 | **T5** | رفض UPDATE/DELETE/**TRUNCATE** | `audit_log` (صف + جملة) | REVOKE لا يمنع مالك الجدول؛ و`TRUNCATE` لا يطلق trigger الصف |
 | **T6** | ختم `created_*`/`updated_*` | كل الجداول ذات الأعمدة | لا «DEFAULT عند UPDATE» في Postgres؛ ومنع التزوير |
-| **T7** | التقاط التدقيق | 28 جدولاً (الـ29 عدا `audit_log`) | — |
-| **T8** | صلاحيات الدور ⊆ صلاحيات الفاعل | `membership_roles` (INSERT/DELETE)، `role_permissions` (INSERT/DELETE) | يعتمد على هوية الفاعل |
+| **T7** | التقاط التدقيق | 28 جدولاً من 30 — عدا `audit_log` و`login_challenges` (M26: لا تُنسخ OTP hashes إلى التدقيق) (مراجعة Stage 1، 2026-10-01) | — |
+| **T8** | صلاحيات الدور ⊆ صلاحيات الفاعل | `membership_roles` (INSERT/DELETE)، `role_permissions` (INSERT/DELETE)، `membership_scopes` (INSERT — M19) (مراجعة Stage 1، 2026-10-01) | يعتمد على هوية الفاعل |
 | **T9** | إنشاء نطاق الهوية تلقائياً | `groups` (INSERT)، `schools` (INSERT حين `group_id IS NULL`) | وجود صف تابع ✅ G9 |
 | ~~T1–T4~~ | — | — | **ألغيت: T1/T3/T4 أصبحت إعلانية، T2 بقرار A4** |
 | (T10) | حصرية الهوية | — | بديل G10 فقط إن رُفض |

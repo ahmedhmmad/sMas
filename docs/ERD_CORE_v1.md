@@ -1,7 +1,7 @@
 # ERD Core v1 — School Management System
 
 **التاريخ:** 2026-09-22  
-**الحالة:** Logical ERD / Foundation — جاهز للمراجعة قبل SQL migrations  
+**الحالة:** ✅ معتمد (A5، 2026-09-23) ومنفَّذ — النموذج المنطقي؛ الإضافات اللاحقة في §4.21 (مراجعة Stage 1، 2026-10-01)  
 **مرجع المتطلبات:** `PLAN_v3.md` / قرارات 2026-09-21 و2026-09-22
 
 ---
@@ -502,6 +502,22 @@ Many-to-Many:
 **لا يسمح للتطبيق بحذف audit rows أو تعديلها.**
 
 ---
+
+### 4.21 ملحق — ما أُضيف بعد اعتماد هذا النموذج (مراجعة Stage 1، 2026-10-01)
+
+هذا النموذج منطقي ومعتمد في Gate A؛ المرجع الملزم للأعمدة والقيود `DATA_DICTIONARY_v1.md`. ما أُضيف بقرارات لاحقة ولا قسم له أعلاه:
+
+| الإضافة | القرار | المرجع |
+|---|---|---|
+| جدول `auth_identities` (+ `identity_kind` في `profiles`/`system_users`) | G10 — حصرية الهوية بين المسارين | DD §2.0 |
+| `platform_admin_roles`, `platform_admin_role_permissions` | C3 | DD §2.5 |
+| `schools.is_standalone`, `schools.scope_owner_id`, `identity_scopes.owner_id`, `enrollments.identity_scope_id`/`scope_owner_id` | A4، G3 | DD §2.3، §2.16.1، §2.20 |
+| `roles.owner_key`, `membership_roles.role_owner_key` | Gate B (يلغي T1) | DD §2.9، §2.12 |
+| `terms.year_start_date`/`year_end_date` | Gate B (يلغي T4) | DD §2.22 |
+| `auth_identities.credential_state`/`credential_issued_at`/`credential_activated_at` | F2/D2 (M25) | DD §2.0 |
+| جدول `login_challenges`؛ أعمدة القفل في `staff` (`failed_login_count`, `locked_until`, `last_login_at`) | F2/D3 (M26) | DD §2.27، §2.14 |
+| `schools.guardian_first_login_mode` | F2/D4 (M27) | DD §2.3 |
+| `platform_tenants.host_label`؛ تشديد `schools.slug` إلى label DNS | F3 (M30، M30b) | DD §2.1، §2.3 |
 
 ## 5. أهم القيود Integrity Constraints
 

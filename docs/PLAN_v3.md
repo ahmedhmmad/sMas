@@ -237,22 +237,22 @@
 
 **الهدف:** بنية تحتية آمنة ومعزولة بين المدارس، يُبنى عليها كل ما بعدها.
 
-- [ ] إنشاء الـ monorepo حسب القسم 3.4، مع lint و formatting
-- [ ] CI عبر GitHub Actions: lint + tests + pgTAP
-- [ ] Supabase محلي عبر CLI + أول migration
-- [ ] اعتماد الـ ERD الكامل للجداول الأساسية، بما يشمل Platform Tenant → Group → School → Academic Year → Users/Memberships.
-- [ ] اعتماد Data Dictionary للأعمدة والـFK/Unique/Check Constraints.
-- [ ] اعتماد Authorization Matrix: Role + Permission + Scope، مع فصل export عن read.
-- [ ] اعتماد RLS Model واختبارات Tenant/Group/School isolation.
-- [ ] جداول Foundation: `platform_tenants`, `groups`, `schools`, `profiles`, `memberships`, `roles`, `permissions`, `role_permissions`, `audit_log`
-- [ ] دوال RLS الموحدة: `app.can_access_tenant()`, `app.can_access_group()`, `app.can_access_school()`, `app.has_permission()`، مع helper اختياري `app.user_school_ids()` كتحسين أداء وليس كمصدر الصلاحية الوحيد
-- [ ] قالب اختبار pgTAP للعزل بين مدرستين
-- [ ] trigger عام لتسجيل التغييرات في `audit_log`
+- [x] إنشاء الـ monorepo حسب القسم 3.4، مع lint و formatting — ✅ Gate I (I1)؛ lint للويب في F1
+- [x] CI عبر GitHub Actions: lint + tests + pgTAP — ✅ Gate I (I3) + خطوات E6/F4/F1
+- [x] Supabase محلي عبر CLI + أول migration — ✅ Gate I (I2، M01)
+- [x] اعتماد الـ ERD الكامل للجداول الأساسية، بما يشمل Platform Tenant → Group → School → Academic Year → Users/Memberships. — ✅ منفَّذ (M01–M23؛ مراجعة Stage 1، 2026-10-01)
+- [x] اعتماد Data Dictionary للأعمدة والـFK/Unique/Check Constraints. ✅ A1/A5
+- [x] اعتماد Authorization Matrix: Role + Permission + Scope، مع فصل export عن read. ✅ A2/A5
+- [x] اعتماد RLS Model واختبارات Tenant/Group/School isolation. ✅ A3/A5؛ Gate E
+- [x] جداول Foundation: `platform_tenants`, `groups`, `schools`, `profiles`, `memberships`, `roles`, `permissions`, `role_permissions`, `audit_log` — ✅ منفَّذ (M01–M23؛ مراجعة Stage 1، 2026-10-01)
+- [x] دوال RLS الموحدة: `app.can_access_tenant()`, `app.can_access_group()`, `app.can_access_school()`, `app.has_permission()`، مع helper اختياري `app.user_school_ids()` كتحسين أداء وليس كمصدر الصلاحية الوحيد — ✅ منفَّذ (M01–M23؛ مراجعة Stage 1، 2026-10-01)
+- [x] قالب اختبار pgTAP للعزل بين مدرستين — ✅ E1
+- [x] trigger عام لتسجيل التغييرات في `audit_log` — ✅ M11 (T7)
 - [x] المصادقة: دخول الموظفين مع Supabase Auth وJWT؛ حساب الطالب مستقل وفق القرار المعتمد، وحساب ولي الأمر يدعم OTP/كلمة المرور وفق إعداد المدرسة — 🔒 F2 مغلق (CI `860a14a`) (`docs/F2_AUTHENTICATION.md`): D1 🔒، D2 🔒، D3 🔒 (M26)، D4 ✅ (M27)
 - [x] تحديد المدرسة من الـ subdomain — 🔒 F3 مغلق (M30، M30b؛ CI `d3d12b1`؛ `docs/F3_HOST_CONTEXT.md`)
 - [x] هيكل تطبيق الويب: RTL، خط عربي (IBM Plex Sans Arabic أو Cairo)، قائمة تنقل حسب الدور، ملفات الترجمة — 🔒 F1 مغلق (`docs/F1_WEB_APP.md`، CI `25570ce`)
 - [x] هيكل FastAPI مع التحقق من Supabase JWT واستخراج المدرسة والدور — 🔒 F4 مغلق (`docs/F4_API_SECURITY.md`، CI `addae39`)؛ السياق يُشتق في DB لا من الـJWT
-- [ ] seed لمدرستين وهميتين بمستخدمين من كل الأدوار
+- [x] seed لمدرستين وهميتين بمستخدمين من كل الأدوار — ✅ E5
 
 **معايير الإنجاز:**
 - اختبارات العزل تنجح: مستخدم المدرسة (أ) لا يقرأ ولا يعدّل أي بيانات للمدرسة (ب).
@@ -793,6 +793,12 @@
 | 2026-09-21 | اعتماد ERD + Data Dictionary + Authorization Matrix + RLS Model كمتطلبات إلزامية قبل بناء وحدات الأعمال |
 | 2026-09-21 | اعتماد Audit للعمليات الحساسة، export مستقل، transactions/idempotency/concurrency، وعدم تعديل migrations المنفذة |
 | 2026-09-24 | **تعدد علاقات الـprofile:** A profile may have multiple legitimate relationships/roles within the same Tenant, including student, employee, and guardian. No database invariant prohibits these combinations. Authorization remains determined independently by role, permission, and scope. (`Profile` = الشخص/الحساب داخل الـTenant، لا نوع المستخدم؛ حساب الطالب «المستقل» في §7.19 لا يستلزم profile ثانياً لنفس الشخص) |
+| 2026-10-01 | **مراجعة Stage 1 — القواعد (2026-10-01):** خط الأساس `59399d4`؛ الـcatalog مصدر حقيقة **الحالة المنفذة** فقط، وعند تعارضه مع وثيقة يُرجع إلى التصميم المعتمد لتحديد A (وثيقة متأخرة — تُصحَّح in-place بتاريخ، بلا v2) أو C (خلل تنفيذ). C تُعرض دفعة واحدة في النهاية بلا تنفيذ؛ **C الأمني (Tenant isolation، RLS bypass، privilege escalation، account takeover، cross-tenant) يُعرض فوراً**. لا migration إصلاحية أثناء المراجعة بلا اعتماد. الحراس الدائمة للعقود المستقرة الحتمية الرخيصة فقط. لا إعادة فتح لقرار مغلق |
+| 2026-10-01 | **M30b — البيانات المخالفة: fail before mutation + enumerate all offending values (معتمد 2026-10-01):** لا auto-fix — `slug`/`host_label` عنوان قابل للوصول، وتغييره قرار صريح لا normalization تقني |
+| 2026-10-01 | **R5 teaching-assignment — Deferred / Phase 3:** R5 teaching-assignment invariant cannot be fully enforced or tested until `teaching_assignments` is introduced in Phase 3. لا يُحوَّل إلى C ولا يمنع Stage 1؛ ومثله Production Backup Policy والبنود المصنفة TBD صراحةً |
+| 2026-10-01 | **S1 — C أمني (معتمد: S1-أ، 2026-10-01):** `begin_guardian_temporary_password`/`arm_guardian_temporary_password` لا تعتمدان على `guardian_in_scope` وحده حين يكون النطاق قابلاً للإنشاء من الفاعل نفسه. **إصدار الكلمة المؤقتة يشترط أن يكون ارتباط ولي الأمر بطالب المدرسة قد أنشأته `provision_guardian` أو أنشأه فاعل آخر، لا ربطاً مباشراً من المُصدِر نفسه** — مصدر العلاقة جزء من الـauthorization invariant. S1-ب (سحب INSERT المباشر) **غير معتمد**: §10.5 لا تُفتح. الاختبار يثبت السلسلة كاملة (`SA → student_guardians INSERT → guardian_in_scope → begin`) ويفشل عند إدارة الحساب تحديداً، مع بقاء الربط المشروع والقراءة بعده و`provision_guardian` تعمل |
+| 2026-10-01 | **S2 — C أمني (معتمد، 2026-10-01):** `students` `WITH CHECK`: `family_id IS NULL OR` الأسرة ضمن نطاق الفاعل أصلاً — لا علاقة ينشئها الفاعل تصير مصدر النطاق (self-created scope escalation). الاختبار: SA2 لا يسند أسرة خارج نطاقه، ويستطيع استعمال أسرة في نطاقه |
+| 2026-10-01 | **S1/S2 — التنفيذ:** migration أمنية **مستقلة** بعد اكتمال المراجعة وعرض الحزمة النهائية — لا تُخلط مع إصلاحات C غير الأمنية (الامتيازات، الفهارس) ولا مع الوثائق |
 | 2026-10-01 | **F3 — مراجعة (1) معتمد:** host يسمّي مدرسة مؤرشفة أو غير موجودة ← **generic authentication failure** لكل أنواع الحسابات، حتى المرتبطة بها تاريخياً (التاريخية لا تعني operational access — متسق مع H2)؛ host الـTenant يبقى صالحاً لمستخدمي مستوى الـTenant حسب صلاحياتهم |
 | 2026-10-01 | **F3 — M30b: `host_label` و`schools.slug` labels DNS صالحة (RFC 1123):** لا شرطة في البداية ولا النهاية، ≤ 63. `host_label` `^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$` (1–63)؛ `schools.slug` `^[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$` (2–63 — الحد الأدنى القائم يبقى). لأن F3 جعل الـslug جزءاً من hostname: **لا tenant label صالح مع school slug غير صالح كـhostname**. البيانات القائمة المخالفة توقف الـmigration بقائمة مسمّاة — لا تصحيح تلقائي (تغيير الـslug/label يغيّر العنوان، فهو قرار صريح) |
 | 2026-10-01 | **F3 — «دخول الطالب من host مدرسة فقط» defense-in-depth invariant في FastAPI نفسه**، لا نتيجة جانبية لبحث DB: له اختبار مستقل يستبدل الطبقتين الأخريين بما كان سيسمح بالدخول (host الـTenant، host المنصة)، ويفشل إذا أُزيل الفحص الصريح |

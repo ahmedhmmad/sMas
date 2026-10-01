@@ -1,7 +1,7 @@
 # Data Dictionary v1 — Foundation
 
 **التاريخ:** 2026-09-22
-**الحالة:** مسودة للمراجعة — البند A1 في `CLAUDE.md` §3
+**الحالة:** ✅ معتمد (A5، 2026-09-23) ومنفَّذ (M01–M30b) — رُوجع مقابل الـcatalog في مراجعة Stage 1 (2026-10-01، `docs/STAGE1_REVIEW.md`): لا عمود ولا قيد موثق هنا غائب عن قاعدة البيانات؛ ما نُفِّذ ولم يكن مذكوراً أُضيف بعلامة (مراجعة Stage 1، 2026-10-01)
 **المرجع:** `ERD_CORE_v1.md` (النموذج المنطقي) + `PLAN_v3.md` §3.3 (القواعد الإلزامية) و§10 (Implementation Lock)
 **النطاق:** جداول Foundation فقط. Finance / Timetable / Grading internals / OCR / Payroll خارج هذا الملف، وتتبع نفس القواعد عند الوصول إليها.
 
@@ -48,6 +48,25 @@ status text NOT NULL DEFAULT 'active'
 
 `archived_at timestamptz NULL` تُضاف فقط للجداول ذات الحذف الناعم (`students`, `staff`, `guardians`, `schools`, وما يُذكر صراحةً).
 
+**الحالة المنفذة (مراجعة Stage 1، 2026-10-01):** 18 جدولاً تحمل الأعمدة الأربعة كلها (ومنها `stages`, `grade_levels`, `sections`, `terms` وإن لم يرد صف «الأعمدة المشتركة» في أقسامها). الاستثناءات — كلها بقرار مسجل:
+
+| الجدول | ما يحمله منها | السبب |
+|---|---|---|
+| `audit_log` | `created_at` | append-only (T5) — `created_at` وحده |
+| `auth_identities` | `created_at` | G10 — صف هوية، لا ختم؛ `created_at` وحده |
+| `login_challenges` | `created_at` | M26 — جدول تشغيلي بلا وصول عميل ولا T7 |
+| `membership_roles` | — | جدول ربط — `granted_at`/`granted_by` بدلاً منها (T6 يكتب `granted_by`) |
+| `membership_scopes` | `created_at`, `created_by` | جدول ربط — `created_at`/`created_by` فقط |
+| `permissions` | `created_at`, `updated_at` | M06 — كتالوج تكتبه migrations فقط: بلا `*_by` |
+| `platform_admin_assignments` | `created_at`, `updated_at` | M05 — جداول المنصة بلا `*_by` |
+| `platform_admin_role_permissions` | — | جدول ربط صرف |
+| `platform_admin_roles` | `created_at`, `updated_at` | M05 — جداول المنصة بلا `*_by` |
+| `platform_tenants` | `created_at`, `updated_at` | جذر العزل — بلا `*_by` (ينشئه `bootstrap_tenant`؛ الفاعل في `audit_log`) |
+| `role_permissions` | — | جدول ربط صرف |
+| `system_users` | `created_at`, `updated_at` | M05 — جداول المنصة بلا `*_by` |
+
+`created_by`/`updated_by`/`granted_by` كلها `FOREIGN KEY → profiles(id)` (`<table>_created_by_fk` …) ولكل منها فهرس.
+
 ### 0.4 قطعة الاسم الرباعي
 
 تُطبَّق حرفياً في `students`, `guardians`, `staff` (قاعدة `PLAN_v3.md` §3.3 بند 8):
@@ -81,6 +100,33 @@ CONSTRAINT <table>_phone_e164_chk CHECK (phone_e164 ~ '^\+[1-9][0-9]{7,14}$')
 ```
 
 لا يُخزَّن أي رقم بصيغة محلية. التحويل مسؤولية طبقة الإدخال.
+
+**الأسماء المنفذة (مراجعة Stage 1، 2026-10-01):** `guardians_phone_chk`، `guardians_alt_phone_chk` (يقبل NULL)، `staff_phone_chk` (يقبل NULL) — لا `<table>_phone_e164_chk`. الصيغة نفسها.
+
+### 0.5b قيود عدم الفراغ (مراجعة Stage 1، 2026-10-01)
+
+كل اسم أو رمز نصي إلزامي يحمل `CHECK (length(btrim(<col>)) > 0)` (والاختياري: `IS NULL OR …`) — منفذة منذ migrations الجداول ولم تكن مسرودة هنا:
+
+| الجدول | القيود |
+|---|---|
+| `academic_years` | `academic_years_name_chk` |
+| `enrollments` | `enrollments_no_blank_chk` |
+| `families` | `families_name_chk` |
+| `grade_levels` | `grade_levels_name_chk` |
+| `groups` | `groups_name_chk` |
+| `guardians` | `guardians_family_name_chk`, `guardians_first_name_chk` |
+| `permissions` | `permissions_description_chk` |
+| `platform_admin_roles` | `platform_admin_roles_name_chk` |
+| `profiles` | `profiles_display_name_chk` |
+| `roles` | `roles_name_chk` |
+| `schools` | `schools_name_chk` |
+| `sections` | `sections_name_chk` |
+| `staff` | `staff_employee_code_chk`, `staff_family_name_chk`, `staff_first_name_chk` |
+| `staff_school_assignments` | `staff_school_assignments_job_title_chk` |
+| `stages` | `stages_name_chk` |
+| `students` | `students_family_name_chk`, `students_first_name_chk`, `students_official_blank_chk` |
+| `system_users` | `system_users_display_name_chk` |
+| `terms` | `terms_name_chk` |
 
 ### 0.6 نمط سلامة الـTenant عبر FK المركّب
 
@@ -240,6 +286,7 @@ ALTER TABLE schools ADD CONSTRAINT schools_group_same_tenant_fk
 | `slug` | text | NOT NULL | — | سياق الـsubdomain، فريد داخل Tenant |
 | `status` | text | NOT NULL | `'active'` | `active`, `archived` |
 | `timezone` | text | NOT NULL | `'Africa/Cairo'` | للعرض والحسابات اليومية |
+| `guardian_first_login_mode` | text | NOT NULL | `'A'` | ✅ M27 (F2/D4) — `A`, `B`, `C`؛ `schools_guardian_first_login_mode_chk`؛ لا يكتبه العميل (دالة `app.set_guardian_first_login_mode`) |
 | `is_standalone` | boolean | GENERATED | `(group_id IS NULL) STORED` | يمنع نطاق هوية لمدرسة داخل Group (§2.16.2) |
 | `scope_owner_id` | uuid | GENERATED | `(coalesce(group_id, id)) STORED` | ✅ G3 — مالك نطاق الهوية الذي تنتمي إليه المدرسة |
 | `archived_at` | timestamptz | NULL | — | حذف ناعم |
@@ -293,6 +340,8 @@ ALTER TABLE schools ADD CONSTRAINT schools_group_same_tenant_fk
 | `code` | text | NOT NULL | UNIQUE، مثل `platform_admin`, `platform_support` |
 | `name` | text | NOT NULL | |
 | `description` | text | NULL | |
+
+**القيود (مراجعة Stage 1، 2026-10-01):** `platform_admin_roles_code_uq` (`UNIQUE (code)`)، `platform_admin_roles_code_chk` (`CHECK (code ~ '^[a-z][a-z0-9_]*$')`).
 
 **بذرة v1:** `platform_admin` (إدارة المنصة والـtenancy). أي دور إضافي يُضاف بقرار موثق.
 
@@ -402,9 +451,11 @@ SELECT platform_tenant_id FROM profiles WHERE auth_user_id = auth.uid();
 | `description` | text | NULL | — | |
 | `is_system` | boolean | NOT NULL | `false` | |
 | `status` | text | NOT NULL | `'active'` | `active`, `inactive` |
+| `owner_key` | uuid | GENERATED | `(coalesce(platform_tenant_id, '00000000-0000-0000-0000-000000000000'::uuid)) STORED` | Gate B — هدف FK من `membership_roles` |
 | الأعمدة المشتركة | | | | |
 
 **القيود:**
+- `CHECK (code ~ '^[a-z][a-z0-9_]*$')` — `roles_code_chk`؛ `FOREIGN KEY (platform_tenant_id) REFERENCES platform_tenants (id)` — `roles_tenant_fk` (مراجعة Stage 1، 2026-10-01)
 - `UNIQUE (code) WHERE platform_tenant_id IS NULL` — فهرس فريد جزئي لأدوار النظام
 - `UNIQUE (platform_tenant_id, code) WHERE platform_tenant_id IS NOT NULL` — فريد داخل Tenant (ERD §4.7)
 - `UNIQUE (id, platform_tenant_id)`
@@ -638,6 +689,7 @@ CONSTRAINT membership_scopes_shape_chk CHECK (
 | `group_id` | uuid | NULL | لـ`group` فقط |
 | `school_id` | uuid | NULL | لـ`school` فقط (مدرسة مستقلة) |
 | `school_is_standalone` | boolean | NOT NULL | ثابت `true` — لنمط §2.16.2 |
+| `owner_id` | uuid | GENERATED | `(coalesce(group_id, school_id)) STORED` — ✅ G3: مالك النطاق؛ هدف FK من `enrollments` |
 | الأعمدة المشتركة | | | §0.3 |
 
 **القيود:**
@@ -790,6 +842,8 @@ $$;
 
 ---
 
+> **قيود منفذة غير مسرودة أعلاه (مراجعة Stage 1، 2026-10-01):** `students_temporary_id_chk` (`temporary_id ~ '^TMP-[0-9]{4}-[0-9]{6,}$'` — صيغة O3)، `students_official_blank_chk` (`official_id` غير فارغ إن وُجد)، `students_id_scope_uq` (`UNIQUE (id, identity_scope_id)` — هدف FK من `enrollments`، G3).
+
 ### 2.18 `guardians` — [I]
 
 | العمود | النوع | NULL | ملاحظات |
@@ -867,7 +921,9 @@ Many-to-Many. كل أولياء الأمور المرتبطين بالطالب �
 | `academic_year_id` | uuid | NOT NULL | FK |
 | `grade_level_id` | uuid | NOT NULL | FK |
 | `section_id` | uuid | NOT NULL | FK |
-| `enrollment_no` | text | NULL | رقم قيد اختياري داخل المدرسة |
+| `identity_scope_id` | uuid | NOT NULL | ✅ G3 — نطاق هوية الطالب (يطابق `students.identity_scope_id` بالـFK المركّب) |
+| `scope_owner_id` | uuid | NOT NULL | ✅ G3 — مالك نطاق المدرسة (يطابق `schools.scope_owner_id` و`identity_scopes.owner_id`) |
+| `enrollment_no` | text | NULL | رقم قيد اختياري داخل المدرسة؛ `enrollments_no_blank_chk` |
 | `status` | text | NOT NULL | `active`, `withdrawn`, `transferred`, `completed` |
 | `effective_from` | date | NOT NULL | |
 | `effective_to` | date | NULL | |
@@ -999,6 +1055,8 @@ ALTER TABLE academic_years ADD CONSTRAINT academic_years_no_overlap
 
 ---
 
+> (مراجعة Stage 1، 2026-10-01): `grade_levels_sequence_chk` — `CHECK (sequence_no > 0)` كما في `stages` و`terms`.
+
 ### 2.25 `sections` — [S]
 
 | العمود | النوع | NULL | ملاحظات |
@@ -1124,7 +1182,7 @@ CREATE TRIGGER audit_log_no_truncate
 | **T5** | `audit_log`: رفض UPDATE/DELETE | حماية مطلقة |
 | **T6** | ختم `created_by`/`updated_at`/`updated_by` | عام؛ يتجاهل قيم العميل فيمنع تزوير النسب (Gate B) |
 | **T7** | تسجيل التغييرات الحساسة في `audit_log` | trigger عام معمم (Gate C9) |
-| **T8** | `membership_roles` و`role_permissions` (INSERT و DELETE): الصلاحيات ⊆ صلاحيات الفاعل | يعتمد على هوية الفاعل. **Gate B (F5):** كان على `membership_roles` فقط، فيُلتف عليه بإسناد دور فارغ ثم ملئه — `RLS_MODEL_v1.md` §10.2.1 |
+| **T8** | `membership_roles` و`role_permissions` (INSERT و DELETE)، **و`membership_scopes` (INSERT — M19: منح النطاق لا يمكّن الهدف فوق صلاحيات المانح)**: الصلاحيات ⊆ صلاحيات الفاعل | يعتمد على هوية الفاعل. **Gate B (F5):** كان على `membership_roles` فقط، فيُلتف عليه بإسناد دور فارغ ثم ملئه — `RLS_MODEL_v1.md` §10.2.1 |
 | **T9** | إنشاء `identity_scopes` تلقائياً للمجموعة وللمدرسة المستقلة | ✅ G9 — وجود صف تابع إلزامي |
 
 **القائمة النهائية بعد Gate B: T5، T6، T7، T8، T9** — خمسة فقط. كل trigger يحتاج اختبار pgTAP. التصنيف الكامل لكل invariant وآليته: `DB_IMPLEMENTATION_SPEC_v1.md` §3.
