@@ -1,6 +1,6 @@
 # Gate F3 — سياق الـhost (Subdomain → Tenant/School Context)
 
-**الحالة:** ✅ منفذ + مراجعة F3 مطبَّقة (M30b، 2026-10-01) — يُغلق بنجاح CI · **Migrations:** M30 `tenant_host_context`، M30b `host_dns_labels` · **الاختبارات:** pgTAP 1417 (30: 49، 30b: 22) · pytest 225 (F3: 95) · Vitest 87 · Playwright 21
+**الحالة:** 🔒 **F3 CLOSED** (2026-10-01، CI `d3d12b1`) — مراجعة F3 مطبَّقة (M30b) · **Migrations:** M30 `tenant_host_context`، M30b `host_dns_labels` · **الاختبارات:** pgTAP 1417 (30: 49، 30b: 22) · pytest 225 (F3: 95) · Vitest 87 · Playwright 21
 
 ---
 

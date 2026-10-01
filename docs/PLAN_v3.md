@@ -249,7 +249,7 @@
 - [ ] قالب اختبار pgTAP للعزل بين مدرستين
 - [ ] trigger عام لتسجيل التغييرات في `audit_log`
 - [x] المصادقة: دخول الموظفين مع Supabase Auth وJWT؛ حساب الطالب مستقل وفق القرار المعتمد، وحساب ولي الأمر يدعم OTP/كلمة المرور وفق إعداد المدرسة — 🔒 F2 مغلق (CI `860a14a`) (`docs/F2_AUTHENTICATION.md`): D1 🔒، D2 🔒، D3 🔒 (M26)، D4 ✅ (M27)
-- [x] تحديد المدرسة من الـ subdomain — ✅ F3 (M30، `docs/F3_HOST_CONTEXT.md`)
+- [x] تحديد المدرسة من الـ subdomain — 🔒 F3 مغلق (M30، M30b؛ CI `d3d12b1`؛ `docs/F3_HOST_CONTEXT.md`)
 - [x] هيكل تطبيق الويب: RTL، خط عربي (IBM Plex Sans Arabic أو Cairo)، قائمة تنقل حسب الدور، ملفات الترجمة — 🔒 F1 مغلق (`docs/F1_WEB_APP.md`، CI `25570ce`)
 - [x] هيكل FastAPI مع التحقق من Supabase JWT واستخراج المدرسة والدور — 🔒 F4 مغلق (`docs/F4_API_SECURITY.md`، CI `addae39`)؛ السياق يُشتق في DB لا من الـJWT
 - [ ] seed لمدرستين وهميتين بمستخدمين من كل الأدوار

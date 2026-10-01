@@ -3,7 +3,7 @@
 **المشروع:** نظام إدارة المدارس متعدد المستأجرين (Multi-Tenant SMS)
 **تاريخ الإنشاء:** 2026-09-22
 **آخر تحديث:** 2026-09-23
-**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (**Gate C 🔒 مكتمل: M01–M23**؛ **Gate E 🔒 مغلق تقنياً: E1–E6** — Production Backup Policy TBD؛ Gate F: **F4 🔒**؛ **F2 🔒**؛ **F1 🔒**؛ **F3 منفذ (M30، M30b)** — مراجعة F3 مطبَّقة، يُغلق بنجاح CI)
+**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (**Gate C 🔒 مكتمل: M01–M23**؛ **Gate E 🔒 مغلق تقنياً: E1–E6** — Production Backup Policy TBD؛ Gate F: **F4 🔒**؛ **F2 🔒**؛ **F1 🔒**؛ **F3 🔒** — **Gate F 🔒 مكتمل: F1–F4**)
 
 ---
 
@@ -480,7 +480,7 @@ Platform Admin → Role → Permission + Platform-level scope
       🔒 **مغلق (2026-09-27، CI `860a14a`)** — D1/M24، D2/M25، D3/M26، D4/M27 + E2E لكل الأدوار (11 حساباً). لا إعادة فتح لـD1–D4.
       `docs/F2_AUTHENTICATION.md` — الترتيب: M24 → D1 → D2 → D3 Spike → D3 → D4 → E2E. **D1/M24 🔒** (CI `3f4ae05`؛ 24: 26/26، pytest 68/68)؛ **D2/M25 🔒** (CI `62c76b1`؛ 25: 36، pytest 81/81)؛ D3 Spike؛ D4 دلالات A/B/C.
 - [x] **F3.** تحديد المدرسة من الـsubdomain (سياق واجهة فقط — لا يمنح أي صلاحية).
-      ✅ **منفذ (2026-10-01) — بانتظار المراجعة** (`docs/F3_HOST_CONTEXT.md`): M30 `host_label` + `login_context` (المحلّل الوحيد)؛ FastAPI يشتق سياق الدخول من `Origin` وحده (لا حقول سياق في الجسم — `422`)؛ CORS مرسَّخ بالمحلل نفسه؛ الواجهة من `window.location.hostname` وأداة التطوير أُزيلت؛ متجهات مشتركة `docs/contracts/host_context_vectors.json` للواجهة والـAPI وقيد DB. pgTAP 1395 (30: 49)، pytest 213، Vitest 77، Playwright 21؛ 22 ضابطاً سلبياً.
+      🔒 **مغلق (2026-10-01، CI `d3d12b1`)** — لا إعادة فتح لـF1/F2/F4. (`docs/F3_HOST_CONTEXT.md`): M30 `host_label` + `login_context` (المحلّل الوحيد)؛ FastAPI يشتق سياق الدخول من `Origin` وحده (لا حقول سياق في الجسم — `422`)؛ CORS مرسَّخ بالمحلل نفسه؛ الواجهة من `window.location.hostname` وأداة التطوير أُزيلت؛ متجهات مشتركة `docs/contracts/host_context_vectors.json` للواجهة والـAPI وقيد DB. pgTAP 1395 (30: 49)، pytest 213، Vitest 77، Playwright 21؛ 22 ضابطاً سلبياً.
       ✅ **مراجعة F3 (2026-10-01):** البنود 1 و4 معتمدة؛ **M30b** يشدّد `host_label` و`schools.slug` إلى labels DNS (لا شرطة ختامية)؛ اختبار مستقل لـ«الطالب من host مدرسة» في FastAPI. pgTAP 1417 (30b: 22)، pytest 225، Vitest 87، Playwright 21.
 - [x] **F4.** هيكل FastAPI: التحقق من Supabase JWT، استخراج Tenant/Scope/Role، طبقة تفويض مشتركة.
       🔒 **مغلق (2026-09-26، CI `addae39`)** (`docs/F4_API_SECURITY.md`): JWT ← FastAPI ← DB (RLS + `app.*`) ← البيانات؛ لا تفويض موازٍ في FastAPI. اتصال `authenticator`؛ P3 بمفتاح التصدير نفسه عبر `has_permission` + `can_access_school`؛ N5 مُدقَّق ذرياً؛ 48/48 pytest + 4 ضوابط سلبية؛ خطوة CI.
@@ -636,6 +636,7 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | ✅ **C3** — اعتماد `platform_admin_roles → platform_admin_role_permissions → permissions`؛ `is_platform_admin()` اختبار هوية فقط، و`has_permission()` توحّد المسارين. الكتالوج 73 مفتاحاً بعد K4 (`tenant.create`) | `docs/ROLE_PERMISSION_SEED_v1.md`, `AUTHORIZATION_MATRIX_v1.md`, `docs/DATA_DICTIONARY_v1.md`, `CLAUDE.md` |
 | 2026-09-22 | ✅ **A3** — RLS Model: 7 دوال، سياسات كل الجداول، حل تعارض FORCE RLS/recursion، 30 اختبار pgTAP، و6 بنود معلّقة | `docs/RLS_MODEL_v1.md`, `CLAUDE.md` |
 | 2026-09-23 | ✅ **A5** — اعتماد A1–A4 كـFoundation Design Baseline | — |
+| 2026-10-01 | 🔒 **F3 مغلق و Gate F مكتمل (F1–F4)** — CI أخضر (`d3d12b1`، https://github.com/ahmedhmmad/sMas/actions/runs/36872502996)؛ pgTAP 1417، pytest 225، Vitest 87، Playwright 21؛ البنود الأربعة لمراجعة F3 محسومة | `CLAUDE.md`, `docs/F3_HOST_CONTEXT.md`, `docs/PLAN_v3.md` |
 | 2026-10-01 | ✅ **مراجعة F3 + M30b** — `host_label` و`schools.slug` labels DNS (فحص البيانات القائمة قبل القيد، بلا تصحيح تلقائي)؛ المحللان والمتجهات على القاعدة نفسها؛ اختبار مستقل لـinvariant دخول الطالب؛ pgTAP 1417، pytest 225، Vitest 87، Playwright 21 | `supabase/migrations/20261001120000_host_dns_labels.sql`, `supabase/tests/30b_host_dns.test.sql`, `services/api/app/host_context.py`, `services/api/tests/test_host_context.py`, `apps/web/src/context/hostContext{,.test}.ts`, `docs/contracts/host_context_vectors.json`, `docs/*`, `CLAUDE.md` |
 | 2026-10-01 | ✅ **F3 + M30** — سياق الـhost: `host_label`، `login_context`، الدخول من `Origin` وحده بلا حقول سياق، CORS مرسَّخ بالمحلل نفسه، الواجهة من الـhost وإزالة أداة التطوير؛ pgTAP 1395، pytest 213، Vitest 77، Playwright 21؛ ضوابط سلبية DB 3 / API 8 / Web 6 (+ ملاحظة دفاع بطبقتين) | `supabase/migrations/20261001090000_tenant_host_context.sql`, `supabase/tests/{03..29,30}_*.test.sql`, `supabase/seed.sql`, `services/api/**`, `apps/web/**`, `docs/contracts/host_context_vectors.json`, `docs/F3_HOST_CONTEXT.md`, `docs/*`, `.github/workflows/ci.yml`, `.env.example`, `CLAUDE.md` |
 | 2026-09-28 | 🔒 **F1 مغلق** — CI أخضر (`25570ce`، https://github.com/ahmedhmmad/sMas/actions/runs/36353813939)؛ pgTAP 1346، pytest 132، Vitest 32، Playwright 16 | `CLAUDE.md`, `docs/F1_WEB_APP.md`, `docs/PLAN_v3.md` |
