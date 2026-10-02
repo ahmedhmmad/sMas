@@ -40,8 +40,8 @@ insert into public.schools (id, platform_tenant_id, group_id, school_code, name,
 
 -- SA: سنة مغلقة، سنة نشطة، سنة مخططة (بفصلين)، سنة مخططة ثانية للانتقالات؛ SB: سنة مخططة
 insert into public.academic_years (id, school_id, name, start_date, end_date, status) values
-  ('c0000000-0000-0000-0000-000000000001', '5a000000-0000-0000-0000-000000000001', '2025/2026', '2025-09-01', '2026-06-30', 'closed'),
-  ('ac000000-0000-0000-0000-000000000002', '5a000000-0000-0000-0000-000000000001', '2026/2027', '2026-09-01', '2027-06-30', 'active'),
+  ('c0000000-0000-0000-0000-000000000001', '5a000000-0000-0000-0000-000000000001', '2025/2026', '2025-09-01', '2026-06-30', 'planned'),   -- تُغلق أدناه بعد إدراج فصلها (T11)
+  ('ac000000-0000-0000-0000-000000000002', '5a000000-0000-0000-0000-000000000001', '2026/2027', '2026-09-01', '2027-06-30', 'planned'),
   ('b0000000-0000-0000-0000-000000000003', '5a000000-0000-0000-0000-000000000001', '2027/2028', '2027-09-01', '2028-06-30', 'planned'),
   ('b1000000-0000-0000-0000-000000000004', '5a000000-0000-0000-0000-000000000001', '2028/2029', '2028-09-01', '2029-06-30', 'planned'),
   ('bb000000-0000-0000-0000-000000000005', '5b000000-0000-0000-0000-000000000002', '2026/2027', '2026-09-01', '2027-06-30', 'planned');
@@ -49,6 +49,10 @@ insert into public.terms (academic_year_id, school_id, year_start_date, year_end
   ('b0000000-0000-0000-0000-000000000003', '5a000000-0000-0000-0000-000000000001', '2027-09-01', '2028-06-30', 'T1', 1, '2027-09-01', '2027-12-20'),
   ('b0000000-0000-0000-0000-000000000003', '5a000000-0000-0000-0000-000000000001', '2027-09-01', '2028-06-30', 'T2', 2, '2028-01-10', '2028-06-20'),
   ('c0000000-0000-0000-0000-000000000001', '5a000000-0000-0000-0000-000000000001', '2025-09-01', '2026-06-30', 'T1', 1, '2025-09-01', '2026-06-20');
+
+update public.academic_years set status = 'active' where id = 'c0000000-0000-0000-0000-000000000001';
+update public.academic_years set status = 'closed' where id = 'c0000000-0000-0000-0000-000000000001';
+update public.academic_years set status = 'active' where id = 'ac000000-0000-0000-0000-000000000002';
 
 -- الفاعلون: school_admin المبذور (M23) — adminSA على SA، adminSB على SB، adminX في T2
 create function pg_temp.member(p_id uuid, p_tenant uuid, p_school uuid) returns void
@@ -117,7 +121,7 @@ select pg_temp.run('i.own',     'e2000000-0000-0000-0000-000000000002', $q$updat
 -- ============ التدقيق ============
 select pg_temp.rec('audit.rename', $q$select actor_type || '|' || action || '|' || (old_values ->> 'name') || '>' || (new_values ->> 'name') || '|' || (school_id = '5a000000-0000-0000-0000-000000000001')::text
   from public.audit_log where entity_type = 'academic_years' and entity_id = 'ac000000-0000-0000-0000-000000000002' and action = 'update' and new_values ->> 'name' = '2026-27'$q$);
-select pg_temp.rec('audit.rejected', $q$select count(*)::text from public.audit_log where entity_type = 'academic_years' and entity_id = 'c0000000-0000-0000-0000-000000000001' and action <> 'insert'$q$);
+select pg_temp.rec('audit.rejected', $q$select count(*)::text from public.audit_log where entity_type = 'academic_years' and entity_id = 'c0000000-0000-0000-0000-000000000001' and actor_type = 'tenant_user'$q$);
 
 -- =====================================================================
 select plan(5 + 4 + 5 + 8 + 8 + 3 + 2 + 2);
