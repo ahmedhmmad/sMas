@@ -3,7 +3,7 @@
 **المشروع:** نظام إدارة المدارس متعدد المستأجرين (Multi-Tenant SMS)
 **تاريخ الإنشاء:** 2026-09-22
 **آخر تحديث:** 2026-10-03
-**المرحلة الحالية:** 🔒 **المرحلة 1 — الأساس (Foundation) مكتملة (2026-10-02)** — **المرحلة 2A (School Setup): P2-A ✅ معتمدة · P2-B جارية (M33 ✅، M34 ✅، M35 ✅)** (`docs/PHASE2_SCHOOL_SETUP.md`) (السجل: **Gate C 🔒 مكتمل: M01–M23**؛ **Gate E 🔒 مغلق تقنياً: E1–E6** — Production Backup Policy TBD؛ Gate F: **F4 🔒**؛ **F2 🔒**؛ **F1 🔒**؛ **F3 🔒** — **Gate F 🔒 مكتمل: F1–F4**؛ **🔒 Stage 1 مغلق** — المراجعة R1–R10 + M31/M32، CI `f41b0ff`)
+**المرحلة الحالية:** 🔒 **المرحلة 1 — الأساس (Foundation) مكتملة (2026-10-02)** — **المرحلة 2A (School Setup): P2-A ✅ معتمدة · P2-B جارية (M33 ✅، M34 ✅، M35 ✅، M36 ✅)** (`docs/PHASE2_SCHOOL_SETUP.md`) (السجل: **Gate C 🔒 مكتمل: M01–M23**؛ **Gate E 🔒 مغلق تقنياً: E1–E6** — Production Backup Policy TBD؛ Gate F: **F4 🔒**؛ **F2 🔒**؛ **F1 🔒**؛ **F3 🔒** — **Gate F 🔒 مكتمل: F1–F4**؛ **🔒 Stage 1 مغلق** — المراجعة R1–R10 + M31/M32، CI `f41b0ff`)
 
 ---
 
@@ -153,11 +153,11 @@ app.can_access_*() + app.has_permission() تبني عليه
 
 ## 2. حالة المستودع
 
-**الحالة:** المستودع على GitHub: `ahmedhmmad/sMas` (`main`). CI أخضر. 40 migration (M01–M35)؛ pgTAP 1656 (39 ملفاً)، pytest 225، Vitest 87، Playwright 21.
+**الحالة:** المستودع على GitHub: `ahmedhmmad/sMas` (`main`). CI أخضر. 41 migration (M01–M36)؛ pgTAP 1702 (40 ملفاً)، pytest 225، Vitest 87، Playwright 21.
 
 ```
 /docs                 وثائق التصميم + وثيقة لكل Gate + STAGE1_REVIEW  ✅
-/supabase             40 migration + 39 ملف pgTAP + seed.sql   ✅
+/supabase             41 migration + 40 ملف pgTAP + seed.sql   ✅
 /spikes/m00           تحقق V1–V8 — ليست migrations          ✅
 /scripts              check-secrets، podman-relay، restore-test، db-fingerprint  ✅
 /.github/workflows    ci.yml                               ✅
@@ -400,6 +400,7 @@ Platform Admin → Role → Permission + Platform-level scope
 | M33 | `academic_year_guard` (Phase 2A / P2-B — ف4) | ✅ 37/37 (1520/1520) | T10 `BEFORE UPDATE` على `academic_years`: `planned` الاسم والتواريخ، `active` الاسم فقط، `closed` immutable (حتى no-op)، الانتقالات المعلنة فقط، `school_id` ثابت — على كل مسار (العميل، دوال M21، المسار المميّز)؛ الدالة `SECURITY INVOKER` بلا EXECUTE لأدوار الـAPI؛ `08` نُقل اختبار I35 إلى سنة `planned`؛ `31`: +trigger و+دالة (72)؛ 9 ضوابط سلبية |
 | M34 | `term_lifecycle` (Phase 2A / P2-B — ف5) | ✅ 70/70 (1590/1590) | `terms_active_uq` (فصل نشط واحد لكل سنة)؛ T11 `BEFORE INSERT OR UPDATE` `SECURITY DEFINER` (يولد `planned`، الانتقالات المعلنة، النشط داخل سنة نشطة، `active` الاسم فقط، `closed` وفصول السنة المغلقة مجمدة، هوية الفصل ثابتة)؛ `activate_term`/`close_term` بـ`term.manage`؛ `close_academic_year` يرفض مع فصل نشط؛ `status` خارج منح العميل؛ الصلاحية والنطاق في RLS والدوال لا في الحارس (مُثبت)؛ allowlist +2، `31`: 75 دالة؛ 22 ضابطاً سلبياً كلٌّ يضرب حارسه |
 | M35 | `structure_guards` (Phase 2A / P2-B — ف6، Q7) | ✅ 66/66 (1656/1656) | T12: ثلاثة حراس `SECURITY DEFINER` — شعبة نشطة (سنة غير مغلقة) ⇒ صف نشط ⇒ مرحلة نشطة من الجهتين؛ هوية الشعبة (مدرسة، سنة، صف) ثابتة؛ بنية السنة المغلقة مجمدة؛ لا تعطيل لشعبة فيها تسجيلات نشطة؛ `school_id` خارج UPDATE في الجداول الثلاثة؛ الحالة تبقى عموداً بـ`*.manage` (لا دالة ولا مفتاح)؛ `16`: منع النقل بمنح العمود و`WITH CHECK` طبقة ثانية؛ `31`: 78 دالة؛ 21 ضابطاً سلبياً |
+| M36 | `school_slug` (Phase 2A / P2-B — ف3، Q6) | ✅ 46/46 (1702/1702) | `slug` خارج منح UPDATE؛ `app.set_school_slug` المكان الوحيد (`school.update` + نطاق + سبب + مدرسة `active`)؛ الصيغة والتفرد بالقيدين القائمين وحدهما؛ الفشل بلا أثر (لا slug ولا تدقيق ولا سياق عالق)؛ القديم يتحرر فوراً؛ **العضويات والنطاقات ونطاقات الهوية وصف المدرسة متطابقة قبل وبعد** — الـhost يتبع الـslug والتفويض لا يتحرك؛ `30b` عبر الدالة؛ `31`: 79 دالة؛ 14 ضابطاً سلبياً |
 
 **✅ H1 محسوم (2026-09-24) — السماح، بلا Group Scope:**
 > **H1 — A secretary may register a new student in a school that belongs to a group. The secretary requires `student.create` with school scope; this does not grant group scope. When the target school belongs to a group, the student's identity scope is derived from the target school's group and is not client-selectable. The student's enrollment is created for the target school in the same controlled provisioning operation.**
@@ -525,7 +526,7 @@ Platform Admin → Role → Permission + Platform-level scope
 | # | المرحلة | تعتمد على | الحالة |
 |---|---|---|---|
 | 1 | الأساس (Foundation) | — | 🔒 مكتملة (2026-10-02) |
-| 2 | إعداد المدرسة | 1 | 🔄 **2A**: P2-A ✅ · P2-B 🔄 (M33 ✅، M34 ✅، M35 ✅، M36–M37 ⬜) · P2-C ⬜ · P2-D ⬜ · P2-E ⬜ — **2B** ⬜ بخطة مستقلة |
+| 2 | إعداد المدرسة | 1 | 🔄 **2A**: P2-A ✅ · P2-B 🔄 (M33 ✅، M34 ✅، M35 ✅، M36 ✅، M37 ⬜) · P2-C ⬜ · P2-D ⬜ · P2-E ⬜ — **2B** ⬜ بخطة مستقلة |
 | 3 | الموظفون والتكليفات | 2 | ⬜ |
 | 4 | القبول والتسجيل والطلاب | 2 | ⬜ |
 | 5 | الحضور وإشعارات واتساب | 3، 4 | ⬜ |
@@ -679,6 +680,7 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | ✅ **C3** — اعتماد `platform_admin_roles → platform_admin_role_permissions → permissions`؛ `is_platform_admin()` اختبار هوية فقط، و`has_permission()` توحّد المسارين. الكتالوج 73 مفتاحاً بعد K4 (`tenant.create`) | `docs/ROLE_PERMISSION_SEED_v1.md`, `AUTHORIZATION_MATRIX_v1.md`, `docs/DATA_DICTIONARY_v1.md`, `CLAUDE.md` |
 | 2026-09-22 | ✅ **A3** — RLS Model: 7 دوال، سياسات كل الجداول، حل تعارض FORCE RLS/recursion، 30 اختبار pgTAP، و6 بنود معلّقة | `docs/RLS_MODEL_v1.md`, `CLAUDE.md` |
 | 2026-09-23 | ✅ **A5** — اعتماد A1–A4 كـFoundation Design Baseline | — |
+| 2026-10-03 | ✅ **M36 — تغيير `slug` بدالة متحكَّم بها** — pgTAP 1702 (36: 46)، pytest 225، Vitest 87؛ الاستعادة PASS (نظيفة وبالـseed)؛ 14 ضابطاً سلبياً | `supabase/migrations/20261003110000_school_slug.sql`, `supabase/tests/{20,30b,31,36}_*.test.sql`, `docs/{PHASE2_SCHOOL_SETUP,DATA_DICTIONARY_v1,DB_IMPLEMENTATION_SPEC_v1,F3_HOST_CONTEXT}.md`, `CLAUDE.md` |
 | 2026-10-03 | ✅ **M35 — حواجز البنية** — T12 على الشعب والصفوف والمراحل؛ pgTAP 1656 (35: 66)، pytest 225، Vitest 87؛ الاستعادة PASS (نظيفة وبالـseed)؛ 21 ضابطاً سلبياً. **ملاحظة للمرحلة 4:** `provision_student` و`transfer_enrollment` لا تفحصان حالة الشعبة ولا السنة — التسجيل في شعبة معطّلة أو سنة مغلقة قاعدة قبول تُحسم هناك | `supabase/migrations/20261003090000_structure_guards.sql`, `supabase/tests/{16,20,31,35}_*.test.sql`, `docs/{PHASE2_SCHOOL_SETUP,DATA_DICTIONARY_v1,DB_IMPLEMENTATION_SPEC_v1,RLS_MODEL_v1}.md`, `CLAUDE.md` |
 | 2026-10-02 | ✅ **M34 — دورة حياة الفصول** — فهرس الفصل النشط الواحد، T11، `activate_term`/`close_term`، إغلاق السنة يُرفض مع فصل نشط؛ pgTAP 1590 (34: 70)، pytest 225، Vitest 87؛ الاستعادة PASS (نظيفة وبالـseed)؛ 22 ضابطاً سلبياً | `supabase/migrations/20261002140000_term_lifecycle.sql`, `supabase/tests/{20,31,33,34}_*.test.sql`, `docs/{PHASE2_SCHOOL_SETUP,DATA_DICTIONARY_v1,DB_IMPLEMENTATION_SPEC_v1,RLS_MODEL_v1}.md`, `CLAUDE.md` |
 | 2026-10-02 | ✅ **Phase 2A — P2-A معتمدة + M33** — وثيقة التصميم و Q1–Q9 معتمدة؛ T10 (حارس السنة الأكاديمية)؛ pgTAP 1520 (33: 37)، pytest 225، Vitest 87؛ الاستعادة PASS (نظيفة وبالـseed)؛ 9 ضوابط سلبية | `supabase/migrations/20261002120000_academic_year_guard.sql`, `supabase/tests/{08,31,33}_*.test.sql`, `docs/{PHASE2_SCHOOL_SETUP,DATA_DICTIONARY_v1,DB_IMPLEMENTATION_SPEC_v1,RLS_MODEL_v1,PLAN_v3}.md`, `CLAUDE.md` |

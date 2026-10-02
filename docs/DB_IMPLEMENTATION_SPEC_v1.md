@@ -356,7 +356,7 @@ PA = سياق Platform (`app.has_platform_permission(...)`) — G10. النص ا
 |---|---|---|
 | `platform_tenants` | — | `name` |
 | `groups` | `platform_tenant_id, group_code, name` | `name` |
-| `schools` | `platform_tenant_id, group_id, school_code, name, slug, timezone` | `name, slug, timezone` |
+| `schools` | `platform_tenant_id, group_id, school_code, name, slug, timezone` | `name, timezone` — **✅ M36:** `slug` حُذف؛ يتغير بـ`app.set_school_slug` |
 | `profiles` | — | `display_name` |
 | `memberships` | — | — |
 | `membership_roles` | كل الأعمدة عدا `granted_at, granted_by` | — |
@@ -509,6 +509,7 @@ grant execute on function app.archive_student(uuid, text) to authenticated;
 | `app.provision_guardian(student_id, ...)` | guardian + `student_guardians` (**✅ M31: `relationship_source = 'provisioned'`** — المصدر الوحيد لها) + (family) | `guardian.create` + `guardian.link` + `student_in_scope` |
 | `app.provision_account(kind, id, auth_user_id)` | profile + membership + دور + (نطاق) لموظف/ولي أمر قائم | صلاحية المورد + علاقة في النطاق |
 | `app.platform_read_tenants([tenant_id])` ✅ M29 (F1/W1) | قراءة Platform Admin لبيانات Tenant (N5) — القراءة والتدقيق عبارة واحدة | سياق المنصة (وإلا 42501) + `has_platform_permission('tenant.read')` (وإلا لا صفوف ولا تدقيق)؛ لا سياسة قراءة مباشرة للمنصة على الجداول الثلاثة |
+| `app.set_school_slug(school, slug, reason)` ✅ M36 (Phase 2A) | تغيير عنوان المدرسة — يكتب `slug` وحده | `school.update` (لا مفتاح جديد) + `can_access_school` + سبب + مدرسة `active` + قيمة مختلفة؛ الصيغة والتفرد بالقيدين `schools_slug_chk` و`schools_tenant_slug_uq`؛ تدقيق `change_slug`؛ لا أثر على العضويات والنطاقات وعلاقة المدرسة بالـTenant/Group |
 | `app.set_guardian_first_login_mode(school, mode, reason)` ✅ M27 (F2/D4) | تغيير نمط المدرسة | `security.manage` + `can_access_school` + سبب |
 | `app.begin_guardian_temporary_password` / `app.arm_guardian_temporary_password` ✅ M27 (C) | إصدار كلمة مؤقتة لحساب غير مُستكمل | `security.manage` + `guardian_in_scope` + **✅ M31 (S1): ارتباط `provisioned` نشط بطالب في النطاق الحالي** (الربط المباشر `direct` لا يكفي — صلاحية الربط ≠ إدارة الحساب)؛ الفحص في `app.guardian_account_for_issue`؛ fail-closed بين الخطوتين |
 | `app.otp_issue` / `app.otp_verify` / `app.password_login_account` / `app.password_login_result` ✅ M26 (F2/D3)؛ M27: `otp_*` بمعامل المدرسة (اختياري) وبوابة onboarding؛ **M30: المعامل الأول `host_label` (لا `tenant_code`) ومدرسة السياق اختيارية للأربع** | لا إنشاء هوية — دخول حسابات Tenant قبل JWT (الفئة 4) | EXECUTE لـ`service_role` وحده؛ المحلّل الداخلي `login_account` و`login_outcome` لا لأحد؛ I1؛ `docs/F2_AUTHENTICATION.md` §4.2 |
@@ -759,6 +760,7 @@ helpers ─► state fns ─► provisioning fns ─► reference data
 | # | الـMigration | المحتوى | اختبار pgTAP |
 |---|---|---|---|
 | M31 ✅ | `security_relationship_source` | **S1:** `student_guardians.relationship_source` (`direct`\|`provisioned`، افتراضي `direct`، خارج GRANT)؛ `provision_guardian` تكتب `provisioned`؛ `guardian_account_for_issue` تشترط ارتباطاً `provisioned` نشطاً بطالب في النطاق الحالي. **S2:** `students_update` WITH CHECK += `family_id IS NULL OR family_in_scope(family_id)` | `32_security_relationship_source` ✅ 40/40 |
+| M36 ✅ | `school_slug` (Phase 2A / P2-B) | سحب UPDATE(`slug`) من العميل؛ `app.set_school_slug` المكان الوحيد لتغييره (Q6: القديم يتحرر فوراً، لا جدول) | `36_school_slug` ✅ 46/46؛ `20` (سجل + allowlist +1)؛ `31` (79 دالة)؛ `30b`: مسار العميل عبر الدالة |
 | M35 ✅ | `structure_guards` (Phase 2A / P2-B) | T12 على `sections`/`grade_levels`/`stages`؛ سجل الأعمدة (هوية الصف خارج UPDATE)؛ فحص البيانات القائمة قبل الحواجز | `35_structure_guards` ✅ 66/66؛ `20` (سجل ×3)؛ `31` (+3 triggers، 78 دالة)؛ `16`: منع نقل المرحلة صار بمنح العمود والـ`WITH CHECK` طبقة ثانية |
 | M34 ✅ | `term_lifecycle` (Phase 2A / P2-B) | `terms_active_uq`؛ T11؛ `activate_term` / `close_term` (`term.manage`، لا مفتاح جديد)؛ `close_academic_year` يرفض مع فصل `active`؛ سجل أعمدة `terms`؛ فحص البيانات القائمة قبل الفهرس (fail before mutation) | `34_term_lifecycle` ✅ 70/70؛ `20` (سجل + allowlist +2)؛ `31` (+trigger، +3 دوال = 75)؛ `33` fixture بمسار الإغلاق المشروع |
 | M33 ✅ | `academic_year_guard` (Phase 2A / P2-B) | T10: `planned` الاسم والتواريخ · `active` الاسم فقط · `closed` immutable · لا reopening · `school_id` ثابت؛ الدالتان `activate/close_academic_year` تمران به بلا تعديل | `33_academic_year_guard` ✅ 37/37؛ `31` (+trigger، +دالة)؛ `08` على سنة `planned` لاختبار I35 |

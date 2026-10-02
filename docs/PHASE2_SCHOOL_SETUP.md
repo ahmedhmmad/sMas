@@ -1,7 +1,7 @@
 # Phase 2A — School Setup: وثيقة التصميم (P2-A)
 
 **التاريخ:** 2026-10-02
-**الحالة:** ✅ **معتمدة (2026-10-02)** مع Q1–Q9 كما اقتُرحت — P2-B جارية: **M33 ✅ · M34 ✅ · M35 ✅**
+**الحالة:** ✅ **معتمدة (2026-10-02)** مع Q1–Q9 كما اقتُرحت — P2-B جارية: **M33 ✅ · M34 ✅ · M35 ✅ · M36 ✅**
 **خط الأساس:** `39ba260` — 37 migration (M01–M32)، Phase 1 مغلقة
 **المرجع:** خطة النطاق المعتمدة والقرارات 1–11 (2026-10-02، `PLAN_v3.md` §9)؛ `DB_IMPLEMENTATION_SPEC_v1.md` §5.0 (عقد الدوال المتحكَّم بها)؛ `RLS_MODEL_v1.md` §7؛ `F4_API_SECURITY.md`؛ `F1_WEB_APP.md`
 
@@ -197,7 +197,7 @@ AND exists section (school, status = 'active', في تلك السنة النشط
 | المدرسة مقروءة `FOR UPDATE` و`can_access_school(id)` | `P0002` |
 | المدرسة `active` (المؤرشفة لا يُغيَّر عنوانها) | `22023` |
 | الـslug الجديد يختلف عن الحالي | `22023` |
-| صيغة label DNS — القيد القائم `schools_slug_chk` | `23514` |
+| صيغة label DNS — القيد القائم `schools_slug_chk` (لا نسخة ثانية من القاعدة داخل الدالة، ولا تطبيع للمدخل) | `23514` |
 | التفرد داخل الـTenant — القيد القائم `schools_tenant_slug_uq` | `23505` |
 
 تدقيق بفعل `change_slug` (القديم والجديد والسبب) في المعاملة نفسها. **لا أثر على التفويض:** `school_id` والملكية والعضويات والنطاقات لا تتغير؛ الـhost سياق لا سلطة (F3). الأثر التشغيلي: العنوان القديم يتوقف فوراً (Q6)، والجلسات القائمة لا تتأثر.
@@ -364,7 +364,7 @@ verified JWT → معاملة `authenticated` واحدة (as_user) → RLS / د�
 | M33 ✅ | `academic_year_guard` | T10 (ف4) — `BEFORE UPDATE`، `SECURITY INVOKER`؛ INSERT خارج الحارس (`status` ليس في منح INSERT) | `33_academic_year_guard` ✅ 37/37 (1520/1520)؛ 9 ضوابط سلبية |
 | M34 ✅ | `term_lifecycle` | فهرس `terms_active_uq`؛ T11 (`BEFORE INSERT OR UPDATE`، `SECURITY DEFINER` — يقرأ حالة السنة أياً كان ما تراه RLS ويقفلها `FOR SHARE`)؛ `activate_term`، `close_term`؛ استبدال `close_academic_year`؛ `status` وهوية الفصل خارج منح العميل (ف5) | `34_term_lifecycle` ✅ 70/70 (1590/1590)؛ 22 ضابطاً سلبياً |
 | M35 ✅ | `structure_guards` | T12: ثلاثة حراس `SECURITY DEFINER` (`sections`، `grade_levels`، `stages`)؛ هوية الصف خارج UPDATE في الجداول الثلاثة (ف6، Q7) | `35_structure_guards` ✅ 66/66 (1656/1656)؛ 21 ضابطاً سلبياً |
-| M36 | `school_slug` | سحب UPDATE(`slug`)؛ `set_school_slug` (ف3) | `36_school_slug` |
+| M36 ✅ | `school_slug` | سحب UPDATE(`slug`)؛ `set_school_slug` (ف3، Q6) — الصيغة والتفرد بالقيدين القائمين وحدهما | `36_school_slug` ✅ 46/46 (1702/1702)؛ 14 ضابطاً سلبياً |
 | M37 | `copy_sections` | الدالة (القرار 8) | `37_copy_sections` |
 
 قبل كل migration: تحديث DD والمواصفة (§3.3 triggers، §4.6 سجل الأعمدة، §5.3 الدوال) و RLS_MODEL. البيانات القائمة: fail before mutation مع تعداد المخالفات (قاعدة M30b) — مثلاً سنة فيها أكثر من فصل `active` توقف M34 بقائمة مسمّاة.

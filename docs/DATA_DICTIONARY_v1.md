@@ -1,7 +1,7 @@
 # Data Dictionary v1 — Foundation
 
 **التاريخ:** 2026-09-22
-**الحالة:** ✅ معتمد (A5، 2026-09-23) ومنفَّذ (M01–M35) — رُوجع مقابل الـcatalog في مراجعة Stage 1 (2026-10-01، `docs/STAGE1_REVIEW.md`): لا عمود ولا قيد موثق هنا غائب عن قاعدة البيانات؛ ما نُفِّذ ولم يكن مذكوراً أُضيف بعلامة (مراجعة Stage 1، 2026-10-01)؛ إصلاحاتها: M31 (S1/S2) و M32 (C1–C3)
+**الحالة:** ✅ معتمد (A5، 2026-09-23) ومنفَّذ (M01–M36) — رُوجع مقابل الـcatalog في مراجعة Stage 1 (2026-10-01، `docs/STAGE1_REVIEW.md`): لا عمود ولا قيد موثق هنا غائب عن قاعدة البيانات؛ ما نُفِّذ ولم يكن مذكوراً أُضيف بعلامة (مراجعة Stage 1، 2026-10-01)؛ إصلاحاتها: M31 (S1/S2) و M32 (C1–C3)
 **المرجع:** `ERD_CORE_v1.md` (النموذج المنطقي) + `PLAN_v3.md` §3.3 (القواعد الإلزامية) و§10 (Implementation Lock)
 **النطاق:** جداول Foundation فقط. Finance / Timetable / Grading internals / OCR / Payroll خارج هذا الملف، وتتبع نفس القواعد عند الوصول إليها.
 
@@ -283,7 +283,7 @@ ALTER TABLE schools ADD CONSTRAINT schools_group_same_tenant_fk
 | `group_id` | uuid | NULL | — | مدرسة مستقلة = NULL |
 | `school_code` | text | NOT NULL | — | فريد داخل Tenant، ثابت، غير معاد الاستخدام |
 | `name` | text | NOT NULL | — | **ليس** فريداً عالمياً |
-| `slug` | text | NOT NULL | — | سياق الـsubdomain، فريد داخل Tenant |
+| `slug` | text | NOT NULL | — | سياق الـsubdomain، فريد داخل Tenant. ✅ **M36 (Phase 2A):** لا يكتبه العميل بعد الإنشاء — يتغير بـ`app.set_school_slug` وحدها (`school.update` + نطاق المدرسة + سبب، مدرسة `active`)؛ الـslug القديم يتحرر فوراً (لا حجز ولا سجل) |
 | `status` | text | NOT NULL | `'active'` | `active`, `archived` |
 | `timezone` | text | NOT NULL | `'Africa/Cairo'` | للعرض والحسابات اليومية |
 | `guardian_first_login_mode` | text | NOT NULL | `'A'` | ✅ M27 (F2/D4) — `A`, `B`, `C`؛ `schools_guardian_first_login_mode_chk`؛ لا يكتبه العميل (دالة `app.set_guardian_first_login_mode`) |
