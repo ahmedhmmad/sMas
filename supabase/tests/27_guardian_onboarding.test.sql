@@ -97,10 +97,11 @@ begin
   insert into public.guardians (id, platform_tenant_id, first_name, family_name, phone_e164, profile_id)
     values (p_id, '10000000-0000-0000-0000-000000000001', 'G', 'X', p_phone, v_p);
   foreach c in array p_children loop
+    -- أولياء أمور سجّلتهم المدرسة = علاقة provisioned (S1، M31): إصدار الكلمة المؤقتة (النمط C) يشترطها
     insert into public.student_guardians (student_id, guardian_id, platform_tenant_id, relationship_type, is_primary,
-                                          receives_whatsapp, can_pickup, status, effective_from, effective_to)
+                                          receives_whatsapp, can_pickup, status, effective_from, effective_to, relationship_source)
       values (c, p_id, '10000000-0000-0000-0000-000000000001', 'father', false, false, false, p_link, '2026-09-01',
-              case when p_link = 'ended' then date '2026-09-10' end);
+              case when p_link = 'ended' then date '2026-09-10' end, 'provisioned');
   end loop;
 end $$;
 
