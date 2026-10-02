@@ -113,6 +113,7 @@ insert into expected_policies values
 create temp table expected_triggers (t text primary key) on commit drop;
 insert into expected_triggers values
   ('academic_years.audit:tg_audit:AFTER INSERT OR DELETE OR UPDATE'), ('academic_years.stamp:tg_stamp:BEFORE INSERT OR UPDATE'),
+  ('academic_years.guard:tg_academic_year_guard:BEFORE UPDATE'),   -- T10 (M33)
   ('audit_log.audit_log_immutable:tg_reject_mutation:BEFORE DELETE OR UPDATE'), ('audit_log.audit_log_no_truncate:tg_reject_mutation:BEFORE TRUNCATE'),
   ('auth_identities.audit:tg_audit:AFTER INSERT OR DELETE OR UPDATE'), ('auth_identities.stamp:tg_stamp:BEFORE INSERT OR UPDATE'),
   ('enrollments.audit:tg_audit:AFTER INSERT OR DELETE OR UPDATE'), ('enrollments.stamp:tg_stamp:BEFORE INSERT OR UPDATE'),
@@ -212,6 +213,7 @@ insert into expected_functions values
   ('suspend_tenant(uuid,text)|app_owner|definer|app, public, pg_temp|authenticated'),
   ('system_role_id(text)|app_owner|definer|app, public, pg_temp|-'),
   ('tg_audit()|app_owner|definer|app, public, pg_temp|-'),
+  ('tg_academic_year_guard()|app_owner|invoker|app, public, pg_temp|-'),   -- T10 (M33)
   ('tg_authz_integrity()|app_owner|definer|app, public, pg_temp|-'),
   ('tg_create_identity_scope()|app_owner|definer|app, public, pg_temp|-'),
   ('tg_reject_mutation()|app_owner|invoker|app, pg_temp|-'),
@@ -250,12 +252,12 @@ select set_eq($q$select c.relname || '.' || t.tgname || ':' || replace(t.tgfoid:
                         substring(pg_get_triggerdef(t.oid) from 'TRIGGER \S+ (.*?) ON ')
                    from pg_trigger t join pg_class c on c.oid = t.tgrelid
                   where c.relnamespace = 'public'::regnamespace and not t.tgisinternal$q$,
-              'select t from expected_triggers', 'triggers: exactly T5 (audit_log), T6 stamp, T7 audit, T8 authz_integrity, T9 identity scope — same tables, same events');
+              'select t from expected_triggers', 'triggers: exactly T5 (audit_log), T6 stamp, T7 audit, T8 authz_integrity, T9 identity scope, T10 year guard — same tables, same events');
 select is((select count(*)::int from pg_trigger t join pg_class c on c.oid = t.tgrelid
             where c.relnamespace = 'public'::regnamespace and not t.tgisinternal and t.tgenabled <> 'O'), 0, 'no trigger is disabled');
 
 -- ---------- عقود الدوال ----------
-select is((select count(*)::int from expected_functions), 71, 'the reviewed function list has 71 functions');
+select is((select count(*)::int from expected_functions), 72, 'the reviewed function list has 72 functions');
 select set_eq($q$select substr(p.oid::regprocedure::text, 5) || '|' || pg_get_userbyid(p.proowner) || '|' ||
                         case when p.prosecdef then 'definer' else 'invoker' end || '|' ||
                         replace(coalesce(array_to_string(p.proconfig, ','), ''), 'search_path=', '') || '|' ||

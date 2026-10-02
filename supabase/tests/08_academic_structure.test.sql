@@ -24,11 +24,11 @@ insert into public.schools (id, platform_tenant_id, school_code, name, slug) val
 
 -- سنوات
 insert into public.academic_years (id, school_id, name, start_date, end_date, status) values
-  ('a1000000-0000-0000-0000-000000000001', '5a000000-0000-0000-0000-00000000000a', '2026/2027', '2026-09-01', '2027-06-30', 'active'),
-  ('a2000000-0000-0000-0000-000000000002', '5a000000-0000-0000-0000-00000000000a', '2027/2028', '2027-09-01', '2028-06-30', 'planned'),
+  ('a1000000-0000-0000-0000-000000000001', '5a000000-0000-0000-0000-00000000000a', '2026/2027', '2026-09-01', '2027-06-30', 'planned'),   -- planned: تواريخها تُعدَّل (T10، M33)
+  ('a2000000-0000-0000-0000-000000000002', '5a000000-0000-0000-0000-00000000000a', '2027/2028', '2027-09-01', '2028-06-30', 'active'),
   ('b1000000-0000-0000-0000-000000000001', '5b000000-0000-0000-0000-00000000000b', '2026/2027', '2026-09-01', '2027-06-30', 'active');
 
-select pg_temp.rec('ay.second_active', $q$update public.academic_years set status = 'active' where id = 'a2000000-0000-0000-0000-000000000002' returning 'ok'$q$);
+select pg_temp.rec('ay.second_active', $q$update public.academic_years set status = 'active' where id = 'a1000000-0000-0000-0000-000000000001' returning 'ok'$q$);
 select pg_temp.rec('ay.overlap',       $q$insert into public.academic_years (school_id, name, start_date, end_date) values ('5a000000-0000-0000-0000-00000000000a','overlap','2027-06-01','2027-08-31') returning 'ok'$q$);
 select pg_temp.rec('ay.touching_end',  $q$insert into public.academic_years (school_id, name, start_date, end_date) values ('5a000000-0000-0000-0000-00000000000a','summer','2027-06-30','2027-08-31') returning 'ok'$q$);
 select pg_temp.rec('ay.bad_dates',     $q$insert into public.academic_years (school_id, name, start_date, end_date) values ('5a000000-0000-0000-0000-00000000000a','bad','2030-06-30','2030-01-01') returning 'ok'$q$);
