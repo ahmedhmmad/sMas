@@ -192,8 +192,8 @@ select ok((select v from r where k = 'w.tch_stage_SA1')  like 'ERR 42501%row-lev
 select ok((select v from r where k = 'w.noscope_stage')  like 'ERR 42501%row-level security%stages%', 'insert: permission without scope (P1)');
 select ok((select v from r where k = 'w.pa_stage')       like 'ERR 42501%row-level security%stages%', 'insert: platform admin has no path');
 select ok((select v from r where k = 'w.anon_stage') like 'ERR 42501%permission denied%stages%', 'insert: anon has no privilege');
-select ok((select v from r where k = 'w.sa1_stage_move_SA2') like 'ERR 42501%row-level security%stages%', 'update: cannot move a row to a school outside the scope (WITH CHECK on the new school_id)');
-select ok((select v from r where k = 'w.ta_stage_move_T2')   like 'ERR 42501%row-level security%stages%', 'update: cannot move a row to another tenant''s school');
+select ok((select v from r where k = 'w.sa1_stage_move_SA2') like 'ERR 42501%permission denied%stages%', 'update: cannot move a row to a school outside the scope (M35: school_id is no longer client-writable; WITH CHECK stays as the second layer)');
+select ok((select v from r where k = 'w.ta_stage_move_T2')   like 'ERR 42501%permission denied%stages%', 'update: cannot move a row to another tenant''s school (M35: column grant)');
 
 select is((select v from r where k = 'w.sa1_year'),        'ok', 'academic_years insert: academic_year.create');
 select is((select v from r where k = 'w.yc_year'),         'ok', 'academic_years insert: create without update is enough to create');

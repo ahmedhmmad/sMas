@@ -28,7 +28,7 @@ insert into expected values
   ('login_challenges',          '', ''),     -- M26: لا منح للعميل إطلاقاً
   ('enrollments',               'academic_year_id,effective_from,enrollment_no,grade_level_id,identity_scope_id,platform_tenant_id,school_id,scope_owner_id,section_id,student_id', 'enrollment_no'),
   ('families',                  '', 'address,family_name'),   -- M20b: family_code غير قابل للتعديل (قاعدة الثوابت)
-  ('grade_levels',              'name,school_id,sequence_no,stage_id,status', 'name,school_id,sequence_no,stage_id,status'),
+  ('grade_levels',              'name,school_id,sequence_no,stage_id,status', 'name,sequence_no,stage_id,status'),   -- M35: school_id ثابت
   ('groups',                    'group_code,name,platform_tenant_id', 'name'),
   ('guardians',                 '', 'alt_phone_e164,email,family_name,father_name,first_name,grandfather_name,national_id,residence_country'),
   ('identity_scopes',           '', ''),
@@ -44,10 +44,10 @@ insert into expected values
   ('role_permissions',          'permission_id,role_id', ''),
   ('roles',                     'code,description,name,platform_tenant_id', 'description,name'),
   ('schools',                   'group_id,name,platform_tenant_id,school_code,slug,timezone', 'name,slug,timezone'),
-  ('sections',                  'academic_year_id,capacity,gender_policy,grade_level_id,name,school_id,status', 'academic_year_id,capacity,gender_policy,grade_level_id,name,school_id,status'),
+  ('sections',                  'academic_year_id,capacity,gender_policy,grade_level_id,name,school_id,status', 'capacity,gender_policy,name,status'),   -- M35: هوية الشعبة ثابتة
   ('staff',                     '', 'birth_date,email,family_name,father_name,first_name,gender,grandfather_name,hire_date,national_id,phone_e164'),
   ('staff_school_assignments',  'effective_from,is_primary,job_title,platform_tenant_id,school_id,staff_id', 'is_primary,job_title'),
-  ('stages',                    'name,school_id,sequence_no,status', 'name,school_id,sequence_no,status'),
+  ('stages',                    'name,school_id,sequence_no,status', 'name,sequence_no,status'),   -- M35: school_id ثابت
   ('student_guardians',         'can_pickup,effective_from,guardian_id,is_primary,platform_tenant_id,receives_whatsapp,relationship_type,student_id', 'can_pickup,is_primary,receives_whatsapp,relationship_type'),
   ('students',                  '', 'birth_date,family_id,family_name,father_name,first_name,gender,grandfather_name,nationality,official_id,official_id_type'),
   ('system_users',              '', ''),
