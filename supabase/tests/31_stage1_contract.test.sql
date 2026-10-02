@@ -219,7 +219,7 @@ insert into expected_functions values
   ('transfer_enrollment(uuid,uuid,date,text,text)|app_owner|definer|app, public, pg_temp|authenticated'),
   ('unlink_guardian(uuid,date,text)|app_owner|definer|app, public, pg_temp|authenticated');
 
-select plan(10 + 4 + 2 + 3 + 4);
+select plan(10 + 4 + 2 + 3 + 5);
 
 -- ---------- القسم 1 ----------
 select ok((select v from r where k = 'i3.school_code')  like 'ERR 23514%schools_school_code_chk%', 'I3: school_code format enforced');
@@ -277,6 +277,21 @@ select is((select count(*)::int from pg_class c where c.relnamespace in ('public
             and not exists (select 1 from pg_depend d where d.objid = c.oid and d.deptype = 'e')), 0,
           'no views, materialized views, foreign or partitioned tables in public/app');
 select is((select count(*)::int from pg_class c where c.relnamespace = 'app'::regnamespace and c.relkind = 'r'), 0, 'schema app holds no tables');
+-- المواصفة §3.4 (M32/C3): كل FK له فهرس يبدأ بأعمدته (فهرس جزئي يُقبل إن كان شرطه «عمود الـFK IS NOT NULL»)؛
+-- الاستثناء الموثق الوحيد: FK الهوية (auth_user_id, identity_kind) — UNIQUE (auth_user_id) يحدد صفاً واحداً
+select is((with fk as (select k.conrelid, k.conname, k.conkey from pg_constraint k
+                        where k.connamespace = 'public'::regnamespace and k.contype = 'f')
+           select coalesce(string_agg(fk.conrelid::regclass::text || '.' || fk.conname, ',' order by fk.conrelid::regclass::text, fk.conname), 'none') from fk
+            where not exists (
+              select 1 from pg_index i
+               where i.indrelid = fk.conrelid
+                 and (select array_agg(x order by x) from unnest((string_to_array(i.indkey::text, ' ')::int2[])[1:cardinality(fk.conkey)]) x)
+                   = (select array_agg(x order by x) from unnest(fk.conkey) x)
+                 and (i.indpred is null
+                      or exists (select 1 from unnest(fk.conkey) c(att) join pg_attribute a on a.attrelid = fk.conrelid and a.attnum = c.att
+                                  where pg_get_expr(i.indpred, i.indrelid) = '(' || a.attname || ' IS NOT NULL)')))),
+          'profiles.profiles_identity_fk,system_users.system_users_identity_fk',
+          'every FK has an index leading with its columns — except the documented identity FK covered by UNIQUE (auth_user_id)');
 select ok(not has_schema_privilege('anon', 'app', 'USAGE') and not has_schema_privilege('anon', 'app', 'CREATE')
       and not has_schema_privilege('authenticated', 'app', 'CREATE') and not has_schema_privilege('authenticated', 'public', 'CREATE')
       and not has_schema_privilege('anon', 'public', 'CREATE') and not has_schema_privilege('service_role', 'public', 'CREATE'),

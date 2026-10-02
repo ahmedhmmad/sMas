@@ -97,9 +97,14 @@ reset role;
 -- ============ الامتيازات الافتراضية لجدول جديد ============
 create table public.zz_future (x int);
 select pg_temp.rec('d.future', $q$select string_agg(g || ':' || p, ',' order by g, p) from unnest(array['anon','authenticated']) g,
-  unnest(array['SELECT','INSERT','UPDATE','DELETE','TRUNCATE','TRIGGER','REFERENCES']) p
+  unnest(array['SELECT','INSERT','UPDATE','DELETE','TRUNCATE','TRIGGER','REFERENCES','MAINTAIN']) p
   where has_table_privilege(g, 'public.zz_future', p)$q$);
 drop table public.zz_future;
+-- M32 (C1): الامتياز الافتراضي لـsequence جديدة في public
+create sequence public.zz_future_seq;
+select pg_temp.rec('d.future_seq', $q$select coalesce(string_agg(g || ':' || p, ',' order by g, p), 'none') from unnest(array['anon','authenticated']) g,
+  unnest(array['USAGE','SELECT','UPDATE']) p where has_sequence_privilege(g, 'public.zz_future_seq', p)$q$);
+drop sequence public.zz_future_seq;
 
 -- ============ EXECUTE بفئتين ============
 -- allowlist الدوال المتحكَّم بها (§5.0): فارغة الآن — M21/M22 تضيف إليها مع منحها
@@ -131,7 +136,7 @@ select pg_temp.rec('x.uncategorized', $q$select coalesce(string_agg(p.oid::regpr
 select pg_temp.rec('x.allowlist_missing', $q$select coalesce(string_agg(f::text, ','), 'none') from controlled_allowlist
   where not has_function_privilege('authenticated', f, 'EXECUTE')$q$);
 
-select plan(30 + 1 + 24 + 7 + 5 + 1);
+select plan(30 + 1 + 24 + 9 + 5 + 1);
 
 -- ---------- السجل: كل جدول بالاسم ----------
 select is(coalesce(a.ins, '<missing>') || ' | ' || coalesce(a.upd, '<missing>'), e.ins || ' | ' || e.upd,
@@ -166,19 +171,23 @@ select ok((select v from r where k = 'b.anon_select')      like 'ERR 42501%permi
 select ok((select v from r where k = 'b.anon_audit')       like 'ERR 42501%permission denied%audit_log%',                'anon cannot read audit_log');
 
 -- ---------- الامتيازات على مستوى الجدول ----------
-select is((select count(*)::int from pg_class c, unnest(array['SELECT','INSERT','UPDATE','DELETE','TRUNCATE','TRIGGER','REFERENCES']) p
+select is((select count(*)::int from pg_class c, unnest(array['SELECT','INSERT','UPDATE','DELETE','TRUNCATE','TRIGGER','REFERENCES','MAINTAIN']) p
             where c.relnamespace = 'public'::regnamespace and c.relkind = 'r' and has_table_privilege('anon', c.oid, p)), 0,
           'anon: no table privilege of any kind in public');
-select is((select count(*)::int from pg_class c, unnest(array['TRUNCATE','TRIGGER','REFERENCES']) p
+select is((select count(*)::int from pg_class c, unnest(array['TRUNCATE','TRIGGER','REFERENCES','MAINTAIN']) p
             where c.relnamespace = 'public'::regnamespace and c.relkind = 'r' and has_table_privilege('authenticated', c.oid, p)), 0,
-          'authenticated: no TRUNCATE, TRIGGER or REFERENCES on any table');
+          'authenticated: no TRUNCATE, TRIGGER, REFERENCES or MAINTAIN on any table (MAINTAIN: M32/C2)');
 select is((select string_agg(c.relname, ',' order by c.relname) from pg_class c
             where c.relnamespace = 'public'::regnamespace and c.relkind = 'r' and has_table_privilege('authenticated', c.oid, 'DELETE')),
           'membership_roles,membership_scopes,role_permissions', 'authenticated: DELETE only on the three G2 tables');
 select is((select coalesce(string_agg(c.relname, ','), 'none') from pg_class c where c.relnamespace = 'public'::regnamespace and c.relkind = 'r'
             and not has_table_privilege('authenticated', c.oid, 'SELECT')), 'login_challenges',
           'authenticated: SELECT on every table (RLS decides the rows) — except login_challenges, which no client reads (M26)');
-select is((select v from r where k = 'd.future'), 'authenticated:SELECT', 'default privileges: a future table gives anon nothing and authenticated SELECT only');
+select is((select v from r where k = 'd.future'), 'authenticated:SELECT', 'default privileges: a future table gives anon nothing and authenticated SELECT only (no MAINTAIN — M32)');
+select is((select count(*)::int from pg_class s, unnest(array['anon','authenticated']) g, unnest(array['USAGE','SELECT','UPDATE']) p
+            where s.relkind = 'S' and s.relnamespace in ('public'::regnamespace, 'app'::regnamespace) and has_sequence_privilege(g, s.oid, p)), 0,
+          'C1 (M32): anon and authenticated hold no privilege on any sequence (identity columns need none)');
+select is((select v from r where k = 'd.future_seq'), 'none', 'C1 (M32): default privileges — a future sequence gives anon and authenticated nothing');
 select ok(has_table_privilege('service_role', 'public.groups', 'INSERT') and has_table_privilege('service_role', 'public.groups', 'UPDATE'),
           'service_role keeps its privileges (FastAPI, provisioning)');
 select ok(not has_table_privilege('service_role', 'public.audit_log', 'UPDATE') and not has_table_privilege('service_role', 'public.audit_log', 'DELETE'),
