@@ -447,7 +447,7 @@ using (
 | `schools` | `can_access_school(id) AND has_permission('school.read')` | `(can_access_group(group_id) OR can_access_tenant(platform_tenant_id)) AND has_permission('school.create')` | `can_access_school(id) AND has_permission('school.update')` + WITH CHECK مطابق |
 | `stages`, `grade_levels`, `sections` | `can_access_school(school_id) AND has_permission('<res>.read')` | `… AND has_permission('<res>.manage')` | نفسه + WITH CHECK |
 | `academic_years` (✅ M16: مفاتيح الكتالوج) | `… AND has_permission('academic_year.read')` | `… AND has_permission('academic_year.create')` | `… AND has_permission('academic_year.update')` + WITH CHECK؛ activate/close بدوال M21؛ **✅ M33:** ما يُعدَّل حسب الحالة ليس في السياسة بل في الحارس T10 (السياسة لا ترى الصف القديم) |
-| `terms` | `can_access_school(school_id) AND has_permission('term.read')` | `… AND has_permission('term.manage')` | نفسه + WITH CHECK |
+| `terms` | `can_access_school(school_id) AND has_permission('term.read')` | `… AND has_permission('term.manage')` | نفسه + WITH CHECK؛ **✅ M34:** `status` خارج منح العميل (`activate_term`/`close_term`)؛ قواعد الحالة في الحارس T11 لا في السياسة — الصلاحية والنطاق يبقيان هنا |
 | `staff_school_assignments` | `can_access_school(school_id) AND has_permission('staff.read')` | `… AND has_permission('staff.assign')` | نفسه + WITH CHECK |
 
 **✅ تعديل معتمد (M14، 2026-09-25) — `WITH CHECK` في UPDATE لـ`groups` و`schools`:** يضاف `platform_tenant_id = (select app.current_tenant_id())` على قيم الصف الجديد. السبب مُثبت تجريبياً: `can_access_group(id)`/`can_access_school(id)` تقرأ الجدول بلقطة الجملة فترى Tenant الصف **القديم**؛ بالنص الأصلي تجاوزت RLS نقل مجموعة/مدرسة إلى Tenant آخر، ولم يوقفه إلا FK `identity_scopes`. العزل يُفرض في RLS نفسها لا بالاعتماد على قيد آخر.

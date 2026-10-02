@@ -1,7 +1,7 @@
 # Data Dictionary v1 — Foundation
 
 **التاريخ:** 2026-09-22
-**الحالة:** ✅ معتمد (A5، 2026-09-23) ومنفَّذ (M01–M33) — رُوجع مقابل الـcatalog في مراجعة Stage 1 (2026-10-01، `docs/STAGE1_REVIEW.md`): لا عمود ولا قيد موثق هنا غائب عن قاعدة البيانات؛ ما نُفِّذ ولم يكن مذكوراً أُضيف بعلامة (مراجعة Stage 1، 2026-10-01)؛ إصلاحاتها: M31 (S1/S2) و M32 (C1–C3)
+**الحالة:** ✅ معتمد (A5، 2026-09-23) ومنفَّذ (M01–M34) — رُوجع مقابل الـcatalog في مراجعة Stage 1 (2026-10-01، `docs/STAGE1_REVIEW.md`): لا عمود ولا قيد موثق هنا غائب عن قاعدة البيانات؛ ما نُفِّذ ولم يكن مذكوراً أُضيف بعلامة (مراجعة Stage 1، 2026-10-01)؛ إصلاحاتها: M31 (S1/S2) و M32 (C1–C3)
 **المرجع:** `ERD_CORE_v1.md` (النموذج المنطقي) + `PLAN_v3.md` §3.3 (القواعد الإلزامية) و§10 (Implementation Lock)
 **النطاق:** جداول Foundation فقط. Finance / Timetable / Grading internals / OCR / Payroll خارج هذا الملف، وتتبع نفس القواعد عند الوصول إليها.
 
@@ -1024,6 +1024,9 @@ ALTER TABLE academic_years ADD CONSTRAINT academic_years_no_overlap
 - `CHECK (sequence_no > 0)`, `CHECK (end_date > start_date)`
 - `EXCLUDE USING gist (academic_year_id WITH =, daterange(start_date, end_date, '[]') WITH &&)` — لا تداخل بين فصول السنة
 
+- ✅ **M34 (Phase 2A):** `UNIQUE (academic_year_id) WHERE status = 'active'` — `terms_active_uq`: **فصل نشط واحد على الأكثر لكل سنة**
+- ✅ **M34 (T11) — دورة الحياة وما يُعدَّل حسب الحالة:** يولد `planned` في سنة غير مغلقة؛ الانتقالات `planned → active → closed` فقط؛ الفصل `active` داخل سنة `active` فقط؛ `planned`: الاسم والترتيب والتواريخ · `active`: الاسم فقط · `closed`: لا شيء · فصول السنة `closed` مجمدة معها؛ `academic_year_id` و`school_id` ثابتان. trigger `guard` (`BEFORE INSERT OR UPDATE`، `app.tg_term_guard`) على كل مسار؛ الرفض `23514`. `status` لا يكتبه العميل — `app.activate_term` / `app.close_term` (`term.manage`)
+
 **✅ T4 أُلغي في Gate B:** الـFK يحمل تاريخي السنة ويُحدَّث بـ`ON UPDATE CASCADE`، فيُعاد تقييم الـCHECK عند تعديل السنة — ويُرفض التعديل إن أخرج فصلاً عن حدودها (🔬 V3).
 
 ---
@@ -1189,9 +1192,10 @@ CREATE TRIGGER audit_log_no_truncate
 | **T7** | تسجيل التغييرات الحساسة في `audit_log` | trigger عام معمم (Gate C9) |
 | **T8** | `membership_roles` و`role_permissions` (INSERT و DELETE)، **و`membership_scopes` (INSERT — M19: منح النطاق لا يمكّن الهدف فوق صلاحيات المانح)**: الصلاحيات ⊆ صلاحيات الفاعل | يعتمد على هوية الفاعل. **Gate B (F5):** كان على `membership_roles` فقط، فيُلتف عليه بإسناد دور فارغ ثم ملئه — `RLS_MODEL_v1.md` §10.2.1 |
 | **T9** | إنشاء `identity_scopes` تلقائياً للمجموعة وللمدرسة المستقلة | ✅ G9 — وجود صف تابع إلزامي |
+| **T11** | `terms` (INSERT، UPDATE): دورة الحياة، الفصل النشط داخل سنة نشطة، ما يُعدَّل حسب الحالة، تجمّد فصول السنة المغلقة | ✅ M34 (Phase 2A) — يعتمد على الصف القديم وعلى حالة صف في جدول آخر (السنة) |
 | **T10** | `academic_years` (UPDATE): ما يُعدَّل حسب الحالة والانتقالات المعلنة | ✅ M33 (Phase 2A، Q1) — يقارن الصف القديم بالجديد؛ لا بديل إعلاني (`CHECK` لا يرى الصف القديم، و RLS `WITH CHECK` كذلك) |
 
-**القائمة النهائية بعد Gate B: T5، T6، T7، T8، T9** — خمسة فقط (**+ T10 في Phase 2A، M33**؛ T11 و T12 مع M34 و M35). كل trigger يحتاج اختبار pgTAP. التصنيف الكامل لكل invariant وآليته: `DB_IMPLEMENTATION_SPEC_v1.md` §3.
+**القائمة النهائية بعد Gate B: T5، T6، T7، T8، T9** — خمسة فقط (**+ T10 و T11 في Phase 2A، M33 و M34**؛ T12 مع M35). كل trigger يحتاج اختبار pgTAP. التصنيف الكامل لكل invariant وآليته: `DB_IMPLEMENTATION_SPEC_v1.md` §3.
 
 ---
 

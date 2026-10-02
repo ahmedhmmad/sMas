@@ -1,7 +1,7 @@
 # Phase 2A — School Setup: وثيقة التصميم (P2-A)
 
 **التاريخ:** 2026-10-02
-**الحالة:** ✅ **معتمدة (2026-10-02)** مع Q1–Q9 كما اقتُرحت — P2-B جارية: **M33 ✅**
+**الحالة:** ✅ **معتمدة (2026-10-02)** مع Q1–Q9 كما اقتُرحت — P2-B جارية: **M33 ✅ · M34 ✅**
 **خط الأساس:** `39ba260` — 37 migration (M01–M32)، Phase 1 مغلقة
 **المرجع:** خطة النطاق المعتمدة والقرارات 1–11 (2026-10-02، `PLAN_v3.md` §9)؛ `DB_IMPLEMENTATION_SPEC_v1.md` §5.0 (عقد الدوال المتحكَّم بها)؛ `RLS_MODEL_v1.md` §7؛ `F4_API_SECURITY.md`؛ `F1_WEB_APP.md`
 
@@ -362,7 +362,7 @@ verified JWT → معاملة `authenticated` واحدة (as_user) → RLS / د�
 | # | الاسم | المحتوى | pgTAP |
 |---|---|---|---|
 | M33 ✅ | `academic_year_guard` | T10 (ف4) — `BEFORE UPDATE`، `SECURITY INVOKER`؛ INSERT خارج الحارس (`status` ليس في منح INSERT) | `33_academic_year_guard` ✅ 37/37 (1520/1520)؛ 9 ضوابط سلبية |
-| M34 | `term_lifecycle` | فهرس الفصل النشط الواحد؛ T11؛ `activate_term`، `close_term`؛ استبدال `close_academic_year`؛ سجل أعمدة `terms` (ف5) | `34_term_lifecycle` |
+| M34 ✅ | `term_lifecycle` | فهرس `terms_active_uq`؛ T11 (`BEFORE INSERT OR UPDATE`، `SECURITY DEFINER` — يقرأ حالة السنة أياً كان ما تراه RLS ويقفلها `FOR SHARE`)؛ `activate_term`، `close_term`؛ استبدال `close_academic_year`؛ `status` وهوية الفصل خارج منح العميل (ف5) | `34_term_lifecycle` ✅ 70/70 (1590/1590)؛ 22 ضابطاً سلبياً |
 | M35 | `structure_guards` | T12؛ سجل أعمدة `sections`/`stages`/`grade_levels` (ف6، Q7) | `35_structure_guards` |
 | M36 | `school_slug` | سحب UPDATE(`slug`)؛ `set_school_slug` (ف3) | `36_school_slug` |
 | M37 | `copy_sections` | الدالة (القرار 8) | `37_copy_sections` |
