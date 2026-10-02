@@ -446,7 +446,7 @@ using (
 | `groups` | `can_access_group(id) AND has_permission('group.read')` | `can_access_tenant(platform_tenant_id) AND has_permission('group.create')` | `can_access_group(id) AND has_permission('group.update')` + WITH CHECK مطابق |
 | `schools` | `can_access_school(id) AND has_permission('school.read')` | `(can_access_group(group_id) OR can_access_tenant(platform_tenant_id)) AND has_permission('school.create')` | `can_access_school(id) AND has_permission('school.update')` + WITH CHECK مطابق |
 | `stages`, `grade_levels`, `sections` | `can_access_school(school_id) AND has_permission('<res>.read')` | `… AND has_permission('<res>.manage')` | نفسه + WITH CHECK |
-| `academic_years` (✅ M16: مفاتيح الكتالوج) | `… AND has_permission('academic_year.read')` | `… AND has_permission('academic_year.create')` | `… AND has_permission('academic_year.update')` + WITH CHECK؛ activate/close بدوال M21 |
+| `academic_years` (✅ M16: مفاتيح الكتالوج) | `… AND has_permission('academic_year.read')` | `… AND has_permission('academic_year.create')` | `… AND has_permission('academic_year.update')` + WITH CHECK؛ activate/close بدوال M21؛ **✅ M33:** ما يُعدَّل حسب الحالة ليس في السياسة بل في الحارس T10 (السياسة لا ترى الصف القديم) |
 | `terms` | `can_access_school(school_id) AND has_permission('term.read')` | `… AND has_permission('term.manage')` | نفسه + WITH CHECK |
 | `staff_school_assignments` | `can_access_school(school_id) AND has_permission('staff.read')` | `… AND has_permission('staff.assign')` | نفسه + WITH CHECK |
 

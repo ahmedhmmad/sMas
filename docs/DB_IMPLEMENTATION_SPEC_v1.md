@@ -235,7 +235,8 @@ CHECK (start_date >= year_start_date AND end_date <= year_end_date)
 | **T8** | صلاحيات الدور ⊆ صلاحيات الفاعل | `membership_roles` (INSERT/DELETE)، `role_permissions` (INSERT/DELETE)، `membership_scopes` (INSERT — M19) (مراجعة Stage 1، 2026-10-01) | يعتمد على هوية الفاعل |
 | **T9** | إنشاء نطاق الهوية تلقائياً | `groups` (INSERT)، `schools` (INSERT حين `group_id IS NULL`) | وجود صف تابع ✅ G9 |
 | ~~T1–T4~~ | — | — | **ألغيت: T1/T3/T4 أصبحت إعلانية، T2 بقرار A4** |
-| (T10) | حصرية الهوية | — | بديل G10 فقط إن رُفض |
+| ~~(T10 البديل)~~ | ~~حصرية الهوية~~ | — | لم يُستعمل: G10 اعتُمد إعلانياً؛ **الرقم T10 أُعيد إسناده في Phase 2A** |
+| **T10** ✅ M33 | ما يُعدَّل في السنة حسب حالتها + الانتقالات المعلنة (`planned → active → closed`) | `academic_years` (`BEFORE UPDATE`) | يقارن الصف القديم بالجديد: `CHECK` و`WITH CHECK` لا يريان القديم. قرار Phase 2A (Q1): حارس يسري على كل مسار، والتعديل العادي يبقى CRUD تحت RLS. T11 (`terms`) و T12 (`sections`) في M34 و M35 — `docs/PHASE2_SCHOOL_SETUP.md` §7 |
 
 ### 3.4 الفهارس
 
@@ -752,6 +753,7 @@ helpers ─► state fns ─► provisioning fns ─► reference data
 | # | الـMigration | المحتوى | اختبار pgTAP |
 |---|---|---|---|
 | M31 ✅ | `security_relationship_source` | **S1:** `student_guardians.relationship_source` (`direct`\|`provisioned`، افتراضي `direct`، خارج GRANT)؛ `provision_guardian` تكتب `provisioned`؛ `guardian_account_for_issue` تشترط ارتباطاً `provisioned` نشطاً بطالب في النطاق الحالي. **S2:** `students_update` WITH CHECK += `family_id IS NULL OR family_in_scope(family_id)` | `32_security_relationship_source` ✅ 40/40 |
+| M33 ✅ | `academic_year_guard` (Phase 2A / P2-B) | T10: `planned` الاسم والتواريخ · `active` الاسم فقط · `closed` immutable · لا reopening · `school_id` ثابت؛ الدالتان `activate/close_academic_year` تمران به بلا تعديل | `33_academic_year_guard` ✅ 37/37؛ `31` (+trigger، +دالة)؛ `08` على سنة `planned` لاختبار I35 |
 | M32 ✅ | `privilege_index_followup` | **C1:** سحب امتيازات الـsequences وافتراضيّها من `anon`/`authenticated`؛ **C2:** سحب `MAINTAIN` وافتراضيّه؛ **C3:** فهرسا `platform_tenant_id` في `families` و`login_challenges` + توثيق استثناء FK الهوية | `20_column_grants` (+2)، `31_stage1_contract` (+1) |
 
 ---

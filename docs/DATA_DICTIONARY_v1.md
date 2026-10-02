@@ -1,7 +1,7 @@
 # Data Dictionary v1 — Foundation
 
 **التاريخ:** 2026-09-22
-**الحالة:** ✅ معتمد (A5، 2026-09-23) ومنفَّذ (M01–M32) — رُوجع مقابل الـcatalog في مراجعة Stage 1 (2026-10-01، `docs/STAGE1_REVIEW.md`): لا عمود ولا قيد موثق هنا غائب عن قاعدة البيانات؛ ما نُفِّذ ولم يكن مذكوراً أُضيف بعلامة (مراجعة Stage 1، 2026-10-01)؛ إصلاحاتها: M31 (S1/S2) و M32 (C1–C3)
+**الحالة:** ✅ معتمد (A5، 2026-09-23) ومنفَّذ (M01–M33) — رُوجع مقابل الـcatalog في مراجعة Stage 1 (2026-10-01، `docs/STAGE1_REVIEW.md`): لا عمود ولا قيد موثق هنا غائب عن قاعدة البيانات؛ ما نُفِّذ ولم يكن مذكوراً أُضيف بعلامة (مراجعة Stage 1، 2026-10-01)؛ إصلاحاتها: M31 (S1/S2) و M32 (C1–C3)
 **المرجع:** `ERD_CORE_v1.md` (النموذج المنطقي) + `PLAN_v3.md` §3.3 (القواعد الإلزامية) و§10 (Implementation Lock)
 **النطاق:** جداول Foundation فقط. Finance / Timetable / Grading internals / OCR / Payroll خارج هذا الملف، وتتبع نفس القواعد عند الوصول إليها.
 
@@ -994,6 +994,7 @@ ALTER TABLE academic_years ADD CONSTRAINT academic_years_no_overlap
   );
 ```
 يتطلب `CREATE EXTENSION btree_gist`.
+- ✅ **M33 (Phase 2A، T10) — ما يُعدَّل حسب الحالة:** `planned`: الاسم والتواريخ · `active`: الاسم فقط · `closed`: لا شيء. الانتقالات `planned → active → closed` فقط (لا reopening)، و`school_id` ثابت. trigger `guard` (`BEFORE UPDATE`، `app.tg_academic_year_guard`) يفرضها على كل مسار؛ الرفض `23514`. `status` لا يكتبه العميل (M20) — التفعيل والإغلاق بدالتي M21
 
 **الفهارس:** `(school_id, status)` (ERD §8)
 
@@ -1188,8 +1189,9 @@ CREATE TRIGGER audit_log_no_truncate
 | **T7** | تسجيل التغييرات الحساسة في `audit_log` | trigger عام معمم (Gate C9) |
 | **T8** | `membership_roles` و`role_permissions` (INSERT و DELETE)، **و`membership_scopes` (INSERT — M19: منح النطاق لا يمكّن الهدف فوق صلاحيات المانح)**: الصلاحيات ⊆ صلاحيات الفاعل | يعتمد على هوية الفاعل. **Gate B (F5):** كان على `membership_roles` فقط، فيُلتف عليه بإسناد دور فارغ ثم ملئه — `RLS_MODEL_v1.md` §10.2.1 |
 | **T9** | إنشاء `identity_scopes` تلقائياً للمجموعة وللمدرسة المستقلة | ✅ G9 — وجود صف تابع إلزامي |
+| **T10** | `academic_years` (UPDATE): ما يُعدَّل حسب الحالة والانتقالات المعلنة | ✅ M33 (Phase 2A، Q1) — يقارن الصف القديم بالجديد؛ لا بديل إعلاني (`CHECK` لا يرى الصف القديم، و RLS `WITH CHECK` كذلك) |
 
-**القائمة النهائية بعد Gate B: T5، T6، T7، T8، T9** — خمسة فقط. كل trigger يحتاج اختبار pgTAP. التصنيف الكامل لكل invariant وآليته: `DB_IMPLEMENTATION_SPEC_v1.md` §3.
+**القائمة النهائية بعد Gate B: T5، T6، T7، T8، T9** — خمسة فقط (**+ T10 في Phase 2A، M33**؛ T11 و T12 مع M34 و M35). كل trigger يحتاج اختبار pgTAP. التصنيف الكامل لكل invariant وآليته: `DB_IMPLEMENTATION_SPEC_v1.md` §3.
 
 ---
 
