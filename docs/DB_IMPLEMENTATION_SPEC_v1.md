@@ -236,6 +236,7 @@ CHECK (start_date >= year_start_date AND end_date <= year_end_date)
 | **T9** | إنشاء نطاق الهوية تلقائياً | `groups` (INSERT)، `schools` (INSERT حين `group_id IS NULL`) | وجود صف تابع ✅ G9 |
 | ~~T1–T4~~ | — | — | **ألغيت: T1/T3/T4 أصبحت إعلانية، T2 بقرار A4** |
 | ~~(T10 البديل)~~ | ~~حصرية الهوية~~ | — | لم يُستعمل: G10 اعتُمد إعلانياً؛ **الرقم T10 أُعيد إسناده في Phase 2A** |
+| **T12** ✅ M35 | حواجز البنية: شعبة نشطة (سنة غير مغلقة) ⇒ صف نشط ⇒ مرحلة نشطة، من الجهتين (الابن عند تفعيله، الأب عند تعطيله)؛ هوية ثابتة؛ بنية السنة المغلقة مجمدة؛ لا تعطيل لشعبة فيها تسجيلات نشطة | `sections`، `grade_levels` (`BEFORE INSERT OR UPDATE`)، `stages` (`BEFORE UPDATE`) | يعتمد على صفوف جداول أخرى. ثلاث دوال `SECURITY DEFINER` (مُثبت بفاعل يملك `section.manage`/`.read` وحدهما)؛ الأب يُقفل `FOR SHARE` عند تفعيل ابن. الحالة `active ↔ inactive` تبقى عموداً يكتبه العميل — لا دالة انتقال ولا مفتاح جديد |
 | **T11** ✅ M34 | دورة حياة الفصل + الفصل النشط داخل سنة نشطة + ما يُعدَّل حسب الحالة + تجمّد فصول السنة المغلقة | `terms` (`BEFORE INSERT OR UPDATE`) | يعتمد على الصف القديم وعلى حالة السنة (جدول آخر). `SECURITY DEFINER`: يقرأ السنة أياً كان ما تراه RLS للمستدعي (مُثبت بفاعل يملك `term.manage` بلا `academic_year.read`) ويقفلها `FOR SHARE` فلا يتسابق تفعيل فصل مع إغلاق سنته. نسخ حدود السنة خارج الحارس (يملكها الـFK) |
 | **T10** ✅ M33 | ما يُعدَّل في السنة حسب حالتها + الانتقالات المعلنة (`planned → active → closed`) | `academic_years` (`BEFORE UPDATE`) | يقارن الصف القديم بالجديد: `CHECK` و`WITH CHECK` لا يريان القديم. قرار Phase 2A (Q1): حارس يسري على كل مسار، والتعديل العادي يبقى CRUD تحت RLS. T11 (`terms`) و T12 (`sections`) في M34 و M35 — `docs/PHASE2_SCHOOL_SETUP.md` §7 |
 
@@ -371,7 +372,9 @@ PA = سياق Platform (`app.has_platform_permission(...)`) — G10. النص ا
 | `enrollments` | كل أعمدة الأعمال عدا `status, effective_to, withdrawal_reason` | `enrollment_no` |
 | `academic_years` | `school_id, name, start_date, end_date` | `name, start_date, end_date` |
 | `terms` — **✅ M34** | `academic_year_id, school_id, year_start_date, year_end_date, name, sequence_no, start_date, end_date` (يولد `planned`) | `name, sequence_no, start_date, end_date` — `status` بدالتي الانتقال؛ هوية الفصل ونسخ حدود السنة ثابتة |
-| `stages`, `grade_levels`, `sections` | كل أعمدة الأعمال | كل أعمدة الأعمال |
+| `stages` — **✅ M35** | `school_id, name, sequence_no, status` | `name, sequence_no, status` — `school_id` ثابت |
+| `grade_levels` — **✅ M35** | `school_id, stage_id, name, sequence_no, status` | `name, sequence_no, stage_id, status` — `school_id` ثابت |
+| `sections` — **✅ M35** | `school_id, academic_year_id, grade_level_id, name, capacity, gender_policy, status` | `name, capacity, gender_policy, status` — هوية الشعبة (مدرسة، سنة، صف) ثابتة |
 
 **ثوابت لا تُعدَّل إطلاقاً من المستخدم:** كل الأكواد، `students.identity_scope_id`, `students.student_profile_id`, `students.temporary_id`, `schools.group_id` (الانضمام لمجموعة = إجراء دمج §5.4)، `guardians.phone_e164` (مسار OTP في FastAPI — `PLAN_v3.md` §7.8)، حقول أمان ولي الأمر، `platform_tenant_id` في كل جدول.
 
@@ -756,6 +759,7 @@ helpers ─► state fns ─► provisioning fns ─► reference data
 | # | الـMigration | المحتوى | اختبار pgTAP |
 |---|---|---|---|
 | M31 ✅ | `security_relationship_source` | **S1:** `student_guardians.relationship_source` (`direct`\|`provisioned`، افتراضي `direct`، خارج GRANT)؛ `provision_guardian` تكتب `provisioned`؛ `guardian_account_for_issue` تشترط ارتباطاً `provisioned` نشطاً بطالب في النطاق الحالي. **S2:** `students_update` WITH CHECK += `family_id IS NULL OR family_in_scope(family_id)` | `32_security_relationship_source` ✅ 40/40 |
+| M35 ✅ | `structure_guards` (Phase 2A / P2-B) | T12 على `sections`/`grade_levels`/`stages`؛ سجل الأعمدة (هوية الصف خارج UPDATE)؛ فحص البيانات القائمة قبل الحواجز | `35_structure_guards` ✅ 66/66؛ `20` (سجل ×3)؛ `31` (+3 triggers، 78 دالة)؛ `16`: منع نقل المرحلة صار بمنح العمود والـ`WITH CHECK` طبقة ثانية |
 | M34 ✅ | `term_lifecycle` (Phase 2A / P2-B) | `terms_active_uq`؛ T11؛ `activate_term` / `close_term` (`term.manage`، لا مفتاح جديد)؛ `close_academic_year` يرفض مع فصل `active`؛ سجل أعمدة `terms`؛ فحص البيانات القائمة قبل الفهرس (fail before mutation) | `34_term_lifecycle` ✅ 70/70؛ `20` (سجل + allowlist +2)؛ `31` (+trigger، +3 دوال = 75)؛ `33` fixture بمسار الإغلاق المشروع |
 | M33 ✅ | `academic_year_guard` (Phase 2A / P2-B) | T10: `planned` الاسم والتواريخ · `active` الاسم فقط · `closed` immutable · لا reopening · `school_id` ثابت؛ الدالتان `activate/close_academic_year` تمران به بلا تعديل | `33_academic_year_guard` ✅ 37/37؛ `31` (+trigger، +دالة)؛ `08` على سنة `planned` لاختبار I35 |
 | M32 ✅ | `privilege_index_followup` | **C1:** سحب امتيازات الـsequences وافتراضيّها من `anon`/`authenticated`؛ **C2:** سحب `MAINTAIN` وافتراضيّه؛ **C3:** فهرسا `platform_tenant_id` في `families` و`login_challenges` + توثيق استثناء FK الهوية | `20_column_grants` (+2)، `31_stage1_contract` (+1) |

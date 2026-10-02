@@ -1,7 +1,7 @@
 # Data Dictionary v1 — Foundation
 
 **التاريخ:** 2026-09-22
-**الحالة:** ✅ معتمد (A5، 2026-09-23) ومنفَّذ (M01–M34) — رُوجع مقابل الـcatalog في مراجعة Stage 1 (2026-10-01، `docs/STAGE1_REVIEW.md`): لا عمود ولا قيد موثق هنا غائب عن قاعدة البيانات؛ ما نُفِّذ ولم يكن مذكوراً أُضيف بعلامة (مراجعة Stage 1، 2026-10-01)؛ إصلاحاتها: M31 (S1/S2) و M32 (C1–C3)
+**الحالة:** ✅ معتمد (A5، 2026-09-23) ومنفَّذ (M01–M35) — رُوجع مقابل الـcatalog في مراجعة Stage 1 (2026-10-01، `docs/STAGE1_REVIEW.md`): لا عمود ولا قيد موثق هنا غائب عن قاعدة البيانات؛ ما نُفِّذ ولم يكن مذكوراً أُضيف بعلامة (مراجعة Stage 1، 2026-10-01)؛ إصلاحاتها: M31 (S1/S2) و M32 (C1–C3)
 **المرجع:** `ERD_CORE_v1.md` (النموذج المنطقي) + `PLAN_v3.md` §3.3 (القواعد الإلزامية) و§10 (Implementation Lock)
 **النطاق:** جداول Foundation فقط. Finance / Timetable / Grading internals / OCR / Payroll خارج هذا الملف، وتتبع نفس القواعد عند الوصول إليها.
 
@@ -1043,6 +1043,8 @@ ALTER TABLE academic_years ADD CONSTRAINT academic_years_no_overlap
 
 **القيود:** `UNIQUE (id, school_id)`, `UNIQUE (school_id, name)`, `UNIQUE (school_id, sequence_no)`, `CHECK (sequence_no > 0)`
 
+✅ **M35 (T12، Phase 2A):** `school_id` ثابت (خارج UPDATE)؛ **لا تعطيل لمرحلة لها صفوف `active`**. trigger `guard` (`BEFORE UPDATE`، `app.tg_stage_guard`)؛ الرفض `23514`.
+
 ---
 
 ### 2.24 `grade_levels` — [S]
@@ -1060,6 +1062,7 @@ ALTER TABLE academic_years ADD CONSTRAINT academic_years_no_overlap
 - `UNIQUE (id, school_id)`
 - `FOREIGN KEY (stage_id, school_id) REFERENCES stages (id, school_id)`
 - `UNIQUE (school_id, name)`, `UNIQUE (school_id, sequence_no)`
+- ✅ **M35 (T12، Phase 2A):** `school_id` ثابت (خارج UPDATE)؛ **الصف `active` تحت مرحلة `active` فقط** (عند الإنشاء، التفعيل، وتغيير المرحلة)؛ **لا تعطيل لصف له شعب `active` في سنة غير مغلقة** (شعب السنة المغلقة لا تمنع). trigger `guard` (`BEFORE INSERT OR UPDATE`، `app.tg_grade_level_guard`)؛ الرفض `23514`. `stage_id` يبقى قابلاً للتعديل داخل المدرسة
 
 ---
 
@@ -1086,6 +1089,7 @@ ALTER TABLE academic_years ADD CONSTRAINT academic_years_no_overlap
 - `UNIQUE (school_id, academic_year_id, grade_level_id, name)` — نطاق التفرد الصحيح
 - `CHECK (capacity IS NULL OR capacity > 0)`
 - `CHECK (gender_policy IN ('mixed','male_only','female_only'))`
+- ✅ **M35 (T12، Phase 2A):** **`school_id + academic_year_id + grade_level_id` هوية تشغيلية ثابتة بعد الإنشاء** (خارج UPDATE؛ بنية مختلفة = شعبة جديدة)؛ **لا إنشاء ولا تعديل في سنة `closed`**؛ **الشعبة `active` تحت صف `active` فقط** (عند الإنشاء وإعادة التفعيل)؛ **لا تعطيل وفيها enrollments نشطة**. trigger `guard` (`BEFORE INSERT OR UPDATE`، `app.tg_section_guard`)؛ الرفض `23514`. التعديل العادي (الاسم، السعة، سياسة الجنس، الحالة) يبقى CRUD بـ`section.manage`
 
 > السعة وسياسة الجنس **لا** تُفرضان هنا؛ تُفرضان عند التسجيل في المرحلة 4 لأنهما قاعدتا أعمال لا قيد صف.
 
@@ -1192,10 +1196,11 @@ CREATE TRIGGER audit_log_no_truncate
 | **T7** | تسجيل التغييرات الحساسة في `audit_log` | trigger عام معمم (Gate C9) |
 | **T8** | `membership_roles` و`role_permissions` (INSERT و DELETE)، **و`membership_scopes` (INSERT — M19: منح النطاق لا يمكّن الهدف فوق صلاحيات المانح)**: الصلاحيات ⊆ صلاحيات الفاعل | يعتمد على هوية الفاعل. **Gate B (F5):** كان على `membership_roles` فقط، فيُلتف عليه بإسناد دور فارغ ثم ملئه — `RLS_MODEL_v1.md` §10.2.1 |
 | **T9** | إنشاء `identity_scopes` تلقائياً للمجموعة وللمدرسة المستقلة | ✅ G9 — وجود صف تابع إلزامي |
+| **T12** | `sections`، `grade_levels`، `stages`: شعبة نشطة (في سنة غير مغلقة) ⇒ صف نشط ⇒ مرحلة نشطة، من الجهتين؛ هوية ثابتة؛ بنية السنة المغلقة مجمدة؛ لا تعطيل لشعبة فيها تسجيلات نشطة | ✅ M35 (Phase 2A، Q7) — يعتمد على الصف القديم وعلى صفوف في جداول أخرى (السنة، الأب، الأبناء، التسجيلات) |
 | **T11** | `terms` (INSERT، UPDATE): دورة الحياة، الفصل النشط داخل سنة نشطة، ما يُعدَّل حسب الحالة، تجمّد فصول السنة المغلقة | ✅ M34 (Phase 2A) — يعتمد على الصف القديم وعلى حالة صف في جدول آخر (السنة) |
 | **T10** | `academic_years` (UPDATE): ما يُعدَّل حسب الحالة والانتقالات المعلنة | ✅ M33 (Phase 2A، Q1) — يقارن الصف القديم بالجديد؛ لا بديل إعلاني (`CHECK` لا يرى الصف القديم، و RLS `WITH CHECK` كذلك) |
 
-**القائمة النهائية بعد Gate B: T5، T6، T7، T8، T9** — خمسة فقط (**+ T10 و T11 في Phase 2A، M33 و M34**؛ T12 مع M35). كل trigger يحتاج اختبار pgTAP. التصنيف الكامل لكل invariant وآليته: `DB_IMPLEMENTATION_SPEC_v1.md` §3.
+**القائمة النهائية بعد Gate B: T5، T6، T7، T8، T9** — خمسة فقط (**+ T10، T11، T12 في Phase 2A: M33، M34، M35**). كل trigger يحتاج اختبار pgTAP. التصنيف الكامل لكل invariant وآليته: `DB_IMPLEMENTATION_SPEC_v1.md` §3.
 
 ---
 
