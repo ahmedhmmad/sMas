@@ -3,7 +3,7 @@
 **المشروع:** نظام إدارة المدارس متعدد المستأجرين (Multi-Tenant SMS)
 **تاريخ الإنشاء:** 2026-09-22
 **آخر تحديث:** 2026-10-02
-**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (**Gate C 🔒 مكتمل: M01–M23**؛ **Gate E 🔒 مغلق تقنياً: E1–E6** — Production Backup Policy TBD؛ Gate F: **F4 🔒**؛ **F2 🔒**؛ **F1 🔒**؛ **F3 🔒** — **Gate F 🔒 مكتمل: F1–F4**؛ **مراجعة Stage 1 مكتملة** — النتائج C الخمس مُصلحة (M31، M32)؛ الإغلاق بعد CI)
+**المرحلة الحالية:** 🔒 **المرحلة 1 — الأساس (Foundation) مكتملة (2026-10-02)** — التالي: المرحلة 2 (إعداد المدرسة)، لم تبدأ (السجل: **Gate C 🔒 مكتمل: M01–M23**؛ **Gate E 🔒 مغلق تقنياً: E1–E6** — Production Backup Policy TBD؛ Gate F: **F4 🔒**؛ **F2 🔒**؛ **F1 🔒**؛ **F3 🔒** — **Gate F 🔒 مكتمل: F1–F4**؛ **🔒 Stage 1 مغلق** — المراجعة R1–R10 + M31/M32، CI `f41b0ff`)
 
 ---
 
@@ -506,14 +506,14 @@ Platform Admin → Role → Permission + Platform-level scope
 
 ### معايير إنجاز المرحلة 1
 
-- [ ] اختبارات العزل خضراء: مستخدم مدرسة (أ) لا يقرأ ولا يعدل بيانات مدرسة (ب).
-      ⏳ **S1 و S2 مُصلحتان (M31)** — علاقة ينشئها الفاعل لا تمنحه إدارة حساب ولا نطاق أسرة؛ pgTAP 1483 — تُعلَّم بعد CI.
+- [x] اختبارات العزل خضراء: مستخدم مدرسة (أ) لا يقرأ ولا يعدل بيانات مدرسة (ب).
+      ✅ **S1 و S2 مُصلحتان (M31)** — علاقة ينشئها الفاعل لا تمنحه إدارة حساب ولا نطاق أسرة؛ pgTAP 1483؛ CI `f41b0ff`، https://github.com/ahmedhmmad/sMas/actions/runs/36992802792.
 - [x] تسجيل الدخول يعمل والقائمة تتغير حسب الدور.
       ✅ F1 + F2 (Playwright 21: كل الأدوار + ولي الأمر A/B/C + الطالب).
 - [x] CI أخضر.
       ✅ يُثبَّت مع كل push.
-- [ ] مراجعة ERD + migrations قبل الانتقال إلى المرحلة 2.
-      ✅ **المراجعة مكتملة (2026-10-01)** — `docs/STAGE1_REVIEW.md` (R1–R10): A (14) و B (7) مغلقة؛ **C الخمس مُصلحة (2026-10-02)**: M31 (S1، S2) و M32 (C1–C3)، بلا C جديدة — تُعلَّم بعد CI.
+- [x] مراجعة ERD + migrations قبل الانتقال إلى المرحلة 2.
+      🔒 **Stage 1 مغلق (2026-10-02)** — `docs/STAGE1_REVIEW.md` (R1–R10): A (14) و B (7) مغلقة؛ C الخمس مُصلحة: M31 (S1، S2) و M32 (C1–C3)، بلا C جديدة؛ CI `f41b0ff`، https://github.com/ahmedhmmad/sMas/actions/runs/36992802792.
 
 ---
 
@@ -521,7 +521,7 @@ Platform Admin → Role → Permission + Platform-level scope
 
 | # | المرحلة | تعتمد على | الحالة |
 |---|---|---|---|
-| 1 | الأساس (Foundation) | — | 🔄 جارية |
+| 1 | الأساس (Foundation) | — | 🔒 مكتملة (2026-10-02) |
 | 2 | إعداد المدرسة | 1 | ⬜ |
 | 3 | الموظفون والتكليفات | 2 | ⬜ |
 | 4 | القبول والتسجيل والطلاب | 2 | ⬜ |
@@ -669,6 +669,7 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | ✅ **C3** — اعتماد `platform_admin_roles → platform_admin_role_permissions → permissions`؛ `is_platform_admin()` اختبار هوية فقط، و`has_permission()` توحّد المسارين. الكتالوج 73 مفتاحاً بعد K4 (`tenant.create`) | `docs/ROLE_PERMISSION_SEED_v1.md`, `AUTHORIZATION_MATRIX_v1.md`, `docs/DATA_DICTIONARY_v1.md`, `CLAUDE.md` |
 | 2026-09-22 | ✅ **A3** — RLS Model: 7 دوال، سياسات كل الجداول، حل تعارض FORCE RLS/recursion، 30 اختبار pgTAP، و6 بنود معلّقة | `docs/RLS_MODEL_v1.md`, `CLAUDE.md` |
 | 2026-09-23 | ✅ **A5** — اعتماد A1–A4 كـFoundation Design Baseline | — |
+| 2026-10-02 | 🔒 **Stage 1 مغلق — المرحلة 1 مكتملة** — CI `f41b0ff`، https://github.com/ahmedhmmad/sMas/actions/runs/36992802792؛ معايير الإنجاز الأربعة؛ لا C مفتوحة ولا جديدة؛ المؤجل بقرار (§9.5 من المراجعة) لا يمنعها | `CLAUDE.md`, `docs/STAGE1_REVIEW.md`, `docs/PLAN_v3.md` |
 | 2026-10-02 | ✅ **M31 + M32 — إصلاح نتائج C لمراجعة Stage 1** — S1 (`relationship_source`: صلاحية الربط ≠ إدارة الحساب)، S2 (`students_update` WITH CHECK)، C1 (sequences)، C2 (`MAINTAIN`)، C3 (فهرسان + استثناء FK الهوية)؛ pgTAP 1483 (32: 40)، pytest 225، Vitest 87؛ الاستعادة PASS (نظيفة وبالـseed)؛ ضوابط سلبية M31 5 / M32 10؛ لا C جديدة | `supabase/migrations/20261002090000_security_relationship_source.sql`, `supabase/migrations/20261002100000_privilege_index_followup.sql`, `supabase/tests/{20,27,31,32}_*.test.sql`, `docs/{STAGE1_REVIEW,DATA_DICTIONARY_v1,DB_IMPLEMENTATION_SPEC_v1,RLS_MODEL_v1,F2_AUTHENTICATION,PLAN_v3}.md`, `CLAUDE.md` |
 | 2026-10-01 | ✅ **مراجعة Stage 1 (R1–R10)** — لا عمود ولا قيد موثق غائب عن DB؛ الـ46 invariant بكائناتها؛ 61 سياسة مطابقة؛ 7 فجوات اختبار أُغلقت و حراس دائمة (`31`: 23، + 11 ضابطاً سلبياً)؛ بصمة الاستعادة وُسِّعت (929 ← 1360 سطراً)؛ 14 تصحيح وثائق. **C مفتوحة: S1، S2 (أمنيتان، معتمدتان)، C1–C3** — لا migration نُفذت. pgTAP 1440 | `docs/STAGE1_REVIEW.md`, `supabase/tests/31_stage1_contract.test.sql`, `scripts/db-fingerprint.sql`, `docs/{DATA_DICTIONARY_v1,ERD_CORE_v1,DB_IMPLEMENTATION_SPEC_v1,RLS_MODEL_v1,TRACEABILITY_E1_E4,PLAN_v3}.md`, `CLAUDE.md` |
 | 2026-10-01 | 🔒 **F3 مغلق و Gate F مكتمل (F1–F4)** — CI أخضر (`d3d12b1`، https://github.com/ahmedhmmad/sMas/actions/runs/36872502996)؛ pgTAP 1417، pytest 225، Vitest 87، Playwright 21؛ البنود الأربعة لمراجعة F3 محسومة | `CLAUDE.md`, `docs/F3_HOST_CONTEXT.md`, `docs/PLAN_v3.md` |

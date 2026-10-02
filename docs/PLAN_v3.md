@@ -259,6 +259,8 @@
 - تسجيل الدخول يعمل، والقائمة تتغير حسب الدور.
 - الـ CI أخضر.
 
+🔒 **المرحلة 1 مكتملة (2026-10-02):** المعايير الثلاثة + مراجعة ERD + migrations (`docs/STAGE1_REVIEW.md`، إصلاحاتها M31 و M32)؛ CI `f41b0ff`، https://github.com/ahmedhmmad/sMas/actions/runs/36992802792.
+
 ---
 
 ### المرحلة 2: إعداد المدرسة (School Setup)
