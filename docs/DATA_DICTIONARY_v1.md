@@ -1,7 +1,7 @@
 # Data Dictionary v1 — Foundation
 
 **التاريخ:** 2026-09-22
-**الحالة:** ✅ معتمد (A5، 2026-09-23) ومنفَّذ (M01–M30b) — رُوجع مقابل الـcatalog في مراجعة Stage 1 (2026-10-01، `docs/STAGE1_REVIEW.md`): لا عمود ولا قيد موثق هنا غائب عن قاعدة البيانات؛ ما نُفِّذ ولم يكن مذكوراً أُضيف بعلامة (مراجعة Stage 1، 2026-10-01)
+**الحالة:** ✅ معتمد (A5، 2026-09-23) ومنفَّذ (M01–M32) — رُوجع مقابل الـcatalog في مراجعة Stage 1 (2026-10-01، `docs/STAGE1_REVIEW.md`): لا عمود ولا قيد موثق هنا غائب عن قاعدة البيانات؛ ما نُفِّذ ولم يكن مذكوراً أُضيف بعلامة (مراجعة Stage 1، 2026-10-01)؛ إصلاحاتها: M31 (S1/S2) و M32 (C1–C3)
 **المرجع:** `ERD_CORE_v1.md` (النموذج المنطقي) + `PLAN_v3.md` §3.3 (القواعد الإلزامية) و§10 (Implementation Lock)
 **النطاق:** جداول Foundation فقط. Finance / Timetable / Grading internals / OCR / Payroll خارج هذا الملف، وتتبع نفس القواعد عند الوصول إليها.
 
@@ -673,6 +673,8 @@ CONSTRAINT membership_scopes_shape_chk CHECK (
 - `CHECK (status IN ('active','archived'))`
 - `CHECK ((status = 'archived') = (archived_at IS NOT NULL))` — Gate B
 
+**الفهارس:** `families_tenant_idx (platform_tenant_id)` — ✅ M32 (C3: كل FK له فهرس يبدأ بأعمدته)
+
 **الإنشاء:** لا مفتاح `family.create` في الكتالوج المجمَّد — تُنشأ فقط داخل دوال الإنشاء (✅ G4، G8).
 
 ---
@@ -893,6 +895,7 @@ Many-to-Many. كل أولياء الأمور المرتبطين بالطالب �
 | `status` | text | NOT NULL | `active`, `ended` |
 | `effective_from` | date | NOT NULL DEFAULT `current_date` | |
 | `effective_to` | date | NULL | |
+| `relationship_source` | text | NOT NULL DEFAULT `'direct'` | ✅ M31 (S1): `direct` = ربط مباشر بسياسة `student_guardians` INSERT؛ `provisioned` = أنشأته `app.provision_guardian` (المدرسة التي سجّلت ولي الأمر) — تكتبه وحدها. **لا يكتبه العميل** (خارج GRANT). إصدار كلمة المرور المؤقتة لولي الأمر يشترط ارتباطاً `provisioned` نشطاً بطالب في النطاق الحالي (`app.guardian_account_for_issue`) — صلاحية الربط ≠ صلاحية إدارة الحساب |
 | الأعمدة المشتركة | | | |
 
 **القيود:**
@@ -903,6 +906,7 @@ Many-to-Many. كل أولياء الأمور المرتبطين بالطالب �
 - `UNIQUE (student_id) WHERE is_primary AND status = 'active'` — ولي أمر أساسي واحد
 - `CHECK (relationship_type IN (...))`, `CHECK (status IN ('active','ended'))`
 - `CHECK (effective_to IS NULL OR effective_to > effective_from)`, `CHECK ((status = 'active') = (effective_to IS NULL))` — B6
+- `CHECK (relationship_source IN ('direct','provisioned'))` — `student_guardians_relationship_source_chk` (✅ M31)
 
 **الفهارس:** `(guardian_id, student_id)` (ERD §8)، `(student_id)`
 
@@ -1142,7 +1146,7 @@ CREATE TRIGGER audit_log_no_truncate
 | `consumed_at` | timestamptz | NULL | — | استهلاك، أو إبطال بإصدار جديد، أو إسقاط |
 | `created_at` | timestamptz | NOT NULL | `now()` | |
 
-**القيود:** `login_challenges_pkey`، `login_challenges_tenant_fk`، `login_challenges_account_fk`، `login_challenges_kind_chk`، `login_challenges_attempts_chk`. **الفهارس:** `login_challenges_account_idx (account_id, id DESC)`.
+**القيود:** `login_challenges_pkey`، `login_challenges_tenant_fk`، `login_challenges_account_fk`، `login_challenges_kind_chk`، `login_challenges_attempts_chk`. **الفهارس:** `login_challenges_account_idx (account_id, id DESC)`؛ `login_challenges_tenant_idx (platform_tenant_id)` (✅ M32/C3).
 
 ---
 
@@ -1165,7 +1169,7 @@ CREATE TRIGGER audit_log_no_truncate
 | `academic_years` | `(school_id, status)` | |
 | `audit_log` | `(platform_tenant_id, created_at DESC)`, `(entity_type, entity_id)` | |
 
-**قاعدة:** كل FK له فهرس. لا فهارس إضافية بلا قياس أداء فعلي بعد Foundation (ERD §8).
+**قاعدة:** كل FK له فهرس. لا فهارس إضافية بلا قياس أداء فعلي بعد Foundation (ERD §8). **استثناء موثق (M32/C3):** FK الهوية المركّب `(auth_user_id, identity_kind)` في `profiles` و`system_users` — `UNIQUE (auth_user_id)` يحدد صفاً واحداً على الأكثر فيغني عن فهرس بالعمودين؛ حارس دائم في `31_stage1_contract`.
 
 ---
 

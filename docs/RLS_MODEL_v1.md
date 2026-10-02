@@ -552,8 +552,11 @@ using (
 with check (
   platform_tenant_id = (select app.current_tenant_id())   -- يمنع نقل الطالب إلى Tenant آخر
   and app.has_permission('student.update')
+  and (family_id is null or app.family_in_scope(family_id))  -- ✅ M31 (S2، 2026-10-02)
 )
 ```
+
+> **✅ M31 (S2، مراجعة Stage 1، 2026-10-02):** `family_id` عمود يكتبه العميل، وكان `WITH CHECK` لا يفحص الأسرة الهدف — فيُسند الموظف طالبه إلى أسرة خارج نطاقه فتصير `family_in_scope` لها صحيحة ويقرؤها ويعدّلها (§1.1 بند 11). الشرط: الأسرة الهدف **ضمن نطاق الفاعل أصلاً**. `family_in_scope` تقرأ لقطة الجملة (الصف القديم)، فالطالب المنقول لا يجعل الأسرة الهدف ضمن النطاق بنفسه، بينما الأسرة التي لم تتغير — ولو كان الطالب عضوها الوحيد — تبقى مقبولة. لا دالة جديدة.
 
 > **Gate B (✅ G4):** إن اعتُمد G4 لا يُمنح `authenticated` صلاحية INSERT على `students`، وتنتقل الفحوص أدناه (`student.create` + `can_access_identity_scope`) إلى رأس `app.provision_student()`. السياسة تبقى موثقة كمرجع للفحوص المطلوبة.
 
@@ -911,6 +914,8 @@ update using      (app.has_permission('guardian.link') and app.student_in_scope(
 **`guardians.phone_e164` خارج سياسة UPDATE وخارج GRANT:** يتغير عبر مسار OTP في FastAPI فقط (`PLAN_v3.md` §7.8: «يعتمد الرقم الجديد مباشرة بعد نجاح OTP دون موافقة المدرسة»، والمدرسة تعدّل البيانات «باستثناء رقم الهاتف»).
 
 **`student_guardians` INSERT لا يشترط رؤية ولي الأمر:** قد يكون ولي الأمر مرتبطاً بأبناء في مدرسة أخرى داخل الـTenant (§7.1 من الخطة). المطابقة عبر الهاتف دالة بحث تُرجع أقل قدر من البيانات — المرحلة 4.
+
+**✅ M31 (S1، مراجعة Stage 1، 2026-10-02) — صلاحية ربط ولي الأمر ≠ صلاحية إدارة حسابه:** السياسة أعلاه باقية كما هي (لا تُفتح)، لكن الارتباط الذي تنشئه يحمل `relationship_source = 'direct'` (الافتراضي؛ العمود خارج GRANT). `'provisioned'` تكتبه `app.provision_guardian` وحدها (المدرسة التي سجّلت ولي الأمر). إصدار كلمة المرور المؤقتة (`begin/arm_guardian_temporary_password`، نمط C) يشترط ارتباطاً **`provisioned` نشطاً** بطالب في النطاق الحالي للفاعل — فالربط المباشر يمنح الرؤية (الغرض من هذه السياسة) ولا يمنح إدارة الـcredentials. `created_by` ليس مصدر هذا القرار.
 
 ### 10.6 `identity_scopes` وجداول Platform Admin — Gate B (F6)
 

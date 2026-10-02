@@ -2,8 +2,8 @@
 
 **المشروع:** نظام إدارة المدارس متعدد المستأجرين (Multi-Tenant SMS)
 **تاريخ الإنشاء:** 2026-09-22
-**آخر تحديث:** 2026-10-01
-**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (**Gate C 🔒 مكتمل: M01–M23**؛ **Gate E 🔒 مغلق تقنياً: E1–E6** — Production Backup Policy TBD؛ Gate F: **F4 🔒**؛ **F2 🔒**؛ **F1 🔒**؛ **F3 🔒** — **Gate F 🔒 مكتمل: F1–F4**؛ **مراجعة Stage 1 مكتملة** — 5 نتائج C مفتوحة قبل الإغلاق)
+**آخر تحديث:** 2026-10-02
+**المرحلة الحالية:** المرحلة 1 — الأساس (Foundation) / **Gate C — Foundation Migrations** (**Gate C 🔒 مكتمل: M01–M23**؛ **Gate E 🔒 مغلق تقنياً: E1–E6** — Production Backup Policy TBD؛ Gate F: **F4 🔒**؛ **F2 🔒**؛ **F1 🔒**؛ **F3 🔒** — **Gate F 🔒 مكتمل: F1–F4**؛ **مراجعة Stage 1 مكتملة** — النتائج C الخمس مُصلحة (M31، M32)؛ الإغلاق بعد CI)
 
 ---
 
@@ -153,7 +153,7 @@ app.can_access_*() + app.has_permission() تبني عليه
 
 ## 2. حالة المستودع
 
-**الحالة:** المستودع على GitHub: `ahmedhmmad/sMas` (`main`). CI أخضر. 35 migration (M01–M30b)؛ pgTAP 1440 (35 ملفاً)، pytest 225، Vitest 87، Playwright 21.
+**الحالة:** المستودع على GitHub: `ahmedhmmad/sMas` (`main`). CI أخضر. 37 migration (M01–M32)؛ pgTAP 1483 (36 ملفاً)، pytest 225، Vitest 87، Playwright 21.
 
 ```
 /docs                 وثائق التصميم + وثيقة لكل Gate + STAGE1_REVIEW  ✅
@@ -395,6 +395,8 @@ Platform Admin → Role → Permission + Platform-level scope
 | M29 | `platform_reads` (F1/W1) | ✅ 15/15 | الجداول الثلاثة ضمن N5: حذف سياسات Platform Admin الثماني؛ `platform_read_tenants([id])` تقرأ وتدقّق في عبارة واحدة (fail closed)؛ 14 و21b على الحقيقة الجديدة؛ ضابطان سلبيان |
 | M30 | `tenant_host_context` (F3) | ✅ 49/49 (1395/1395) | `platform_tenants.host_label` (DNS، محجوزات، فريد، بلا GRANT)؛ `app.login_context` المحلّل الوحيد — host يسمّي مدرسة مؤرشفة/غير موجودة لا يجد حساباً؛ دوال الدخول الست بالـlabel؛ `bootstrap_tenant` بتوقيع جديد؛ حارس: لا سياسة تقرأ الـlabel؛ 3 ضوابط سلبية |
 | M30b | `host_dns_labels` (مراجعة F3) | ✅ 22/22 (1417/1417) | `host_label` و`schools.slug` labels DNS (RFC 1123): لا شرطة ختامية؛ الاسمان نفسيهما (استبدال)؛ فحص البيانات القائمة قبل القيد يوقف الـmigration بقائمة مسمّاة — لا تصحيح تلقائي؛ ضابط سلبي على نص الـmigration نفسه |
+| M31 | `security_relationship_source` (مراجعة Stage 1 — S1، S2) | ✅ 40/40 (1480/1480) | **S1:** `student_guardians.relationship_source` (`direct`\|`provisioned`، افتراضي `direct`، خارج GRANT؛ القائم `direct` — fail-closed)؛ `provision_guardian` تكتب `provisioned` وحدها؛ `guardian_account_for_issue` تشترط ارتباطاً `provisioned` نشطاً بطالب في النطاق الحالي. **S2:** `students_update` WITH CHECK += `family_id IS NULL OR family_in_scope(family_id)` (لقطة الجملة، بلا دالة جديدة). السلسلة كاملة تفشل عند إدارة الحساب؛ الربط والقراءة و`provision_guardian` تعمل؛ 5 ضوابط سلبية |
+| M32 | `privilege_index_followup` (مراجعة Stage 1 — C1–C3) | ✅ (20: +2، 31: +1؛ 1483/1483) | لا امتياز لـ`anon`/`authenticated` على sequences قائمة أو مستقبلية؛ سحب `MAINTAIN` وافتراضيّه؛ فهرسا `platform_tenant_id` (`families`، `login_challenges`)؛ حارس «كل FK له فهرس» باستثناء FK الهوية الموثق؛ 10 ضوابط سلبية |
 
 **✅ H1 محسوم (2026-09-24) — السماح، بلا Group Scope:**
 > **H1 — A secretary may register a new student in a school that belongs to a group. The secretary requires `student.create` with school scope; this does not grant group scope. When the target school belongs to a group, the student's identity scope is derived from the target school's group and is not client-selectable. The student's enrollment is created for the target school in the same controlled provisioning operation.**
@@ -453,7 +455,7 @@ Platform Admin → Role → Permission + Platform-level scope
 - [x] **C9.** `audit_log` + trigger عام؛ منع DELETE/UPDATE من التطبيق.
       ✅ **منفَّذ** — M11 (T5، T7) + M02. (مراجعة Stage 1، 2026-10-01: الخانة كانت متأخرة عن الواقع)
 - [x] **C10.** Indexing baseline حسب `ERD_CORE_v1.md` §8 — لا indexes عشوائية.
-      ✅ **منفَّذ** — ضمن migration كل جدول؛ قائمة ERD §8 كاملة (16/16). ⚠️ قاعدة «كل FK له فهرس»: فهرسان ناقصان — C3 في `docs/STAGE1_REVIEW.md` §9.1. (مراجعة Stage 1، 2026-10-01: الخانة كانت متأخرة عن الواقع)
+      ✅ **منفَّذ** — ضمن migration كل جدول؛ قائمة ERD §8 كاملة (16/16). ✅ قاعدة «كل FK له فهرس»: الفهرسان الناقصان (C3) أُضيفا في M32، واستثناء FK الهوية موثق ومحروس (`31`). (مراجعة Stage 1، 2026-10-01: الخانة كانت متأخرة عن الواقع)
 
 ### Gate D — RLS
 
@@ -505,13 +507,13 @@ Platform Admin → Role → Permission + Platform-level scope
 ### معايير إنجاز المرحلة 1
 
 - [ ] اختبارات العزل خضراء: مستخدم مدرسة (أ) لا يقرأ ولا يعدل بيانات مدرسة (ب).
-      ⏳ الاختبارات القائمة خضراء (1440)؛ **لا تُعلَّم قبل إصلاح S1 و S2** (علاقة ينشئها الفاعل تمنحه نطاقاً — `docs/STAGE1_REVIEW.md` §9.1).
+      ⏳ **S1 و S2 مُصلحتان (M31)** — علاقة ينشئها الفاعل لا تمنحه إدارة حساب ولا نطاق أسرة؛ pgTAP 1483 — تُعلَّم بعد CI.
 - [x] تسجيل الدخول يعمل والقائمة تتغير حسب الدور.
       ✅ F1 + F2 (Playwright 21: كل الأدوار + ولي الأمر A/B/C + الطالب).
 - [x] CI أخضر.
       ✅ يُثبَّت مع كل push.
 - [ ] مراجعة ERD + migrations قبل الانتقال إلى المرحلة 2.
-      ✅ **المراجعة مكتملة (2026-10-01)** — `docs/STAGE1_REVIEW.md` (R1–R10): A (14) و B (7) مغلقة؛ **5 نتائج C مفتوحة** (S1، S2 أمنيتان بقرار معتمد؛ C1–C3 للقرار) — تُعلَّم بعد حسمها.
+      ✅ **المراجعة مكتملة (2026-10-01)** — `docs/STAGE1_REVIEW.md` (R1–R10): A (14) و B (7) مغلقة؛ **C الخمس مُصلحة (2026-10-02)**: M31 (S1، S2) و M32 (C1–C3)، بلا C جديدة — تُعلَّم بعد CI.
 
 ---
 
@@ -577,10 +579,14 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | `audit_log.id` هو `bigint IDENTITY` وليس uuid، وبلا FK على `actor_id`/`entity_id` | ترتيب زمني طبيعي وحجم أصغر؛ وFK على الكيانات يخلق تبعية عكسية تكسر السجل عند الأرشفة |
 | 2026-09-22 | **O1** — `profiles.auth_user_id` فريد عالمياً؛ نفس Auth User لا يعبر Tenantين | شرط حتمية `app.current_tenant_id()` وصحة §1.1. التفاصيل: §1.1 + `DATA_DICTIONARY_v1.md` §2.7 |
 | 2026-09-22 | **O2** — `students.gender` و`birth_date` قابلان لـNULL؛ OCR ليس شرطاً ولا مصدراً نهائياً | اكتمال البيانات قاعدة أعمال في المرحلة 4 لا قيد صف. يلزم معالجة NULL صراحةً في قواعد التوزيع والتقارير |
+| 2026-10-02 | **S1 — الآلية النهائية (الحزمة النهائية، معتمد):** `student_guardians.relationship_source` هو العقد — `direct` \| `provisioned`، افتراضي `direct`، **لا يكتبه العميل**، و`provisioned` تكتبه `app.provision_guardian` وحدها. إصدار الكلمة المؤقتة لولي الأمر يشترط ارتباطاً **`provisioned` نشطاً** بطالب في النطاق الحالي للفاعل؛ `direct` لا يمنح وحده إدارة credentials. **لا اعتماد على `created_by`** — يُنقِّح «أو أنشأه فاعل آخر» في صف S1 أدناه. **صلاحية ربط ولي الأمر ≠ صلاحية إدارة حساب ولي الأمر** | مراجعة Stage 1 — M31 |
+| 2026-10-02 | **S2 — الآلية (M31):** `students_update` WITH CHECK += `family_id IS NULL OR app.family_in_scope(family_id)` بلا دالة جديدة؛ دوال WITH CHECK تقرأ لقطة الجملة (الصف القديم) فالطالب المنقول لا يجعل الأسرة الهدف ضمن النطاق بنفسه، والأسرة غير المتغيرة مقبولة ولو كان الطالب عضوها الوحيد. البديل (دالة تستثني الطالب الحالي) **مرفوض**: يمنع تعديل الطالب العضو الوحيد في أسرته (ضابط سلبي: 3 اختبارات) | مراجعة Stage 1 — M31 |
+| 2026-10-02 | **C1–C3 (معتمد، الحزمة النهائية):** migration غير أمنية واحدة (M32) بعد الأمنية: (C1) لا امتياز لـ`anon`/`authenticated` على أي sequence ولا على sequence جديدة؛ (C2) سحب `MAINTAIN` وافتراضيّه — الجدول الجديد يعطي `authenticated` SELECT وحده؛ (C3) فهرسا `platform_tenant_id` في `families` و`login_challenges`. **الاستثناء الوحيد لـ«كل FK له فهرس»: FK الهوية المركّب `(auth_user_id, identity_kind)` في `profiles`/`system_users` — مستوفى بـ`UNIQUE (auth_user_id)`**؛ حراس دائمة في `20` و`31` | مراجعة Stage 1 — M32 |
+| 2026-10-02 | **تكليف الموظف (D2 في المراجعة) — يبقى D، لا تغيير الآن:** INSERT بـ`staff.assign` + مدرسة الهدف (خيار b، 2026-09-25) قائم؛ لا مسار إدارة حساب يتبعه اليوم. يُراجَع عند تصميم 5c/حسابات الموظفين | مراجعة Stage 1 |
 | 2026-10-01 | **مراجعة Stage 1 — القواعد (2026-10-01):** خط الأساس `59399d4`؛ الـcatalog مصدر حقيقة **الحالة المنفذة** فقط، وعند تعارضه مع وثيقة يُرجع إلى التصميم المعتمد لتحديد A (وثيقة متأخرة — تُصحَّح in-place بتاريخ، بلا v2) أو C (خلل تنفيذ). C تُعرض دفعة واحدة في النهاية بلا تنفيذ؛ **C الأمني (Tenant isolation، RLS bypass، privilege escalation، account takeover، cross-tenant) يُعرض فوراً**. لا migration إصلاحية أثناء المراجعة بلا اعتماد. الحراس الدائمة للعقود المستقرة الحتمية الرخيصة فقط. لا إعادة فتح لقرار مغلق | مراجعة Stage 1 |
 | 2026-10-01 | **M30b — البيانات المخالفة: fail before mutation + enumerate all offending values (معتمد 2026-10-01):** لا auto-fix — `slug`/`host_label` عنوان قابل للوصول، وتغييره قرار صريح لا normalization تقني | مراجعة Stage 1 |
 | 2026-10-01 | **R5 teaching-assignment — Deferred / Phase 3:** R5 teaching-assignment invariant cannot be fully enforced or tested until `teaching_assignments` is introduced in Phase 3. لا يُحوَّل إلى C ولا يمنع Stage 1؛ ومثله Production Backup Policy والبنود المصنفة TBD صراحةً | مراجعة Stage 1 |
-| 2026-10-01 | **S1 — C أمني (معتمد: S1-أ، 2026-10-01):** `begin_guardian_temporary_password`/`arm_guardian_temporary_password` لا تعتمدان على `guardian_in_scope` وحده حين يكون النطاق قابلاً للإنشاء من الفاعل نفسه. **إصدار الكلمة المؤقتة يشترط أن يكون ارتباط ولي الأمر بطالب المدرسة قد أنشأته `provision_guardian` أو أنشأه فاعل آخر، لا ربطاً مباشراً من المُصدِر نفسه** — مصدر العلاقة جزء من الـauthorization invariant. S1-ب (سحب INSERT المباشر) **غير معتمد**: §10.5 لا تُفتح. الاختبار يثبت السلسلة كاملة (`SA → student_guardians INSERT → guardian_in_scope → begin`) ويفشل عند إدارة الحساب تحديداً، مع بقاء الربط المشروع والقراءة بعده و`provision_guardian` تعمل | مراجعة Stage 1 |
+| 2026-10-01 | **S1 — C أمني (معتمد: S1-أ، 2026-10-01):** `begin_guardian_temporary_password`/`arm_guardian_temporary_password` لا تعتمدان على `guardian_in_scope` وحده حين يكون النطاق قابلاً للإنشاء من الفاعل نفسه. **إصدار الكلمة المؤقتة يشترط أن يكون ارتباط ولي الأمر بطالب المدرسة قد أنشأته `provision_guardian` أو أنشأه فاعل آخر، لا ربطاً مباشراً من المُصدِر نفسه** — مصدر العلاقة جزء من الـauthorization invariant (**نُقِّح 2026-10-02:** `provisioned` وحدها، بلا `created_by` — صف 2026-10-02 أعلاه). S1-ب (سحب INSERT المباشر) **غير معتمد**: §10.5 لا تُفتح. الاختبار يثبت السلسلة كاملة (`SA → student_guardians INSERT → guardian_in_scope → begin`) ويفشل عند إدارة الحساب تحديداً، مع بقاء الربط المشروع والقراءة بعده و`provision_guardian` تعمل | مراجعة Stage 1 |
 | 2026-10-01 | **S2 — C أمني (معتمد، 2026-10-01):** `students` `WITH CHECK`: `family_id IS NULL OR` الأسرة ضمن نطاق الفاعل أصلاً — لا علاقة ينشئها الفاعل تصير مصدر النطاق (self-created scope escalation). الاختبار: SA2 لا يسند أسرة خارج نطاقه، ويستطيع استعمال أسرة في نطاقه | مراجعة Stage 1 |
 | 2026-10-01 | **S1/S2 — التنفيذ:** migration أمنية **مستقلة** بعد اكتمال المراجعة وعرض الحزمة النهائية — لا تُخلط مع إصلاحات C غير الأمنية (الامتيازات، الفهارس) ولا مع الوثائق | مراجعة Stage 1 |
 | 2026-10-01 | **F3 — مراجعة (1) معتمد:** host يسمّي مدرسة مؤرشفة أو غير موجودة ← **generic authentication failure** لكل أنواع الحسابات، حتى المرتبطة بها تاريخياً (التاريخية لا تعني operational access — متسق مع H2)؛ host الـTenant يبقى صالحاً لمستخدمي مستوى الـTenant حسب صلاحياتهم | مراجعة F3 |
@@ -663,6 +669,7 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | ✅ **C3** — اعتماد `platform_admin_roles → platform_admin_role_permissions → permissions`؛ `is_platform_admin()` اختبار هوية فقط، و`has_permission()` توحّد المسارين. الكتالوج 73 مفتاحاً بعد K4 (`tenant.create`) | `docs/ROLE_PERMISSION_SEED_v1.md`, `AUTHORIZATION_MATRIX_v1.md`, `docs/DATA_DICTIONARY_v1.md`, `CLAUDE.md` |
 | 2026-09-22 | ✅ **A3** — RLS Model: 7 دوال، سياسات كل الجداول، حل تعارض FORCE RLS/recursion، 30 اختبار pgTAP، و6 بنود معلّقة | `docs/RLS_MODEL_v1.md`, `CLAUDE.md` |
 | 2026-09-23 | ✅ **A5** — اعتماد A1–A4 كـFoundation Design Baseline | — |
+| 2026-10-02 | ✅ **M31 + M32 — إصلاح نتائج C لمراجعة Stage 1** — S1 (`relationship_source`: صلاحية الربط ≠ إدارة الحساب)، S2 (`students_update` WITH CHECK)، C1 (sequences)، C2 (`MAINTAIN`)، C3 (فهرسان + استثناء FK الهوية)؛ pgTAP 1483 (32: 40)، pytest 225، Vitest 87؛ الاستعادة PASS (نظيفة وبالـseed)؛ ضوابط سلبية M31 5 / M32 10؛ لا C جديدة | `supabase/migrations/20261002090000_security_relationship_source.sql`, `supabase/migrations/20261002100000_privilege_index_followup.sql`, `supabase/tests/{20,27,31,32}_*.test.sql`, `docs/{STAGE1_REVIEW,DATA_DICTIONARY_v1,DB_IMPLEMENTATION_SPEC_v1,RLS_MODEL_v1,F2_AUTHENTICATION,PLAN_v3}.md`, `CLAUDE.md` |
 | 2026-10-01 | ✅ **مراجعة Stage 1 (R1–R10)** — لا عمود ولا قيد موثق غائب عن DB؛ الـ46 invariant بكائناتها؛ 61 سياسة مطابقة؛ 7 فجوات اختبار أُغلقت و حراس دائمة (`31`: 23، + 11 ضابطاً سلبياً)؛ بصمة الاستعادة وُسِّعت (929 ← 1360 سطراً)؛ 14 تصحيح وثائق. **C مفتوحة: S1، S2 (أمنيتان، معتمدتان)، C1–C3** — لا migration نُفذت. pgTAP 1440 | `docs/STAGE1_REVIEW.md`, `supabase/tests/31_stage1_contract.test.sql`, `scripts/db-fingerprint.sql`, `docs/{DATA_DICTIONARY_v1,ERD_CORE_v1,DB_IMPLEMENTATION_SPEC_v1,RLS_MODEL_v1,TRACEABILITY_E1_E4,PLAN_v3}.md`, `CLAUDE.md` |
 | 2026-10-01 | 🔒 **F3 مغلق و Gate F مكتمل (F1–F4)** — CI أخضر (`d3d12b1`، https://github.com/ahmedhmmad/sMas/actions/runs/36872502996)؛ pgTAP 1417، pytest 225، Vitest 87، Playwright 21؛ البنود الأربعة لمراجعة F3 محسومة | `CLAUDE.md`, `docs/F3_HOST_CONTEXT.md`, `docs/PLAN_v3.md` |
 | 2026-10-01 | ✅ **مراجعة F3 + M30b** — `host_label` و`schools.slug` labels DNS (فحص البيانات القائمة قبل القيد، بلا تصحيح تلقائي)؛ المحللان والمتجهات على القاعدة نفسها؛ اختبار مستقل لـinvariant دخول الطالب؛ pgTAP 1417، pytest 225، Vitest 87، Playwright 21 | `supabase/migrations/20261001120000_host_dns_labels.sql`, `supabase/tests/30b_host_dns.test.sql`, `services/api/app/host_context.py`, `services/api/tests/test_host_context.py`, `apps/web/src/context/hostContext{,.test}.ts`, `docs/contracts/host_context_vectors.json`, `docs/*`, `CLAUDE.md` |

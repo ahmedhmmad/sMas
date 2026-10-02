@@ -241,6 +241,8 @@ CHECK (start_date >= year_start_date AND end_date <= year_end_date)
 
 **القاعدة:** كل FK له فهرس يبدأ بأعمدته. لا فهارس إضافية إلا ما تطلبه سياسة RLS أو دالة مساعدة.
 
+> **✅ M32 (مراجعة Stage 1، C3 — 2026-10-02):** أُضيف `families_tenant_idx` و`login_challenges_tenant_idx` على `platform_tenant_id`. **الاستثناء الموثق الوحيد:** FK الهوية المركّب `(auth_user_id, identity_kind)` في `profiles` و`system_users` (G10) — مستوفى بـ`UNIQUE (auth_user_id)` (صف واحد على الأكثر لكل قيمة)، فلا فهرس بالعمودين. الحارس الدائم في `31_stage1_contract`: كل FK في `public` له فهرس تبدأ أعمدته بأعمدة الـFK (الجزئي يُقبل إن كان شرطه `عمود الـFK IS NOT NULL`) عدا هذين.
+
 | الجدول | الفهرس | السبب |
 |---|---|---|
 | `membership_scopes` | `(membership_id, scope_type)` | كل `can_access_*` |
@@ -342,6 +344,8 @@ PA = سياق Platform (`app.has_platform_permission(...)`) — G10. النص ا
 ### 4.6 سجل صلاحيات الأعمدة (GRANT لـ`authenticated`)
 
 > **✅ M20 (2026-09-25):** مطبَّق حرفياً. «كل أعمدة الأعمال» = كل الأعمدة عدا `id`، `created_*`، `updated_*`، المولَّدة، `archived_at`، وأعمدة الحالة المحكومة بانتقال (`status`/`effective_to` خارج INSERT أيضاً في `staff_school_assignments` و`student_guardians` و`enrollments`: الإنشاء يبدأ نشطاً). الجداول المستقبلية آمنة افتراضياً (`ALTER DEFAULT PRIVILEGES`): `anon` لا شيء، `authenticated` SELECT فقط — كل migration لاحقة تمنح صراحةً.
+>
+> **✅ M32 (مراجعة Stage 1، C1 + C2 — 2026-10-02):** إكمال العقد نفسه لما لم يسرده M20: (C1) لا امتياز لـ`anon`/`authenticated` على أي sequence (أعمدة IDENTITY لا تحتاج امتيازاً على تسلسلها)، ولا على أي sequence جديدة افتراضياً؛ (C2) `MAINTAIN` (PG17) مسحوب من الجداول ومن الامتياز الافتراضي — فالجدول الجديد يعطي `authenticated` SELECT وحده. الحارسان في `20_column_grants`.
 
 **القاعدة:** ما لا يرد هنا لا يُكتب مباشرة من أي مستخدم. أعمدة `status`/`archived_at` مستبعدة حيث تحكم الانتقال صلاحية مستقلة (`.archive`, `.activate`, `.close`, `.end`, `.unlink`) — تُغيَّر بدوال §5.3.
 
@@ -361,7 +365,7 @@ PA = سياق Platform (`app.has_platform_permission(...)`) — G10. النص ا
 | `families` | — | `family_name, address` — **✅ M20b:** `family_code` حُذف (قاعدة الثوابت: كل الأكواد لا يعدّلها المستخدم) |
 | `students` | — | الاسم الرباعي، `gender, birth_date, nationality, family_id, official_id, official_id_type` |
 | `guardians` | — | الاسم الرباعي، `alt_phone_e164, email, national_id, residence_country` |
-| `student_guardians` | كل أعمدة الأعمال عدا `status, effective_to` | `relationship_type, is_primary, receives_whatsapp, can_pickup` |
+| `student_guardians` | كل أعمدة الأعمال عدا `status, effective_to` — **✅ M31:** و`relationship_source` (الإضافة بعد M20 لا تُمنح؛ تكتبه `provision_guardian` وحدها) | `relationship_type, is_primary, receives_whatsapp, can_pickup` |
 | `enrollments` | كل أعمدة الأعمال عدا `status, effective_to, withdrawal_reason` | `enrollment_no` |
 | `academic_years` | `school_id, name, start_date, end_date` | `name, start_date, end_date` |
 | `terms`, `stages`, `grade_levels`, `sections` | كل أعمدة الأعمال | كل أعمدة الأعمال |
@@ -496,11 +500,11 @@ grant execute on function app.archive_student(uuid, text) to authenticated;
 |---|---|---|
 | `app.provision_student(...)` | profile + membership + دور `student` + (family) + student + **enrollment** | `student.create` + `enrollment.create` + `can_access_school(target_school)`؛ **`identity_scope_id` مشتق من المدرسة الهدف، لا يُقبل من العميل (H1)** |
 | `app.provision_staff(...)` | staff + أول `staff_school_assignment` | `staff.create` + `staff.assign` + `can_access_school` |
-| `app.provision_guardian(student_id, ...)` | guardian + `student_guardians` + (family) | `guardian.create` + `guardian.link` + `student_in_scope` |
+| `app.provision_guardian(student_id, ...)` | guardian + `student_guardians` (**✅ M31: `relationship_source = 'provisioned'`** — المصدر الوحيد لها) + (family) | `guardian.create` + `guardian.link` + `student_in_scope` |
 | `app.provision_account(kind, id, auth_user_id)` | profile + membership + دور + (نطاق) لموظف/ولي أمر قائم | صلاحية المورد + علاقة في النطاق |
 | `app.platform_read_tenants([tenant_id])` ✅ M29 (F1/W1) | قراءة Platform Admin لبيانات Tenant (N5) — القراءة والتدقيق عبارة واحدة | سياق المنصة (وإلا 42501) + `has_platform_permission('tenant.read')` (وإلا لا صفوف ولا تدقيق)؛ لا سياسة قراءة مباشرة للمنصة على الجداول الثلاثة |
 | `app.set_guardian_first_login_mode(school, mode, reason)` ✅ M27 (F2/D4) | تغيير نمط المدرسة | `security.manage` + `can_access_school` + سبب |
-| `app.begin_guardian_temporary_password` / `app.arm_guardian_temporary_password` ✅ M27 (C) | إصدار كلمة مؤقتة لحساب غير مُستكمل | `security.manage` + `guardian_in_scope`؛ fail-closed بين الخطوتين |
+| `app.begin_guardian_temporary_password` / `app.arm_guardian_temporary_password` ✅ M27 (C) | إصدار كلمة مؤقتة لحساب غير مُستكمل | `security.manage` + `guardian_in_scope` + **✅ M31 (S1): ارتباط `provisioned` نشط بطالب في النطاق الحالي** (الربط المباشر `direct` لا يكفي — صلاحية الربط ≠ إدارة الحساب)؛ الفحص في `app.guardian_account_for_issue`؛ fail-closed بين الخطوتين |
 | `app.otp_issue` / `app.otp_verify` / `app.password_login_account` / `app.password_login_result` ✅ M26 (F2/D3)؛ M27: `otp_*` بمعامل المدرسة (اختياري) وبوابة onboarding؛ **M30: المعامل الأول `host_label` (لا `tenant_code`) ومدرسة السياق اختيارية للأربع** | لا إنشاء هوية — دخول حسابات Tenant قبل JWT (الفئة 4) | EXECUTE لـ`service_role` وحده؛ المحلّل الداخلي `login_account` و`login_outcome` لا لأحد؛ I1؛ `docs/F2_AUTHENTICATION.md` §4.2 |
 | `app.login_context(host_label, school_slug)` ✅ M30 (F3) | داخلي — لا كتابة | **المحلّل الوحيد لسياق الدخول:** Tenant نشط بالـlabel، ومدرسة نشطة فيه إن سمّاها الـhost — وإلا لا شيء؛ لا EXECUTE لأحد؛ كل دوال الدخول تمر به |
 | `app.resolve_student_login(host_label, school_slug, identifier)` ✅ M24 (F2/D1)؛ M30: بالـlabel عبر `login_context` | لا كتابة — معرّف الحساب أو NULL (الفئة 4: تجاوز RLS بعد تحقق صريح) | قبل JWT: EXECUTE لـ`service_role` وحده؛ NULL واحد لكل فشل؛ لا tenant/school/بيانات |
@@ -742,6 +746,13 @@ helpers ─► state fns ─► provisioning fns ─► reference data
 | M23 ✅ | `reference_data` | الكتالوج والأدوار والخرائط | `23_catalog_drift` |
 
 **معيار الخروج من Gate C/D/E:** كل M01–M23 مطبَّقة على قاعدة نظيفة بـ`supabase db reset`، وكل ملفات pgTAP خضراء في CI.
+
+**بعد Foundation:** M24–M30b لـGate F (موثقة في `docs/F2_AUTHENTICATION.md`، `docs/F1_WEB_APP.md`، `docs/F3_HOST_CONTEXT.md` وفي §5.2 أعلاه). **إصلاحات مراجعة Stage 1 (`docs/STAGE1_REVIEW.md`):**
+
+| # | الـMigration | المحتوى | اختبار pgTAP |
+|---|---|---|---|
+| M31 ✅ | `security_relationship_source` | **S1:** `student_guardians.relationship_source` (`direct`\|`provisioned`، افتراضي `direct`، خارج GRANT)؛ `provision_guardian` تكتب `provisioned`؛ `guardian_account_for_issue` تشترط ارتباطاً `provisioned` نشطاً بطالب في النطاق الحالي. **S2:** `students_update` WITH CHECK += `family_id IS NULL OR family_in_scope(family_id)` | `32_security_relationship_source` ✅ 40/40 |
+| M32 ✅ | `privilege_index_followup` | **C1:** سحب امتيازات الـsequences وافتراضيّها من `anon`/`authenticated`؛ **C2:** سحب `MAINTAIN` وافتراضيّه؛ **C3:** فهرسا `platform_tenant_id` في `families` و`login_challenges` + توثيق استثناء FK الهوية | `20_column_grants` (+2)، `31_stage1_contract` (+1) |
 
 ---
 
