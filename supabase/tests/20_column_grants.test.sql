@@ -43,7 +43,7 @@ insert into expected values
   ('profiles',                  '', 'display_name'),
   ('role_permissions',          'permission_id,role_id', ''),
   ('roles',                     'code,description,name,platform_tenant_id', 'description,name'),
-  ('schools',                   'group_id,name,platform_tenant_id,school_code,slug,timezone', 'name,slug,timezone'),
+  ('schools',                   'group_id,name,platform_tenant_id,school_code,slug,timezone', 'name,timezone'),   -- M36: slug بـset_school_slug
   ('sections',                  'academic_year_id,capacity,gender_policy,grade_level_id,name,school_id,status', 'capacity,gender_policy,name,status'),   -- M35: هوية الشعبة ثابتة
   ('staff',                     '', 'birth_date,email,family_name,father_name,first_name,gender,grandfather_name,hire_date,national_id,phone_e164'),
   ('staff_school_assignments',  'effective_from,is_primary,job_title,platform_tenant_id,school_id,staff_id', 'is_primary,job_title'),
@@ -116,6 +116,7 @@ insert into controlled_allowlist values   -- M21
   ('app.archive_guardian(uuid,text)'), ('app.unlink_guardian(uuid,date,text)'),
   ('app.activate_academic_year(uuid,text)'), ('app.close_academic_year(uuid,text)'),
   ('app.activate_term(uuid,text)'), ('app.close_term(uuid,text)'),   -- M34
+  ('app.set_school_slug(uuid,text,text)'),                           -- M36
   ('app.close_enrollment(uuid,text,date,text)'), ('app.transfer_enrollment(uuid,uuid,date,text,text)'),
   ('app.set_role_status(uuid,text,text)'),
   -- M22
@@ -197,7 +198,7 @@ select ok(not has_table_privilege('service_role', 'public.audit_log', 'UPDATE') 
 -- ---------- EXECUTE بفئتين ----------
 select is((select v from r where k = 'x.uncategorized'), 'none',
           'EXECUTE for authenticated: every function is either an RLS helper called by a policy or an allowlisted controlled function');
-select is((select v from r where k = 'x.allowlist_missing'), 'none', 'every allowlisted controlled function is executable (15 from M21 + 5 from M22 + 2 from M25 + 3 from M27 + 1 from M28 + 1 from M29 + 2 from M34)');
+select is((select v from r where k = 'x.allowlist_missing'), 'none', 'every allowlisted controlled function is executable (15 from M21 + 5 from M22 + 2 from M25 + 3 from M27 + 1 from M28 + 1 from M29 + 2 from M34 + 1 from M36)');
 select is((select count(*)::int from pg_proc p where p.pronamespace = 'app'::regnamespace and has_function_privilege('anon', p.oid, 'EXECUTE')), 0,
           'anon executes no function in app');
 select is((select count(*)::int from pg_proc p where p.pronamespace = 'app'::regnamespace

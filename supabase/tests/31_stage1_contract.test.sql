@@ -212,6 +212,7 @@ insert into expected_functions values
   ('resolve_student_login(text,text,text)|app_owner|definer|app, public, pg_temp|service_role'),
   ('set_audit_context(text,text)|app_owner|definer|app, public, pg_temp|-'),
   ('set_guardian_first_login_mode(uuid,text,text)|app_owner|definer|app, public, pg_temp|authenticated'),
+  ('set_school_slug(uuid,text,text)|app_owner|definer|app, public, pg_temp|authenticated'),   -- M36
   ('set_role_status(uuid,text,text)|app_owner|definer|app, public, pg_temp|authenticated'),
   ('set_staff_status(uuid,text,text,date)|app_owner|definer|app, public, pg_temp|authenticated'),
   ('staff_in_scope(uuid)|app_owner|definer|app, public, pg_temp|authenticated'),
@@ -265,7 +266,7 @@ select is((select count(*)::int from pg_trigger t join pg_class c on c.oid = t.t
             where c.relnamespace = 'public'::regnamespace and not t.tgisinternal and t.tgenabled <> 'O'), 0, 'no trigger is disabled');
 
 -- ---------- عقود الدوال ----------
-select is((select count(*)::int from expected_functions), 78, 'the reviewed function list has 78 functions');
+select is((select count(*)::int from expected_functions), 79, 'the reviewed function list has 79 functions');
 select set_eq($q$select substr(p.oid::regprocedure::text, 5) || '|' || pg_get_userbyid(p.proowner) || '|' ||
                         case when p.prosecdef then 'definer' else 'invoker' end || '|' ||
                         replace(coalesce(array_to_string(p.proconfig, ','), ''), 'search_path=', '') || '|' ||

@@ -21,7 +21,7 @@ insert into public.platform_tenants (id, tenant_code, host_label, name) values (
 insert into public.schools (id, platform_tenant_id, school_code, name, slug) values
   ('5a000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'SA', 'SA', 'school-a');
 
--- tenant_admin لـT1 (يملك UPDATE (slug) على schools — سجل §4.6)
+-- tenant_admin لـT1 (يغيّر الـslug بـapp.set_school_slug — M36)
 insert into auth.users (id, email) values ('c1000000-0000-0000-0000-000000000001', 'ta@m30b.invalid');
 insert into public.auth_identities (auth_user_id, kind) values ('c1000000-0000-0000-0000-000000000001', 'tenant');
 with p as (insert into public.profiles (platform_tenant_id, auth_user_id, display_name)
@@ -58,12 +58,12 @@ select pg_temp.slug('s.too_long',   repeat('a', 64));
 select pg_temp.slug('s.two',        'ab');
 select pg_temp.slug('s.hyphen',     'school-b');
 select pg_temp.slug('s.max',        repeat('b', 62) || '1');
--- مسار العميل: tenant_admin يملك UPDATE (slug) — القيد يحكمه أيضاً
+-- مسار العميل (M36: app.set_school_slug) — القيد نفسه يحكمه
 select set_config('request.jwt.claims', '{"sub":"c1000000-0000-0000-0000-000000000001","role":"authenticated"}', true);
 select set_config('request.jwt.claim.sub', 'c1000000-0000-0000-0000-000000000001', true);
 set local role authenticated;
-select pg_temp.rec('u.trailing', $q$update public.schools set slug = 'school-' where id = '5a000000-0000-0000-0000-000000000001' returning 'ok'$q$);
-select pg_temp.rec('u.ok',       $q$update public.schools set slug = 'school-z' where id = '5a000000-0000-0000-0000-000000000001' returning 'ok'$q$);
+select pg_temp.rec('u.trailing', $q$select app.set_school_slug('5a000000-0000-0000-0000-000000000001', 'school-', 'r')$q$);
+select pg_temp.rec('u.ok',       $q$select app.set_school_slug('5a000000-0000-0000-0000-000000000001', 'school-z', 'r')$q$);
 reset role;
 
 select plan(22);
@@ -86,7 +86,7 @@ select is((select v from r where k = 's.two'),    'ok', 'slug: ab');
 select is((select v from r where k = 's.hyphen'), 'ok', 'slug: school-b');
 select is((select v from r where k = 's.max'),    'ok', 'slug: 63 characters');
 select ok((select v from r where k = 'u.trailing') like 'ERR 23514%schools_slug_chk%', 'client path: a tenant admin cannot rename a school to a non-DNS slug');
-select is((select v from r where k = 'u.ok'),     'ok', 'client path: a DNS-safe rename still works');
+select is((select v from r where k = 'u.ok'),     'school-z', 'client path: a DNS-safe rename still works');
 select is((select pg_get_constraintdef(oid) from pg_constraint where conname = 'platform_tenants_host_label_chk'),
           'CHECK ((host_label ~ ''^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$''::text))', 'host_label constraint text (RFC 1123 label)');
 select is((select pg_get_constraintdef(oid) from pg_constraint where conname = 'schools_slug_chk'),
