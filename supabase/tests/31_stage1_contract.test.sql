@@ -154,6 +154,7 @@ insert into expected_functions values
   ('activate_academic_year(uuid,text)|app_owner|definer|app, public, pg_temp|authenticated'),
   ('activate_term(uuid,text)|app_owner|definer|app, public, pg_temp|authenticated'),   -- M34
   ('close_term(uuid,text)|app_owner|definer|app, public, pg_temp|authenticated'),      -- M34
+  ('copy_sections(uuid,uuid,text)|app_owner|definer|app, public, pg_temp|authenticated'),   -- M37
   ('tg_term_guard()|app_owner|definer|app, public, pg_temp|-'),                        -- T11 (M34)
   ('tg_section_guard()|app_owner|definer|app, public, pg_temp|-'), ('tg_grade_level_guard()|app_owner|definer|app, public, pg_temp|-'),   -- T12 (M35)
   ('tg_stage_guard()|app_owner|definer|app, public, pg_temp|-'),                       -- T12 (M35)
@@ -266,7 +267,7 @@ select is((select count(*)::int from pg_trigger t join pg_class c on c.oid = t.t
             where c.relnamespace = 'public'::regnamespace and not t.tgisinternal and t.tgenabled <> 'O'), 0, 'no trigger is disabled');
 
 -- ---------- عقود الدوال ----------
-select is((select count(*)::int from expected_functions), 79, 'the reviewed function list has 79 functions');
+select is((select count(*)::int from expected_functions), 80, 'the reviewed function list has 80 functions');
 select set_eq($q$select substr(p.oid::regprocedure::text, 5) || '|' || pg_get_userbyid(p.proowner) || '|' ||
                         case when p.prosecdef then 'definer' else 'invoker' end || '|' ||
                         replace(coalesce(array_to_string(p.proconfig, ','), ''), 'search_path=', '') || '|' ||

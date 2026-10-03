@@ -117,6 +117,7 @@ insert into controlled_allowlist values   -- M21
   ('app.activate_academic_year(uuid,text)'), ('app.close_academic_year(uuid,text)'),
   ('app.activate_term(uuid,text)'), ('app.close_term(uuid,text)'),   -- M34
   ('app.set_school_slug(uuid,text,text)'),                           -- M36
+  ('app.copy_sections(uuid,uuid,text)'),                             -- M37
   ('app.close_enrollment(uuid,text,date,text)'), ('app.transfer_enrollment(uuid,uuid,date,text,text)'),
   ('app.set_role_status(uuid,text,text)'),
   -- M22
@@ -198,7 +199,7 @@ select ok(not has_table_privilege('service_role', 'public.audit_log', 'UPDATE') 
 -- ---------- EXECUTE بفئتين ----------
 select is((select v from r where k = 'x.uncategorized'), 'none',
           'EXECUTE for authenticated: every function is either an RLS helper called by a policy or an allowlisted controlled function');
-select is((select v from r where k = 'x.allowlist_missing'), 'none', 'every allowlisted controlled function is executable (15 from M21 + 5 from M22 + 2 from M25 + 3 from M27 + 1 from M28 + 1 from M29 + 2 from M34 + 1 from M36)');
+select is((select v from r where k = 'x.allowlist_missing'), 'none', 'every allowlisted controlled function is executable (15 from M21 + 5 from M22 + 2 from M25 + 3 from M27 + 1 from M28 + 1 from M29 + 2 from M34 + 1 from M36 + 1 from M37)');
 select is((select count(*)::int from pg_proc p where p.pronamespace = 'app'::regnamespace and has_function_privilege('anon', p.oid, 'EXECUTE')), 0,
           'anon executes no function in app');
 select is((select count(*)::int from pg_proc p where p.pronamespace = 'app'::regnamespace
