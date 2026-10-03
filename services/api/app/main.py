@@ -10,6 +10,7 @@ F3: `Origin` يحدد سياق الدخول فقط («أين يُبحث عن ا�
   /schools/{id}، /schools/{id}/students قراءة تحت RLS
   /schools/{id}/students/export         قناة التصدير منفصلة عن القراءة (P3) + تدقيق
   /platform/tenants[/{id}]              قراءة Platform Admin لبيانات Tenant — دالة M29 تقرأ وتدقّق (N5)
+  Phase 2A (setup.py)                   إعداد المدرسة — CRUD تحت RLS ودوال M21/M33–M37 المتحكَّم بها
 """
 
 import uuid
@@ -21,7 +22,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from . import account_login, accounts, first_login, onboarding, student_login, students
+from . import account_login, accounts, first_login, onboarding, setup, student_login, students
 from .audit import write_access_audit
 from .auth_admin import AuthAdmin
 from .config import load_settings, origin_base
@@ -69,13 +70,14 @@ class HostCORSMiddleware(CORSMiddleware):
 app = FastAPI(title="SMas API", lifespan=lifespan)
 # الـBearer في Authorization — لا cookies
 app.add_middleware(HostCORSMiddleware, base=origin_base(), allow_credentials=False,
-                   allow_methods=["GET", "POST"], allow_headers=["Authorization", "Content-Type"])
+                   allow_methods=["GET", "POST", "PATCH"], allow_headers=["Authorization", "Content-Type"])
 app.include_router(student_login.router)
 app.include_router(students.router)
 app.include_router(first_login.router)
 app.include_router(account_login.router)
 app.include_router(accounts.router)
 app.include_router(onboarding.router)
+app.include_router(setup.router)                # Phase 2A — إعداد المدرسة
 
 
 @app.exception_handler(psycopg.errors.InsufficientPrivilege)

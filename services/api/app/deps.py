@@ -30,9 +30,11 @@ _SQLSTATE = {
     "42501": (403, "forbidden"),
     "P0002": (404, "not_found"),
     "23505": (409, "conflict"),
+    "23P01": (409, "conflict"),              # EXCLUDE: تداخل فترات (السنوات، الفصول)
     "22023": (422, "invalid_request"),
     "23514": (422, "invariant_violation"),
     "23503": (422, "invalid_reference"),
+    "23502": (422, "invalid_request"),       # NOT NULL — مثلاً سياق Tenant غائب
 }
 
 

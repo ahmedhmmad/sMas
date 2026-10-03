@@ -1,0 +1,431 @@
+"""Phase 2A / P2-C — إعداد المدرسة: المجموعات، المدارس، السنوات، الفصول، المراحل، الصفوف، الشعب، الجاهزية.
+
+المسار الوحيد للسلطة (F4):  JWT مُتحقَّق منه → معاملة `authenticated` واحدة → RLS ودوال app.* تقرر → النتيجة.
+لا تفويض في Python: لا فحص دور ولا مفتاح يقرر السماح. ما يرد من العميل:
+  • معرّفات في المسار = **أهداف** فقط؛ RLS تقرر رؤيتها وكتابتها.
+  • لا platform_tenant_id ولا school_id في أي جسم (`extra="forbid"`): الـTenant من `app.current_tenant_id()`،
+    ومدرسة الصف التابع من صف أبيه المقروء تحت RLS.
+قواعد الرد (docs/PHASE2_SCHOOL_SETUP.md §10):
+  • غير مرئي = غير موجود ← 404 (لا كشف وجود).
+  • مرئي والكتابة مرفوضة ← 403.
+  • التفرد 409، التداخل 409، الانتقال/المدخل/القيد 422 (deps._SQLSTATE).
+لا DELETE في أي مسار. الانتقالات ونسخ الشعب وتغيير الـslug بدوال M21/M33–M37 المتحكَّم بها.
+"""
+
+import datetime
+import uuid
+from typing import Any, Callable
+
+import psycopg
+from fastapi import APIRouter, Depends, HTTPException
+from psycopg import sql
+from pydantic import BaseModel, ConfigDict, Field
+
+from .db import Database
+from .deps import claims, db, http_error
+
+router = APIRouter()
+
+_NOT_FOUND = HTTPException(status_code=404, detail="not_found")
+_FORBIDDEN = HTTPException(status_code=403, detail="forbidden")
+_EMPTY = HTTPException(status_code=422, detail="invalid_request")
+
+
+class _Body(BaseModel):
+    model_config = ConfigDict(extra="forbid")      # لا سياق ولا سلطة من الجسم
+
+
+class Reason(_Body):
+    reason: str = Field(min_length=1, max_length=500)
+
+
+class NewGroup(_Body):
+    group_code: str = Field(min_length=2, max_length=32)
+    name: str = Field(min_length=1, max_length=200)
+
+
+class GroupPatch(_Body):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+
+
+class NewSchool(_Body):
+    group_id: uuid.UUID | None = None
+    school_code: str = Field(min_length=2, max_length=32)
+    name: str = Field(min_length=1, max_length=200)
+    slug: str = Field(min_length=1, max_length=63)
+    timezone: str | None = Field(default=None, max_length=64)
+
+
+class SchoolPatch(_Body):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    timezone: str | None = Field(default=None, min_length=1, max_length=64)
+
+
+class SlugChange(Reason):
+    slug: str = Field(min_length=1, max_length=63)
+
+
+class NewYear(_Body):
+    name: str = Field(min_length=1, max_length=100)
+    start_date: datetime.date
+    end_date: datetime.date
+
+
+class YearPatch(_Body):
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    start_date: datetime.date | None = None
+    end_date: datetime.date | None = None
+
+
+class NewTerm(_Body):
+    name: str = Field(min_length=1, max_length=100)
+    sequence_no: int = Field(gt=0)
+    start_date: datetime.date
+    end_date: datetime.date
+
+
+class TermPatch(_Body):
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    sequence_no: int | None = Field(default=None, gt=0)
+    start_date: datetime.date | None = None
+    end_date: datetime.date | None = None
+
+
+class NewStage(_Body):
+    name: str = Field(min_length=1, max_length=100)
+    sequence_no: int = Field(gt=0)
+
+
+class StagePatch(_Body):
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    sequence_no: int | None = Field(default=None, gt=0)
+    status: str | None = Field(default=None, pattern="^(active|inactive)$")
+
+
+class NewGradeLevel(NewStage):
+    stage_id: uuid.UUID
+
+
+class GradeLevelPatch(StagePatch):
+    stage_id: uuid.UUID | None = None
+
+
+class NewSection(_Body):
+    grade_level_id: uuid.UUID
+    name: str = Field(min_length=1, max_length=50)
+    capacity: int | None = Field(default=None, gt=0)
+    gender_policy: str = Field(default="mixed", pattern="^(mixed|male_only|female_only)$")
+
+
+class SectionPatch(_Body):
+    name: str | None = Field(default=None, min_length=1, max_length=50)
+    capacity: int | None = Field(default=None, gt=0)
+    gender_policy: str | None = Field(default=None, pattern="^(mixed|male_only|female_only)$")
+    status: str | None = Field(default=None, pattern="^(active|inactive)$")
+
+
+class CopySections(Reason):
+    source_year_id: uuid.UUID
+
+
+# الأعمدة المقروءة لكل مورد — والأعمدة التي يقبلها PATCH هي حقول نموذجه وحدها (سجل §4.6 في DB هو الحد الفعلي)
+_COLUMNS = {
+    "groups": "id, group_code, name, status",
+    "schools": "id, group_id, school_code, name, slug, timezone, status, is_standalone, guardian_first_login_mode",
+    "academic_years": "id, school_id, name, start_date, end_date, status",
+    "terms": "id, academic_year_id, school_id, name, sequence_no, start_date, end_date, status",
+    "stages": "id, school_id, name, sequence_no, status",
+    "grade_levels": "id, school_id, stage_id, name, sequence_no, status",
+    "sections": "id, school_id, academic_year_id, grade_level_id, name, capacity, gender_policy, status",
+}
+
+
+def _tx(c: dict, database: Database, work: Callable[[psycopg.Connection], Any]) -> Any:
+    try:
+        with database.as_user(c) as conn:
+            return work(conn)
+    except psycopg.Error as exc:
+        raise http_error(exc) from exc
+
+
+def _row(conn: psycopg.Connection, table: str, row_id: Any) -> dict | None:
+    return conn.execute(sql.SQL("select {} from public.{} where id = %s").format(sql.SQL(_COLUMNS[table]), sql.Identifier(table)),
+                        [row_id]).fetchone()
+
+
+def _visible(conn: psycopg.Connection, table: str, row_id: Any) -> dict:
+    row = _row(conn, table, row_id)
+    if row is None:
+        raise _NOT_FOUND
+    return row
+
+
+def _rows(conn: psycopg.Connection, table: str, where: str = "true", params: list | None = None, order: str = "name") -> list[dict]:
+    q = sql.SQL("select {} from public.{} where " + where + " order by " + order + ", id").format(
+        sql.SQL(_COLUMNS[table]), sql.Identifier(table))
+    return conn.execute(q, params or []).fetchall()
+
+
+def _patch(conn: psycopg.Connection, table: str, row_id: uuid.UUID, body: _Body) -> dict:
+    changes = body.model_dump(exclude_unset=True)
+    if not changes:
+        raise _EMPTY
+    q = sql.SQL("update public.{} set {} where id = %s returning id").format(
+        sql.Identifier(table),
+        sql.SQL(", ").join(sql.SQL("{} = %s").format(sql.Identifier(k)) for k in changes))
+    if conn.execute(q, [*changes.values(), row_id]).fetchone() is None:
+        # لا صف أصابه UPDATE: مرئي ⇒ الكتابة مرفوضة (403)، وإلا غير موجود (404)
+        raise _FORBIDDEN if _row(conn, table, row_id) is not None else _NOT_FOUND
+    return _visible(conn, table, row_id)
+
+
+def _call(conn: psycopg.Connection, statement: str, params: list) -> Any:
+    return conn.execute(statement, params).fetchone()
+
+
+# ------------------------------------------------------------------ groups
+@router.get("/groups")
+def list_groups(c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    return {"rows": _tx(c, database, lambda conn: _rows(conn, "groups"))}
+
+
+@router.post("/groups", status_code=201)
+def create_group(body: NewGroup, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    def work(conn):
+        # بلا RETURNING: سياسة SELECT تقرأ الجدول بلقطة العبارة فلا ترى الصف الجاري إدراجه (§10 من الوثيقة)
+        conn.execute("insert into public.groups (platform_tenant_id, group_code, name) values ((select app.current_tenant_id()), %s, %s)",
+                     [body.group_code, body.name])
+        return _rows(conn, "groups", "platform_tenant_id = (select app.current_tenant_id()) and group_code = %s", [body.group_code])[0]
+    return _tx(c, database, work)
+
+
+@router.patch("/groups/{group_id}")
+def update_group(group_id: uuid.UUID, body: GroupPatch, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    return _tx(c, database, lambda conn: _patch(conn, "groups", group_id, body))
+
+
+@router.post("/groups/{group_id}/archive")
+def archive_group(group_id: uuid.UUID, body: Reason, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    def work(conn):
+        _call(conn, "select app.archive_group(%s, %s)", [group_id, body.reason])
+        return _visible(conn, "groups", group_id)
+    return _tx(c, database, work)
+
+
+# ------------------------------------------------------------------ schools
+@router.get("/schools")
+def list_schools(c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    return {"rows": _tx(c, database, lambda conn: _rows(conn, "schools"))}
+
+
+@router.post("/schools", status_code=201)
+def create_school(body: NewSchool, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    def work(conn):
+        conn.execute(
+            "insert into public.schools (platform_tenant_id, group_id, school_code, name, slug, timezone)"
+            " values ((select app.current_tenant_id()), %s, %s, %s, %s, coalesce(%s, 'Africa/Cairo'))",
+            [body.group_id, body.school_code, body.name, body.slug, body.timezone])
+        return _rows(conn, "schools", "platform_tenant_id = (select app.current_tenant_id()) and school_code = %s", [body.school_code])[0]
+    return _tx(c, database, work)
+
+
+@router.patch("/schools/{school_id}")
+def update_school(school_id: uuid.UUID, body: SchoolPatch, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    return _tx(c, database, lambda conn: _patch(conn, "schools", school_id, body))
+
+
+@router.post("/schools/{school_id}/slug")
+def change_slug(school_id: uuid.UUID, body: SlugChange, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    def work(conn):
+        _call(conn, "select app.set_school_slug(%s, %s, %s)", [school_id, body.slug, body.reason])
+        return _visible(conn, "schools", school_id)
+    return _tx(c, database, work)
+
+
+@router.post("/schools/{school_id}/archive")
+def archive_school(school_id: uuid.UUID, body: Reason, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    def work(conn):
+        _call(conn, "select app.archive_school(%s, %s)", [school_id, body.reason])
+        return _visible(conn, "schools", school_id)
+    return _tx(c, database, work)
+
+
+_READINESS = """
+    select s.status = 'active' as school_active,
+           exists (select 1 from public.academic_years y where y.school_id = s.id and y.status = 'active') as active_year,
+           exists (select 1 from public.sections x join public.academic_years y on y.id = x.academic_year_id
+                    where x.school_id = s.id and x.status = 'active' and y.status = 'active') as active_section
+    from public.schools s where s.id = %s
+"""
+
+
+@router.get("/schools/{school_id}/readiness")
+def readiness(school_id: uuid.UUID, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    """ready_for_enrollment مشتقة غير مخزنة (§3). تُقرأ تحت RLS، فتُطلب صلاحيتا قراءة السنة والشعبة من قاعدة البيانات
+    — بدونهما تكون الشروط «غير مرئية» لا «غير متحققة»."""
+    def work(conn):
+        _visible(conn, "schools", school_id)
+        if not conn.execute("select app.has_permission('academic_year.read') and app.has_permission('section.read') as ok").fetchone()["ok"]:
+            raise _FORBIDDEN
+        checks = conn.execute(_READINESS, [school_id]).fetchone()
+        return {"ready": all(checks.values()), "checks": checks}
+    return _tx(c, database, work)
+
+
+# ------------------------------------------------------------------ academic years
+@router.get("/schools/{school_id}/academic-years")
+def list_years(school_id: uuid.UUID, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    def work(conn):
+        _visible(conn, "schools", school_id)
+        return {"rows": _rows(conn, "academic_years", "school_id = %s", [school_id], order="start_date")}
+    return _tx(c, database, work)
+
+
+@router.post("/schools/{school_id}/academic-years", status_code=201)
+def create_year(school_id: uuid.UUID, body: NewYear, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    def work(conn):
+        _visible(conn, "schools", school_id)
+        row = _call(conn, "insert into public.academic_years (school_id, name, start_date, end_date) values (%s, %s, %s, %s) returning id",
+                    [school_id, body.name, body.start_date, body.end_date])
+        return _visible(conn, "academic_years", row["id"])
+    return _tx(c, database, work)
+
+
+@router.patch("/academic-years/{year_id}")
+def update_year(year_id: uuid.UUID, body: YearPatch, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    return _tx(c, database, lambda conn: _patch(conn, "academic_years", year_id, body))
+
+
+def _year_transition(function: str):
+    def endpoint(year_id: uuid.UUID, body: Reason, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+        def work(conn):
+            _call(conn, f"select app.{function}(%s, %s)", [year_id, body.reason])
+            return _visible(conn, "academic_years", year_id)
+        return _tx(c, database, work)
+    return endpoint
+
+
+router.post("/academic-years/{year_id}/activate")(_year_transition("activate_academic_year"))
+router.post("/academic-years/{year_id}/close")(_year_transition("close_academic_year"))
+
+
+@router.post("/academic-years/{year_id}/copy-sections")
+def copy_sections(year_id: uuid.UUID, body: CopySections, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    """M37: عملية domain واحدة ذرية — لا loop هنا؛ year_id هو الهدف."""
+    def work(conn):
+        created = _call(conn, "select app.copy_sections(%s, %s, %s) as n", [body.source_year_id, year_id, body.reason])["n"]
+        return {"created": created}
+    return _tx(c, database, work)
+
+
+# ------------------------------------------------------------------ terms
+@router.get("/academic-years/{year_id}/terms")
+def list_terms(year_id: uuid.UUID, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    def work(conn):
+        _visible(conn, "academic_years", year_id)
+        return {"rows": _rows(conn, "terms", "academic_year_id = %s", [year_id], order="sequence_no")}
+    return _tx(c, database, work)
+
+
+@router.post("/academic-years/{year_id}/terms", status_code=201)
+def create_term(year_id: uuid.UUID, body: NewTerm, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    def work(conn):
+        _visible(conn, "academic_years", year_id)
+        # المدرسة وحدود السنة من صف السنة المقروء تحت RLS — لا من العميل
+        row = _call(conn,
+                    "insert into public.terms (academic_year_id, school_id, year_start_date, year_end_date, name, sequence_no, start_date, end_date)"
+                    " select y.id, y.school_id, y.start_date, y.end_date, %s, %s, %s, %s from public.academic_years y where y.id = %s returning id",
+                    [body.name, body.sequence_no, body.start_date, body.end_date, year_id])
+        return _visible(conn, "terms", row["id"])
+    return _tx(c, database, work)
+
+
+@router.patch("/terms/{term_id}")
+def update_term(term_id: uuid.UUID, body: TermPatch, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    return _tx(c, database, lambda conn: _patch(conn, "terms", term_id, body))
+
+
+def _term_transition(function: str):
+    def endpoint(term_id: uuid.UUID, body: Reason, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+        def work(conn):
+            _call(conn, f"select app.{function}(%s, %s)", [term_id, body.reason])
+            return _visible(conn, "terms", term_id)
+        return _tx(c, database, work)
+    return endpoint
+
+
+router.post("/terms/{term_id}/activate")(_term_transition("activate_term"))
+router.post("/terms/{term_id}/close")(_term_transition("close_term"))
+
+
+# ------------------------------------------------------------------ stages / grade levels
+@router.get("/schools/{school_id}/stages")
+def list_stages(school_id: uuid.UUID, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    def work(conn):
+        _visible(conn, "schools", school_id)
+        return {"rows": _rows(conn, "stages", "school_id = %s", [school_id], order="sequence_no")}
+    return _tx(c, database, work)
+
+
+@router.post("/schools/{school_id}/stages", status_code=201)
+def create_stage(school_id: uuid.UUID, body: NewStage, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    def work(conn):
+        _visible(conn, "schools", school_id)
+        row = _call(conn, "insert into public.stages (school_id, name, sequence_no) values (%s, %s, %s) returning id",
+                    [school_id, body.name, body.sequence_no])
+        return _visible(conn, "stages", row["id"])
+    return _tx(c, database, work)
+
+
+@router.patch("/stages/{stage_id}")
+def update_stage(stage_id: uuid.UUID, body: StagePatch, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    return _tx(c, database, lambda conn: _patch(conn, "stages", stage_id, body))
+
+
+@router.get("/schools/{school_id}/grade-levels")
+def list_grade_levels(school_id: uuid.UUID, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    def work(conn):
+        _visible(conn, "schools", school_id)
+        return {"rows": _rows(conn, "grade_levels", "school_id = %s", [school_id], order="sequence_no")}
+    return _tx(c, database, work)
+
+
+@router.post("/schools/{school_id}/grade-levels", status_code=201)
+def create_grade_level(school_id: uuid.UUID, body: NewGradeLevel, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    def work(conn):
+        _visible(conn, "schools", school_id)
+        row = _call(conn, "insert into public.grade_levels (school_id, stage_id, name, sequence_no) values (%s, %s, %s, %s) returning id",
+                    [school_id, body.stage_id, body.name, body.sequence_no])
+        return _visible(conn, "grade_levels", row["id"])
+    return _tx(c, database, work)
+
+
+@router.patch("/grade-levels/{grade_level_id}")
+def update_grade_level(grade_level_id: uuid.UUID, body: GradeLevelPatch, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    return _tx(c, database, lambda conn: _patch(conn, "grade_levels", grade_level_id, body))
+
+
+# ------------------------------------------------------------------ sections
+@router.get("/academic-years/{year_id}/sections")
+def list_sections(year_id: uuid.UUID, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    def work(conn):
+        _visible(conn, "academic_years", year_id)
+        return {"rows": _rows(conn, "sections", "academic_year_id = %s", [year_id], order="grade_level_id, name")}
+    return _tx(c, database, work)
+
+
+@router.post("/academic-years/{year_id}/sections", status_code=201)
+def create_section(year_id: uuid.UUID, body: NewSection, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    def work(conn):
+        _visible(conn, "academic_years", year_id)
+        row = _call(conn,
+                    "insert into public.sections (school_id, academic_year_id, grade_level_id, name, capacity, gender_policy)"
+                    " select y.school_id, y.id, %s, %s, %s, %s from public.academic_years y where y.id = %s returning id",
+                    [body.grade_level_id, body.name, body.capacity, body.gender_policy, year_id])
+        return _visible(conn, "sections", row["id"])
+    return _tx(c, database, work)
+
+
+@router.patch("/sections/{section_id}")
+def update_section(section_id: uuid.UUID, body: SectionPatch, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    return _tx(c, database, lambda conn: _patch(conn, "sections", section_id, body))
