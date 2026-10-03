@@ -1,7 +1,7 @@
 # Phase 2A — School Setup: وثيقة التصميم (P2-A)
 
 **التاريخ:** 2026-10-02
-**الحالة:** ✅ **معتمدة (2026-10-02)** مع Q1–Q9 كما اقتُرحت — P2-B جارية: **M33 ✅ · M34 ✅ · M35 ✅ · M36 ✅**
+**الحالة:** ✅ **معتمدة (2026-10-02)** مع Q1–Q9 كما اقتُرحت — **P2-B مكتملة بانتظار المراجعة: M33 ✅ · M34 ✅ · M35 ✅ · M36 ✅ · M37 ✅**
 **خط الأساس:** `39ba260` — 37 migration (M01–M32)، Phase 1 مغلقة
 **المرجع:** خطة النطاق المعتمدة والقرارات 1–11 (2026-10-02، `PLAN_v3.md` §9)؛ `DB_IMPLEMENTATION_SPEC_v1.md` §5.0 (عقد الدوال المتحكَّم بها)؛ `RLS_MODEL_v1.md` §7؛ `F4_API_SECURITY.md`؛ `F1_WEB_APP.md`
 
@@ -202,7 +202,7 @@ AND exists section (school, status = 'active', في تلك السنة النشط
 
 تدقيق بفعل `change_slug` (القديم والجديد والسبب) في المعاملة نفسها. **لا أثر على التفويض:** `school_id` والملكية والعضويات والنطاقات لا تتغير؛ الـhost سياق لا سلطة (F3). الأثر التشغيلي: العنوان القديم يتوقف فوراً (Q6)، والجلسات القائمة لا تتأثر.
 
-### 6.4 `app.copy_sections(p_source_year_id uuid, p_target_year_id uuid) returns integer` — عملية ذرية مركبة
+### 6.4 `app.copy_sections(p_source_year_id uuid, p_target_year_id uuid, p_reason text) returns integer` — عملية ذرية مركبة (✅ M37: + سبب إلزامي)
 
 العقد في §8.
 
@@ -245,9 +245,10 @@ target: سنة `planned` في المدرسة S نفسها، ≠ المصدر
 | الصلاحية والنطاق | `section.manage` + `can_access_school` على مدرسة السنتين بعد قراءتهما (`P0002` إن لم تُرَ إحداهما) |
 | الشروط | السنتان من المدرسة نفسها، مختلفتان، الهدف `planned` — وإلا `22023` |
 | ما لا يُنسخ | enrollments، طلاب، درجات، حضور، أي بيانات تشغيلية؛ الفصول؛ الشعب المعطَّلة؛ شعب صف معطَّل |
-| التكرار (Q5) | `ON CONFLICT (school_id, academic_year_id, grade_level_id, name) DO NOTHING` — التشغيل الثاني يعيد 0 ولا ينشئ نسخاً |
-| الذرية | فشل أي صف يُلغي الكل؛ لا loop من الـAPI |
-| التدقيق | صف T7 لكل شعبة مُنشأة (`insert`)، والسبب = `copy_sections from <source_year_id>` |
+| المفتاح الطبيعي للنسخة | ✅ **M37:** `(school_id, academic_year_id الهدف, grade_level_id, name)` — قيد `sections_name_uq` القائم |
+| التكرار (Q5) — ✅ **منقّح في M37 (2026-10-03)** | **لا `ON CONFLICT DO NOTHING`.** لكل شعبة مصدر مؤهلة شعبة هدف بالمفتاح نفسه: **غير موجودة** ← تُنشأ؛ **موجودة ومطابقة** (`active` + السعة وسياسة الجنس مساويتان) ← «منسوخة سابقاً» تُحسب ولا تُمس (لا تحديث ولا ختم)؛ **موجودة وغير مطابقة** (ومنها المعطّلة) ← تُرفض العملية كلها `23514` بقائمة المفاتيح المتعارضة ولا يُنشأ شيء — لا تصحيح للموجود. شعب الهدف التي لا مقابل لها في المصدر لا تُمس. التشغيل الثاني يعيد 0 ولا يغيّر شيئاً. قفل السنة الهدف `FOR UPDATE` يسلسل نسختين متزامنتين |
+| الذرية | فشل أي صف يُلغي الكل؛ لا loop من الـAPI. الإدراج يمر بحارس M35 (T12) — طبقة ثانية خلف مرشّح الدالة |
+| التدقيق | ✅ **M37:** صف T7 لكل شعبة مُنشأة (`insert`) بسبب المستدعي، **وصف domain واحد** `copy_sections` على السنة الهدف: الفاعل، المدرسة، السبب، `source_year_id`، `target_year_id`، `created`، `already_copied`؛ الرفض لا يترك صفاً |
 | القيمة المعادة | عدد الشعب المُنشأة |
 
 ---
@@ -298,7 +299,7 @@ verified JWT → معاملة `authenticated` واحدة (as_user) → RLS / د�
 | `/stages/{id}` · `/grade-levels/{id}` | PATCH | `{name?, sequence_no?, status?}` (+ `stage_id?`) | UPDATE |
 | `/academic-years/{id}/sections` | GET · POST | `{grade_level_id, name, capacity?, gender_policy?}` | SELECT · INSERT |
 | `/sections/{id}` | PATCH | `{name?, capacity?, gender_policy?, status?}` | UPDATE |
-| `/academic-years/{id}/copy-sections` | POST | `{source_year_id}` | `copy_sections` |
+| `/academic-years/{id}/copy-sections` | POST | `{source_year_id, reason}` | `copy_sections` |
 
 **قواعد الرد:**
 
@@ -365,7 +366,7 @@ verified JWT → معاملة `authenticated` واحدة (as_user) → RLS / د�
 | M34 ✅ | `term_lifecycle` | فهرس `terms_active_uq`؛ T11 (`BEFORE INSERT OR UPDATE`، `SECURITY DEFINER` — يقرأ حالة السنة أياً كان ما تراه RLS ويقفلها `FOR SHARE`)؛ `activate_term`، `close_term`؛ استبدال `close_academic_year`؛ `status` وهوية الفصل خارج منح العميل (ف5) | `34_term_lifecycle` ✅ 70/70 (1590/1590)؛ 22 ضابطاً سلبياً |
 | M35 ✅ | `structure_guards` | T12: ثلاثة حراس `SECURITY DEFINER` (`sections`، `grade_levels`، `stages`)؛ هوية الصف خارج UPDATE في الجداول الثلاثة (ف6، Q7) | `35_structure_guards` ✅ 66/66 (1656/1656)؛ 21 ضابطاً سلبياً |
 | M36 ✅ | `school_slug` | سحب UPDATE(`slug`)؛ `set_school_slug` (ف3، Q6) — الصيغة والتفرد بالقيدين القائمين وحدهما | `36_school_slug` ✅ 46/46 (1702/1702)؛ 14 ضابطاً سلبياً |
-| M37 | `copy_sections` | الدالة (القرار 8) | `37_copy_sections` |
+| M37 ✅ | `copy_sections` | الدالة (القرار 8، Q5) — بالعقد المنقّح في §8 | `37_copy_sections` ✅ 41/41 (1743/1743)؛ 18 ضابطاً سلبياً |
 
 قبل كل migration: تحديث DD والمواصفة (§3.3 triggers، §4.6 سجل الأعمدة، §5.3 الدوال) و RLS_MODEL. البيانات القائمة: fail before mutation مع تعداد المخالفات (قاعدة M30b) — مثلاً سنة فيها أكثر من فصل `active` توقف M34 بقائمة مسمّاة.
 
