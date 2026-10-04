@@ -322,7 +322,7 @@ select is((select string_agg(privilege_type || ':' || column_name, ',' order by 
             where table_schema = 'public' and table_name = 'terms' and grantee = 'authenticated' and privilege_type in ('INSERT', 'UPDATE')),
           'INSERT:academic_year_id,INSERT:end_date,INSERT:name,INSERT:school_id,INSERT:sequence_no,INSERT:start_date,INSERT:year_end_date,INSERT:year_start_date,UPDATE:end_date,UPDATE:name,UPDATE:sequence_no,UPDATE:start_date',
           'column register: status is not client-writable; a term''s year and school are fixed after creation');
-select is((select count(*)::int from public.permissions), 73, 'no new permission key: the catalog is still 73');
+select is((select count(*)::int from public.permissions where code !~ '^subject\.'), 73, 'no new permission key from this migration (73 frozen; subject.* is B10, M38)');
 
 select * from finish();
 rollback;

@@ -128,6 +128,33 @@ class CopySections(Reason):
     source_year_id: uuid.UUID
 
 
+class NewSubject(_Body):
+    subject_code: str = Field(min_length=2, max_length=32)
+    name: str = Field(min_length=1, max_length=200)
+
+
+class SubjectPatch(_Body):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    status: str | None = Field(default=None, pattern="^(active|inactive)$")
+
+
+class NewGradeSubject(_Body):
+    grade_level_id: uuid.UUID
+    subject_id: uuid.UUID
+    weekly_periods: int = Field(ge=1, le=60)
+    counts_toward_total: bool = True
+
+
+class GradeSubjectPatch(_Body):
+    weekly_periods: int | None = Field(default=None, ge=1, le=60)
+    counts_toward_total: bool | None = None
+    status: str | None = Field(default=None, pattern="^(active|inactive)$")
+
+
+class CopyGradeSubjects(CopySections):
+    pass
+
+
 # الأعمدة المقروءة لكل مورد — والأعمدة التي يقبلها PATCH هي حقول نموذجه وحدها (سجل §4.6 في DB هو الحد الفعلي)
 _COLUMNS = {
     "groups": "id, group_code, name, status",
@@ -137,6 +164,8 @@ _COLUMNS = {
     "stages": "id, school_id, name, sequence_no, status",
     "grade_levels": "id, school_id, stage_id, name, sequence_no, status",
     "sections": "id, school_id, academic_year_id, grade_level_id, name, capacity, gender_policy, status",
+    "subjects": "id, school_id, subject_code, name, status",
+    "grade_subjects": "id, school_id, academic_year_id, grade_level_id, subject_id, weekly_periods, counts_toward_total, status",
 }
 
 
@@ -429,3 +458,62 @@ def create_section(year_id: uuid.UUID, body: NewSection, c: dict = Depends(claim
 @router.patch("/sections/{section_id}")
 def update_section(section_id: uuid.UUID, body: SectionPatch, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
     return _tx(c, database, lambda conn: _patch(conn, "sections", section_id, body))
+
+
+# ------------------------------------------------------------------ subjects / grade subjects (Phase 2B / 2B-1 — M38–M40)
+@router.get("/schools/{school_id}/subjects")
+def list_subjects(school_id: uuid.UUID, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    def work(conn):
+        _visible(conn, "schools", school_id)
+        return {"rows": _rows(conn, "subjects", "school_id = %s", [school_id], order="subject_code")}
+    return _tx(c, database, work)
+
+
+@router.post("/schools/{school_id}/subjects", status_code=201)
+def create_subject(school_id: uuid.UUID, body: NewSubject, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    def work(conn):
+        _visible(conn, "schools", school_id)
+        row = _call(conn, "insert into public.subjects (school_id, subject_code, name) values (%s, %s, %s) returning id",
+                    [school_id, body.subject_code, body.name])
+        return _visible(conn, "subjects", row["id"])
+    return _tx(c, database, work)
+
+
+@router.patch("/subjects/{subject_id}")
+def update_subject(subject_id: uuid.UUID, body: SubjectPatch, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    return _tx(c, database, lambda conn: _patch(conn, "subjects", subject_id, body))
+
+
+@router.get("/academic-years/{year_id}/grade-subjects")
+def list_grade_subjects(year_id: uuid.UUID, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    def work(conn):
+        _visible(conn, "academic_years", year_id)
+        return {"rows": _rows(conn, "grade_subjects", "academic_year_id = %s", [year_id], order="grade_level_id, subject_id")}
+    return _tx(c, database, work)
+
+
+@router.post("/academic-years/{year_id}/grade-subjects", status_code=201)
+def create_grade_subject(year_id: uuid.UUID, body: NewGradeSubject, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    def work(conn):
+        _visible(conn, "academic_years", year_id)
+        # المدرسة من صف السنة المقروء تحت RLS؛ الـFKs المركّبة ترفض صفاً أو مادة من مدرسة أخرى
+        row = _call(conn,
+                    "insert into public.grade_subjects (school_id, academic_year_id, grade_level_id, subject_id, weekly_periods, counts_toward_total)"
+                    " select y.school_id, y.id, %s, %s, %s, %s from public.academic_years y where y.id = %s returning id",
+                    [body.grade_level_id, body.subject_id, body.weekly_periods, body.counts_toward_total, year_id])
+        return _visible(conn, "grade_subjects", row["id"])
+    return _tx(c, database, work)
+
+
+@router.patch("/grade-subjects/{grade_subject_id}")
+def update_grade_subject(grade_subject_id: uuid.UUID, body: GradeSubjectPatch, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    return _tx(c, database, lambda conn: _patch(conn, "grade_subjects", grade_subject_id, body))
+
+
+@router.post("/academic-years/{year_id}/copy-grade-subjects")
+def copy_grade_subjects(year_id: uuid.UUID, body: CopyGradeSubjects, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    """M40: عملية domain واحدة ذرية — لا loop هنا؛ year_id هو الهدف."""
+    def work(conn):
+        created = _call(conn, "select app.copy_grade_subjects(%s, %s, %s) as n", [body.source_year_id, year_id, body.reason])["n"]
+        return {"created": created}
+    return _tx(c, database, work)

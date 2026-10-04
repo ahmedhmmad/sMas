@@ -115,6 +115,23 @@ describe("school page", () => {
     for (const id of ["school-edit-save", "school-slug", "guardian-mode", "school-archive"]) expect(screen.queryByTestId(id)).toBeNull();
   });
 
+  it("subjects (2B-1): card only with subject.read; create sends code and name only", async () => {
+    auth.permissions = ["school.read", "subject.read", "subject.manage"];
+    route("/setup/schools/s1", { "/schools": { rows: [SCHOOL] }, "/schools/s1/subjects": { rows: [] }, "POST /schools/s1/subjects": {} });
+    await userEvent.type(await screen.findByTestId("subject-code"), "ar");
+    await userEvent.type(screen.getByTestId("subject-name"), "Arabic");
+    await userEvent.click(screen.getByTestId("subject-submit"));
+    await waitFor(() => expect(apiMock.api).toHaveBeenCalledWith("/schools/s1/subjects", { method: "POST", body: { subject_code: "AR", name: "Arabic" } }));
+  });
+
+  it("subjects (2B-1): no card and no request without subject.read", async () => {
+    auth.permissions = ["school.read"];
+    route("/setup/schools/s1", { "/schools": { rows: [SCHOOL] }, "/schools/s1/subjects": { rows: [] } });
+    await screen.findByTestId("school");
+    expect(screen.queryByTestId("subjects")).toBeNull();
+    expect(apiMock.api).not.toHaveBeenCalledWith("/schools/s1/subjects");
+  });
+
   it("a slug conflict shows the translated message, not the database error", async () => {
     auth.permissions = ["school.read", "school.update"];
     route("/setup/schools/s1", { "/schools": { rows: [SCHOOL] }, "POST /schools/s1/slug": new ApiError(409, "conflict") });
@@ -151,6 +168,40 @@ describe("year page", () => {
     await userEvent.click(screen.getByTestId("copy-submit"));
     expect(await screen.findByTestId("copy-result")).toHaveAttribute("data-created", "3");
     expect(apiMock.api).toHaveBeenCalledWith("/academic-years/y2/copy-sections", { method: "POST", body: { source_year_id: "y1", reason: "next year" } });
+  });
+
+  it("grade subjects (2B-1): copy offered on a planned year, one call, result shown", async () => {
+    auth.permissions = ["subject.read", "subject.manage"];
+    route("/setup/schools/s1/years/y2", { "/schools/s1/academic-years": years, "/academic-years/y2/terms": empty,
+      "/academic-years/y2/sections": empty, "/schools/s1/grade-levels": empty, "/schools/s1/subjects": empty,
+      "/academic-years/y2/grade-subjects": empty, "POST /academic-years/y2/copy-grade-subjects": { created: 4 } });
+    await userEvent.selectOptions(await screen.findByTestId("gs-copy-source"), "y1");
+    await userEvent.type(screen.getByTestId("gs-copy-reason"), "next year");
+    await userEvent.click(screen.getByTestId("gs-copy-submit"));
+    expect(await screen.findByTestId("gs-copy-result")).toHaveAttribute("data-created", "4");
+    expect(apiMock.api).toHaveBeenCalledWith("/academic-years/y2/copy-grade-subjects", { method: "POST", body: { source_year_id: "y1", reason: "next year" } });
+  });
+
+  it("grade subjects (2B-1): read-only without subject.manage; a refused conflict shows the translated message", async () => {
+    auth.permissions = ["subject.read"];
+    const links = { rows: [{ id: "l1", grade_level_id: "g1", subject_id: "sub1", weekly_periods: 5, counts_toward_total: true, status: "active" }] };
+    route("/setup/schools/s1/years/y2", { "/schools/s1/academic-years": years, "/academic-years/y2/terms": empty,
+      "/academic-years/y2/sections": empty, "/schools/s1/grade-levels": { rows: [{ id: "g1", name: "G1", status: "active" }] },
+      "/schools/s1/subjects": { rows: [{ id: "sub1", subject_code: "AR", name: "Arabic", status: "active" }] }, "/academic-years/y2/grade-subjects": links });
+    expect(await screen.findByTestId("gs-periods-G1-AR")).toHaveTextContent("5");
+    for (const id of ["gs-submit", "gs-toggle-G1-AR", "copy-grade-subjects"]) expect(screen.queryByTestId(id)).toBeNull();
+  });
+
+  it("grade subjects (2B-1): a server refusal (T13) is shown translated", async () => {
+    auth.permissions = ["subject.read", "subject.manage"];
+    const links = { rows: [{ id: "l1", grade_level_id: "g1", subject_id: "sub1", weekly_periods: 5, counts_toward_total: true, status: "inactive" }] };
+    route("/setup/schools/s1/years/y2", { "/schools/s1/academic-years": years, "/academic-years/y2/terms": empty,
+      "/academic-years/y2/sections": empty, "/schools/s1/grade-levels": { rows: [{ id: "g1", name: "G1", status: "active" }] },
+      "/schools/s1/subjects": { rows: [{ id: "sub1", subject_code: "AR", name: "Arabic", status: "inactive" }] }, "/academic-years/y2/grade-subjects": links,
+      "PATCH /grade-subjects/l1": new ApiError(422, "invariant_violation") });
+    await userEvent.click(await screen.findByTestId("gs-toggle-G1-AR"));
+    expect(await screen.findByTestId("grade-subjects-error")).toHaveTextContent(errorText("invariant_violation"));
+    expect(apiMock.api).toHaveBeenCalledWith("/grade-subjects/l1", { method: "PATCH", body: { status: "active" } });
   });
 
   it("copy sections is not offered on an active year", async () => {

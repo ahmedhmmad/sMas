@@ -119,8 +119,8 @@ select ok((select relrowsecurity and relforcerowsecurity from pg_class where oid
 select is((select count(*)::int from pg_constraint where conrelid = 'public.audit_log'::regclass and contype = 'f'), 0,
           'audit_log has no foreign keys (survives entity archival or deletion)');
 select is((select count(*)::int from pg_trigger t join pg_class c on c.oid = t.tgrelid
-           where c.relnamespace = 'public'::regnamespace and t.tgfoid = 'app.tg_audit()'::regprocedure and not t.tgisinternal), 28,
-          'T7 attached to 28 tables');
+           where c.relnamespace = 'public'::regnamespace and t.tgfoid = 'app.tg_audit()'::regprocedure and not t.tgisinternal), 30,
+          'T7 attached to 30 tables (28 + subjects, grade_subjects — M39)');
 select is((select coalesce(string_agg(c.relname, ','), '<none>') from pg_class c
            where c.relnamespace = 'public'::regnamespace and c.relkind = 'r' and c.relname not in ('audit_log', 'login_challenges')
              and not exists (select 1 from pg_trigger t where t.tgrelid = c.oid and t.tgfoid = 'app.tg_audit()'::regprocedure)),

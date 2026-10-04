@@ -103,6 +103,8 @@ insert into expected_policies values
   ('roles.roles_select:SELECT'), ('roles.roles_update:UPDATE'), ('schools.schools_tenant_insert:INSERT'),
   ('schools.schools_tenant_select:SELECT'), ('schools.schools_tenant_update:UPDATE'), ('sections.sections_insert:INSERT'),
   ('sections.sections_select:SELECT'), ('sections.sections_update:UPDATE'), ('staff.staff_select:SELECT'),
+  ('subjects.subjects_insert:INSERT'), ('subjects.subjects_select:SELECT'), ('subjects.subjects_update:UPDATE'),   -- M39
+  ('grade_subjects.grade_subjects_insert:INSERT'), ('grade_subjects.grade_subjects_select:SELECT'), ('grade_subjects.grade_subjects_update:UPDATE'),
   ('staff.staff_update:UPDATE'), ('staff_school_assignments.staff_school_assignments_insert:INSERT'), ('staff_school_assignments.staff_school_assignments_select:SELECT'),
   ('staff_school_assignments.staff_school_assignments_update:UPDATE'), ('stages.stages_insert:INSERT'), ('stages.stages_select:SELECT'),
   ('stages.stages_update:UPDATE'), ('student_guardians.student_guardians_insert:INSERT'), ('student_guardians.student_guardians_select:SELECT'),
@@ -117,6 +119,8 @@ insert into expected_triggers values
   ('terms.guard:tg_term_guard:BEFORE INSERT OR UPDATE'),           -- T11 (M34)
   ('sections.guard:tg_section_guard:BEFORE INSERT OR UPDATE'), ('grade_levels.guard:tg_grade_level_guard:BEFORE INSERT OR UPDATE'),   -- T12 (M35)
   ('stages.guard:tg_stage_guard:BEFORE UPDATE'),                   -- T12 (M35)
+  ('subjects.audit:tg_audit:AFTER INSERT OR DELETE OR UPDATE'), ('subjects.stamp:tg_stamp:BEFORE INSERT OR UPDATE'), ('subjects.guard:tg_subject_guard:BEFORE UPDATE'),   -- M39 (T13)
+  ('grade_subjects.audit:tg_audit:AFTER INSERT OR DELETE OR UPDATE'), ('grade_subjects.stamp:tg_stamp:BEFORE INSERT OR UPDATE'), ('grade_subjects.guard:tg_grade_subject_guard:BEFORE INSERT OR UPDATE'),
   ('audit_log.audit_log_immutable:tg_reject_mutation:BEFORE DELETE OR UPDATE'), ('audit_log.audit_log_no_truncate:tg_reject_mutation:BEFORE TRUNCATE'),
   ('auth_identities.audit:tg_audit:AFTER INSERT OR DELETE OR UPDATE'), ('auth_identities.stamp:tg_stamp:BEFORE INSERT OR UPDATE'),
   ('enrollments.audit:tg_audit:AFTER INSERT OR DELETE OR UPDATE'), ('enrollments.stamp:tg_stamp:BEFORE INSERT OR UPDATE'),
@@ -155,6 +159,8 @@ insert into expected_functions values
   ('activate_term(uuid,text)|app_owner|definer|app, public, pg_temp|authenticated'),   -- M34
   ('close_term(uuid,text)|app_owner|definer|app, public, pg_temp|authenticated'),      -- M34
   ('copy_sections(uuid,uuid,text)|app_owner|definer|app, public, pg_temp|authenticated'),   -- M37
+  ('copy_grade_subjects(uuid,uuid,text)|app_owner|definer|app, public, pg_temp|authenticated'),   -- M40
+  ('tg_subject_guard()|app_owner|definer|app, public, pg_temp|-'), ('tg_grade_subject_guard()|app_owner|definer|app, public, pg_temp|-'),   -- T13 (M39)
   ('tg_term_guard()|app_owner|definer|app, public, pg_temp|-'),                        -- T11 (M34)
   ('tg_section_guard()|app_owner|definer|app, public, pg_temp|-'), ('tg_grade_level_guard()|app_owner|definer|app, public, pg_temp|-'),   -- T12 (M35)
   ('tg_stage_guard()|app_owner|definer|app, public, pg_temp|-'),                       -- T12 (M35)
@@ -247,7 +253,7 @@ select ok((select v from r where k = 'i23.guardian')    like 'ERR 23505%guardian
 select ok((select v from r where k = 'i27.student')     like 'ERR 23503%student_guardians_student_fk%', 'I27: a guardian link cannot reference a student of another tenant');
 
 -- ---------- السياسات ----------
-select is((select count(*)::int from expected_policies), 61, 'the reviewed policy list has 61 policies');
+select is((select count(*)::int from expected_policies), 67, 'the reviewed policy list has 67 policies (61 + 6 for subjects, M39)');
 select set_eq($q$select tablename || '.' || policyname || ':' || cmd from pg_policies where schemaname in ('public', 'app')$q$,
               'select p from expected_policies', 'policies: exactly the reviewed set — none added, none dropped, no command changed');
 select is((select count(*)::int from pg_policies where schemaname = 'public' and (roles <> '{authenticated}' or permissive <> 'PERMISSIVE')), 0,
@@ -262,12 +268,12 @@ select set_eq($q$select c.relname || '.' || t.tgname || ':' || replace(t.tgfoid:
                         substring(pg_get_triggerdef(t.oid) from 'TRIGGER \S+ (.*?) ON ')
                    from pg_trigger t join pg_class c on c.oid = t.tgrelid
                   where c.relnamespace = 'public'::regnamespace and not t.tgisinternal$q$,
-              'select t from expected_triggers', 'triggers: exactly T5 (audit_log), T6 stamp, T7 audit, T8 authz_integrity, T9 identity scope, T10 year guard, T11 term guard, T12 structure guards — same tables, same events');
+              'select t from expected_triggers', 'triggers: exactly T5 (audit_log), T6 stamp, T7 audit, T8 authz_integrity, T9 identity scope, T10 year guard, T11 term guard, T12 structure guards, T13 subject guards — same tables, same events');
 select is((select count(*)::int from pg_trigger t join pg_class c on c.oid = t.tgrelid
             where c.relnamespace = 'public'::regnamespace and not t.tgisinternal and t.tgenabled <> 'O'), 0, 'no trigger is disabled');
 
 -- ---------- عقود الدوال ----------
-select is((select count(*)::int from expected_functions), 80, 'the reviewed function list has 80 functions');
+select is((select count(*)::int from expected_functions), 83, 'the reviewed function list has 83 functions');
 select set_eq($q$select substr(p.oid::regprocedure::text, 5) || '|' || pg_get_userbyid(p.proowner) || '|' ||
                         case when p.prosecdef then 'definer' else 'invoker' end || '|' ||
                         replace(coalesce(array_to_string(p.proconfig, ','), ''), 'search_path=', '') || '|' ||

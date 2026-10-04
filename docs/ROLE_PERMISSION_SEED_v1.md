@@ -60,6 +60,8 @@
 
 **الكتالوج بعد K1–K4:** 69 − 1 (`tenant.manage`) + 4 (K2) + 1 (K4) = **73 مفتاحاً**.
 
+**✅ Phase 2B (2026-10-04):** + `subject.read`، `subject.manage` = **75 مفتاحاً** (أول فتح للكتالوج المجمَّد، بقرار في PLAN §9). مورد مستقل — لا إعادة استعمال لـ`grade.*` أو `grade_level.*`. التوزيع: `subject.manage` لـ`tenant_admin`/`group_manager`/`school_admin`؛ `subject.read` لهم وللسكرتير والمحاسب والمعلم والمرشد.
+
 ### 2.1 قواعد التسمية المجمّدة
 
 ```text
@@ -123,7 +125,7 @@
 
 ## 4. خريطة Role → Permission
 
-### 4.1 `tenant_admin` — 71 صلاحية
+### 4.1 `tenant_admin` — 71 صلاحية (73 بعد 2B)
 
 أعلى دور داخل Tenant. يملك كل شيء داخل Tenant **عدا** عمليات مشغِّل المنصة.
 
@@ -137,13 +139,13 @@
 | Students | `student.read`, `student.create`, `student.update`, `student.archive`, `student.transfer`, `student.export`, `student.sensitive_read` |
 | Guardians | `family.read`, `family.update`, `guardian.read`, `guardian.create`, `guardian.update`, `guardian.link`, `guardian.unlink`, `guardian.sensitive_read`, `guardian.export` |
 | Staff | `staff.read`, `staff.create`, `staff.update`, `staff.archive`, `staff.assign`, `staff.export` |
-| Academic | `academic_year.read/create/update/activate/close/export`, `term.read`, `term.manage`, `stage.read`, `stage.manage`, `grade_level.read`, `grade_level.manage`, `section.read`, `section.manage` |
+| Academic | `academic_year.read/create/update/activate/close/export`, `term.read`, `term.manage`, `stage.read`, `stage.manage`, `grade_level.read`, `grade_level.manage`, `section.read`, `section.manage`, `subject.read`, `subject.manage` (2B) |
 | Enrollment | `enrollment.read/create/update/transfer/archive/export` |
 | Audit | `audit.read`, `audit.sensitive_read`, `security.manage`, `security.export` |
 
 **لا يملك:** `tenant.suspend` (K3).
 
-### 4.2 `group_manager` — 62 صلاحية
+### 4.2 `group_manager` — 62 صلاحية (64 بعد 2B)
 
 مثل `tenant_admin` داخل Group، **ناقصاً إنشاء البنى فوق مستواه**.
 
@@ -158,7 +160,7 @@
 
 **يملك:** `group.read`, `group.export`, `school.create/read/update/archive/export` (داخل مجموعته — `PLAN_v3.md` §7.9)، و`role.read`, `role.assign`, `scope.assign`، وكل صلاحيات Students/Guardians/Staff/Academic/Enrollment الواردة في 4.1، و`audit.read`, `audit.sensitive_read`.
 
-### 4.3 `school_admin` — 59 صلاحية
+### 4.3 `school_admin` — 59 صلاحية (61 بعد 2B)
 
 **الفروق عن `tenant_admin`:**
 
@@ -172,7 +174,7 @@
 
 > `security.manage` على مستوى المدرسة يغطي إعدادات مثل نمط أول دخول لولي الأمر A/B/C (`PLAN_v3.md` §7.8).
 
-### 4.4 `secretary` — 19 صلاحية
+### 4.4 `secretary` — 19 صلاحية (20 بعد 2B)
 
 القبول والتسجيل وبيانات الطلاب وأولياء الأمور.
 
@@ -182,7 +184,7 @@
 | Identity | `profile.read` |
 | Students | `student.read`, `student.create`, `student.update` |
 | Guardians | `family.read`, `family.update`, `guardian.read`, `guardian.create`, `guardian.update`, `guardian.link` |
-| Academic | `academic_year.read`, `term.read`, `stage.read`, `grade_level.read`, `section.read` |
+| Academic | `academic_year.read`, `term.read`, `stage.read`, `grade_level.read`, `section.read`, `subject.read` (2B) |
 | Enrollment | `enrollment.read`, `enrollment.create`, `enrollment.update` |
 
 **لا تملك — وكلها مقصودة:**
@@ -196,7 +198,7 @@
 | `enrollment.transfer`, `enrollment.archive` | كما أعلاه |
 | `*.manage` الأكاديمية | السكرتارية تقرأ البنية ولا تعدّلها |
 
-### 4.5 `accountant` — 11 صلاحية
+### 4.5 `accountant` — 11 صلاحية (12 بعد 2B)
 
 صلاحياته المالية الفعلية تُضاف في المرحلة 7. في Foundation يقرأ فقط ما تحتاجه الفوترة.
 
@@ -207,7 +209,7 @@
 | Students | `student.read` |
 | Guardians | `family.read`, `guardian.read` |
 | Staff | `staff.read` |
-| Academic | `academic_year.read`, `grade_level.read`, `section.read` |
+| Academic | `academic_year.read`, `grade_level.read`, `section.read`, `subject.read` (2B) |
 | Enrollment | `enrollment.read` |
 | Audit | `audit.read` |
 
@@ -215,7 +217,7 @@
 
 > **انحراف موثق عن Matrix §6:** الجدول هناك يعطي المحاسب `Audit: R مالي`. تقييد Audit بالنوع المالي غير قابل للتعبير في كتالوج Foundation (لا يوجد `audit.financial_read`). بُذر `audit.read` مقيداً بـschool scope، والتضييق المالي يُضاف في المرحلة 7.
 
-### 4.6 `teacher` — 11 صلاحية
+### 4.6 `teacher` — 11 صلاحية (12 بعد 2B)
 
 | المجموعة | الصلاحيات |
 |---|---|
@@ -223,7 +225,7 @@
 | Identity | `profile.read` |
 | Students | `student.read` |
 | Guardians | `family.read`, `guardian.read` |
-| Academic | `academic_year.read`, `term.read`, `grade_level.read`, `section.read` |
+| Academic | `academic_year.read`, `term.read`, `grade_level.read`, `section.read`, `subject.read` (2B) |
 | Enrollment | `enrollment.read` |
 | Staff | `staff.read` |
 
@@ -233,7 +235,7 @@
 
 > **انحراف موثق عن Matrix §6:** الجدول هناك يعطي المعلم `Audit: R ضمن Scope`. **لم يُبذَر.** `audit.read` تكشف تصرفات مستخدمين آخرين داخل المدرسة (تعديلات الإدارة على الدرجات والمالية والصلاحيات)، وهذا يتجاوز حاجة المعلم التشغيلية ويخالف مبدأ أقل قدر من البيانات (`PLAN_v3.md` §8). يحتاج قراراً صريحاً إن أُريد منحه.
 
-### 4.7 `counselor` — 10 صلاحيات
+### 4.7 `counselor` — 10 صلاحيات (11 بعد 2B)
 
 | المجموعة | الصلاحيات |
 |---|---|
@@ -241,7 +243,7 @@
 | Identity | `profile.read` |
 | Students | `student.read`, `student.sensitive_read` |
 | Guardians | `family.read`, `guardian.read` |
-| Academic | `academic_year.read`, `grade_level.read`, `section.read` |
+| Academic | `academic_year.read`, `grade_level.read`, `section.read`, `subject.read` (2B) |
 | Enrollment | `enrollment.read` |
 | Audit | — |
 
@@ -301,13 +303,13 @@
 
 | الدور | عدد الصلاحيات | `sensitive_read` | `export` |
 |---|---:|:---:|:---:|
-| `tenant_admin` | 71 | ✅ student + guardian | ✅ كامل |
-| `group_manager` | 62 | ✅ student + guardian | ✅ عدا security |
-| `school_admin` | 59 | ✅ student + guardian | ✅ كامل |
-| `secretary` | 19 | ❌ | ❌ |
-| `accountant` | 11 | ❌ | ❌ |
-| `teacher` | 11 | ❌ | ❌ |
-| `counselor` | 10 | ✅ student فقط | ❌ |
+| `tenant_admin` | 71 → **73** (2B) | ✅ student + guardian | ✅ كامل |
+| `group_manager` | 62 → **64** (2B) | ✅ student + guardian | ✅ عدا security |
+| `school_admin` | 59 → **61** (2B) | ✅ student + guardian | ✅ كامل |
+| `secretary` | 19 → **20** (2B) | ❌ | ❌ |
+| `accountant` | 11 → **12** (2B) | ❌ | ❌ |
+| `teacher` | 11 → **12** (2B) | ❌ | ❌ |
+| `counselor` | 10 → **11** (2B) | ✅ student فقط | ❌ |
 | `bus_supervisor` | 2 | ❌ | ❌ |
 | `guardian` | 6 | ❌ | ❌ |
 | `student` | 4 | ❌ | ❌ |

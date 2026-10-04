@@ -203,9 +203,9 @@ begin
     raise exception 'seed: users without exactly their role/scope: %', v_bad;
   end if;
 
-  -- لا بيانات مرجعية من الـseed: الكتالوج والأدوار كما بذرتها M23
-  if (select count(*) from public.permissions) <> 73 or (select count(*) from public.roles) <> 10
-     or (select count(*) from public.role_permissions) <> 255 or (select count(*) from public.platform_admin_roles) <> 1 then
+  -- لا بيانات مرجعية من الـseed: الكتالوج والأدوار كما بذرتها M23 + M38 (subject.*، B10)
+  if (select count(*) from public.permissions) <> 75 or (select count(*) from public.roles) <> 10
+     or (select count(*) from public.role_permissions) <> 265 or (select count(*) from public.platform_admin_roles) <> 1 then
     raise exception 'seed: reference data changed — the seed must not create permissions or roles';
   end if;
 

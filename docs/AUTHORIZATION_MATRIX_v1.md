@@ -179,6 +179,8 @@ Frontend visibility ليست Security Boundary.
 | `grade_level.manage` | إدارة الصفوف |
 | `section.read` | قراءة الشعب |
 | `section.manage` | إدارة الشعب |
+| `subject.read` | قراءة المواد وربطها بالصفوف — ✅ **Phase 2B (2026-10-04)** |
+| `subject.manage` | إدارة المواد وربطها بالصفوف — ✅ **Phase 2B (2026-10-04)** |
 
 > **K1 — تصادم بادئة `grade`:** كان هذا المفتاح `grade.manage` بمعنى "إدارة الصفوف"، بينما §7 و§10 يستعملان `grade.enter`/`grade.approve` بمعنى **الدرجات**. موردان مختلفان تحت بادئة واحدة يجعلان `app.has_permission('grade.*')` غامضة وأي سياسة RLS تُبنى عليها خطأ أمنياً صامتاً.
 > **القرار:** `grade.manage` → `grade_level.manage` (مطابق لجدول `grade_levels`)، والبادئة `grade.*` **محجوزة حصراً للدرجات** في المرحلة 6.

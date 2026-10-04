@@ -300,7 +300,7 @@ select is((select v from r where k = 'roles.pa'),   '<null>',                   
 select is((select v from r where k = 'rperms.ta'),  'accountant,acct,bus_supervisor,c1,counselor,group_manager,guardian,rolemgr,sadmin,school_admin,secretary,student,tadmin,teacher,tenant_admin,zt_teacher', 'role_permissions: follow roles visibility');
 select is((select v from r where k = 'rperms.t2a'), 'accountant,acct,bus_supervisor,c2,counselor,group_manager,guardian,rolemgr,sadmin,school_admin,secretary,student,tadmin,teacher,tenant_admin,zt_teacher', 'role_permissions: T2 never sees c1 mappings');
 select is((select v from r where k = 'rperms.tch'), '<null>',                                'role_permissions: nothing without role.read');
-select is((select v from r where k = 'perms.ta'),   '73',                                    'permissions: the whole 73-key catalog (M23) with permission.read');
+select is((select v from r where k = 'perms.ta'),   '75',                                    'permissions: the whole 75-key catalog (M23 + M38) with permission.read');
 select is((select v from r where k = 'perms.tch'),  '0',                                     'permissions: nothing without permission.read');
 select is((select v from r where k = 'perms.pa'),   '0',                                     'permissions: platform context has no policy here (E8)');
 

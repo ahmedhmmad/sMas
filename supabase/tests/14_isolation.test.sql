@@ -152,7 +152,7 @@ insert into public.role_permissions (role_id, permission_id)
 create function pg_temp.people(p_tenant uuid, p_school uuid, p_tag text) returns void
 language plpgsql as $$
 declare
-  v_year uuid; v_stage uuid; v_grade uuid; v_sec uuid; v_fam uuid; v_st uuid; v_g uuid; v_staff uuid;
+  v_year uuid; v_stage uuid; v_grade uuid; v_sec uuid; v_fam uuid; v_st uuid; v_g uuid; v_staff uuid; v_subj uuid;
   v_scope uuid := (select scope_owner_id from public.schools where id = p_school);
   v_iscope uuid := (select id from public.identity_scopes where owner_id = v_scope);
   v_auth uuid := gen_random_uuid(); v_prof uuid;
@@ -163,6 +163,8 @@ begin
   insert into public.stages (school_id, name, sequence_no) values (p_school, 'Primary', 1) returning id into v_stage;
   insert into public.grade_levels (school_id, stage_id, name, sequence_no) values (p_school, v_stage, 'G1', 1) returning id into v_grade;
   insert into public.sections (school_id, academic_year_id, grade_level_id, name) values (p_school, v_year, v_grade, 'A') returning id into v_sec;
+  insert into public.subjects (school_id, subject_code, name) values (p_school, 'AR', 'Arabic') returning id into v_subj;   -- M39
+  insert into public.grade_subjects (school_id, academic_year_id, grade_level_id, subject_id, weekly_periods) values (p_school, v_year, v_grade, v_subj, 5);
   insert into public.families (platform_tenant_id, family_name) values (p_tenant, 'F' || p_tag) returning id into v_fam;
   insert into auth.users (id, email) values (v_auth, 'st' || p_tag || '@m14.invalid');
   insert into public.auth_identities values (v_auth, 'tenant');

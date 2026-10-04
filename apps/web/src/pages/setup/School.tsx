@@ -12,7 +12,8 @@ import type { School as SchoolRow } from "./Schools";
 type Year = { id: string; name: string; start_date: string; end_date: string; status: string };
 type Stage = { id: string; name: string; sequence_no: number; status: string };
 type Grade = { id: string; stage_id: string; name: string; sequence_no: number; status: string };
-type Readiness = { ready: boolean; checks: { school_active: boolean; active_year: boolean; active_section: boolean } };
+export type Subject = { id: string; subject_code: string; name: string; status: string };
+type Readiness ={ ready: boolean; checks: { school_active: boolean; active_year: boolean; active_section: boolean } };
 
 export function School() {
   const { id } = useParams();
@@ -31,6 +32,7 @@ export function School() {
       {can("security.manage") && school.status === "active" && <GuardianMode school={school} reload={schools.reload} />}
       <Years school={school} />
       <Structure school={school} />
+      {can("subject.read") && <Subjects school={school} />}
     </section>
   );
 }
@@ -265,6 +267,52 @@ function Structure({ school }: { school: SchoolRow }) {
         </form>
       )}
       <ActionError code={action.error} testId="structure-error" />
+    </Card>
+  );
+}
+
+// Phase 2B / 2B-1 — كتالوج المواد. الرمز ثابت بعد الإنشاء؛ التعطيل مرفوض في الخادم ما دامت المادة تُدرَّس في سنة غير مغلقة (T13).
+function Subjects({ school }: { school: SchoolRow }) {
+  const { can } = useAuth();
+  const subjects = useApi<{ rows: Subject[] }>(`/schools/${school.id}/subjects`);
+  const action = useAction(subjects.reload);
+  const blank = { subject_code: "", name: "" };
+  const [form, setForm] = useState(blank);
+  if (!subjects.data) return null;
+  const manage = can("subject.manage") && school.status === "active";
+  return (
+    <Card title={t("setup.subjects.title")} testId="subjects">
+      {subjects.data.rows.length === 0 && <p className="text-slate-500" data-testid="subjects-empty">{t("setup.empty")}</p>}
+      <ul className="mb-3 divide-y text-sm">
+        {subjects.data.rows.map((s) => (
+          <li key={s.id} className="flex gap-4 py-1" data-testid={`subject-row-${s.subject_code}`}>
+            <span className="w-24 font-mono" dir="ltr">{s.subject_code}</span><span className="flex-1">{s.name}</span>
+            <span data-testid={`subject-status-${s.subject_code}`}>{statusText(s.status)}</span>
+            {manage && (
+              <button type="button" className={linkButtonClass} data-testid={`subject-toggle-${s.subject_code}`} disabled={action.busy}
+                onClick={() => void action.run(() => api(`/subjects/${s.id}`, { method: "PATCH", body: { status: s.status === "active" ? "inactive" : "active" } }))}>
+                {t(s.status === "active" ? "setup.structure.deactivate" : "setup.structure.activate")}
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+      {manage && (
+        <form
+          className="grid gap-3 sm:grid-cols-3 sm:items-end"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (await action.run(() => api(`/schools/${school.id}/subjects`, { method: "POST", body: form }))) setForm(blank);
+          }}
+        >
+          <Field label={t("setup.code")}>
+            <input className={inputClass} data-testid="subject-code" dir="ltr" required value={form.subject_code} onChange={(e) => setForm({ ...form, subject_code: e.target.value.toUpperCase() })} />
+          </Field>
+          <Field label={t("setup.name")}><input className={inputClass} data-testid="subject-name" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
+          <button type="submit" className={buttonClass} data-testid="subject-submit" disabled={action.busy}>{t("setup.subjects.new")}</button>
+        </form>
+      )}
+      <ActionError code={action.error} testId="subjects-error" />
     </Card>
   );
 }

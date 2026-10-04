@@ -222,9 +222,9 @@ select is((select string_agg(column_name, ',' order by column_name) from informa
 select ok(has_function_privilege('authenticated', 'app.set_school_slug(uuid,text,text)', 'EXECUTE')
       and not has_function_privilege('anon', 'app.set_school_slug(uuid,text,text)', 'EXECUTE'), 'set_school_slug: EXECUTE for authenticated only');
 select is((select v from r where k = 'after.x'), (select v from r where k = 'before.x'), 'another tenant''s admin reaches nothing of T1, before and after');
-select is((select count(*)::int from public.permissions), 73, 'no new permission key: the catalog is still 73');
-select is((select count(*)::int from pg_class c where c.relnamespace = 'public'::regnamespace and c.relkind = 'r' and c.relname not like 'pg\_%'
-            and not exists (select 1 from pg_depend d where d.objid = c.oid and d.deptype = 'e')), 30, 'no new table: no slug history or reservation (Q6)');
+select is((select count(*)::int from public.permissions where code !~ '^subject\.'), 73, 'no new permission key from this migration (73 frozen; subject.* is B10, M38)');
+select is((select count(*)::int from pg_class c where c.relnamespace = 'public'::regnamespace and c.relkind = 'r' and c.relname ~ '(slug|reserv)'), 0,
+          'no slug history or reservation table (Q6)');
 
 select * from finish();
 rollback;

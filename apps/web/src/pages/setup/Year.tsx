@@ -7,14 +7,17 @@ import { NotFound } from "../../components/states";
 import { t } from "../../i18n";
 import { api } from "../../lib/api";
 import { ActionError, buttonClass, Card, Field, inputClass, linkButtonClass, PageState, ReasonAction, statusText, useAction, useApi } from "./common";
+import type { Subject } from "./School";
 
 type Year = { id: string; name: string; start_date: string; end_date: string; status: string };
 type Term = { id: string; name: string; sequence_no: number; start_date: string; end_date: string; status: string };
 type Grade = { id: string; name: string; status: string };
 type Section = { id: string; grade_level_id: string; name: string; capacity: number | null; gender_policy: string; status: string };
+type GradeSubject = { id: string; grade_level_id: string; subject_id: string; weekly_periods: number; counts_toward_total: boolean; status: string };
 
 export function Year() {
   const { schoolId, yearId } = useParams();
+  const { can } = useAuth();
   const years = useApi<{ rows: Year[] }>(`/schools/${schoolId}/academic-years`);
   if (!years.data) return <PageState failure={years.failure} />;
   const year = years.data.rows.find((y) => y.id === yearId);
@@ -27,6 +30,7 @@ export function Year() {
       <YearCard year={year} reload={years.reload} />
       <Terms year={year} />
       <Sections year={year} schoolId={schoolId!} others={years.data.rows.filter((y) => y.id !== year.id)} />
+      {can("subject.read") && <GradeSubjects year={year} schoolId={schoolId!} others={years.data.rows.filter((y) => y.id !== year.id)} />}
     </section>
   );
 }
@@ -205,6 +209,106 @@ function Sections({ year, schoolId, others }: { year: Year; schoolId: string; ot
         </div>
       )}
       <ActionError code={action.error} testId="sections-error" />
+    </Card>
+  );
+}
+
+// Phase 2B / 2B-1 — مواد الصفوف لهذه السنة: الحصص الأسبوعية والدخول في المجموع، ونسخها إلى سنة مخططة (M40).
+// السنة المغلقة للقراءة فقط (T13 هو الحكم)؛ الربط الجديد يولد active.
+function GradeSubjects({ year, schoolId, others }: { year: Year; schoolId: string; others: Year[] }) {
+  const { can } = useAuth();
+  const links = useApi<{ rows: GradeSubject[] }>(`/academic-years/${year.id}/grade-subjects`);
+  const grades = useApi<{ rows: Grade[] }>(`/schools/${schoolId}/grade-levels`);
+  const subjects = useApi<{ rows: Subject[] }>(`/schools/${schoolId}/subjects`);
+  const action = useAction(links.reload);
+  const blank = { grade_level_id: "", subject_id: "", weekly_periods: "", counts_toward_total: true };
+  const [form, setForm] = useState(blank);
+  const [copy, setCopy] = useState({ source_year_id: "", reason: "" });
+  const [created, setCreated] = useState<number | null>(null);
+  if (!links.data) return null;
+  const gradeName = (id: string) => grades.data?.rows.find((g) => g.id === id)?.name ?? "";
+  const subjectCode = (id: string) => subjects.data?.rows.find((s) => s.id === id)?.subject_code ?? "";
+  const manage = can("subject.manage") && year.status !== "closed";
+  return (
+    <Card title={t("setup.gradeSubjects.title")} testId="grade-subjects">
+      {links.data.rows.length === 0 && <p className="text-slate-500" data-testid="grade-subjects-empty">{t("setup.empty")}</p>}
+      <ul className="mb-3 divide-y text-sm">
+        {links.data.rows.map((l) => {
+          const key = `${gradeName(l.grade_level_id)}-${subjectCode(l.subject_id)}`;
+          return (
+            <li key={l.id} className="flex flex-wrap items-center gap-4 py-2" data-testid={`gs-row-${key}`}>
+              <span className="flex-1">{gradeName(l.grade_level_id)} / <span dir="ltr">{subjectCode(l.subject_id)}</span></span>
+              <span data-testid={`gs-periods-${key}`}>{l.weekly_periods} {t("setup.gradeSubjects.perWeek")}</span>
+              <span>{t(l.counts_toward_total ? "setup.gradeSubjects.inTotal" : "setup.gradeSubjects.notInTotal")}</span>
+              <span data-testid={`gs-status-${key}`}>{statusText(l.status)}</span>
+              {manage && (
+                <button type="button" className={linkButtonClass} data-testid={`gs-toggle-${key}`} disabled={action.busy}
+                  onClick={() => void action.run(() => api(`/grade-subjects/${l.id}`, { method: "PATCH", body: { status: l.status === "active" ? "inactive" : "active" } }))}>
+                  {t(l.status === "active" ? "setup.structure.deactivate" : "setup.structure.activate")}
+                </button>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {manage && (
+        <form
+          className="mb-4 grid gap-3 sm:grid-cols-5 sm:items-end"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const body = { ...form, weekly_periods: Number(form.weekly_periods) };
+            if (await action.run(() => api(`/academic-years/${year.id}/grade-subjects`, { method: "POST", body }))) setForm(blank);
+          }}
+        >
+          <Field label={t("setup.sections.grade")}>
+            <select className={inputClass} data-testid="gs-grade" required value={form.grade_level_id} onChange={(e) => setForm({ ...form, grade_level_id: e.target.value })}>
+              <option value="" />
+              {(grades.data?.rows ?? []).filter((g) => g.status === "active").map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+            </select>
+          </Field>
+          <Field label={t("setup.gradeSubjects.subject")}>
+            <select className={inputClass} data-testid="gs-subject" required value={form.subject_id} onChange={(e) => setForm({ ...form, subject_id: e.target.value })}>
+              <option value="" />
+              {(subjects.data?.rows ?? []).filter((s) => s.status === "active").map((s) => <option key={s.id} value={s.id}>{s.subject_code} — {s.name}</option>)}
+            </select>
+          </Field>
+          <Field label={t("setup.gradeSubjects.periods")}>
+            <input type="number" min={1} max={60} className={inputClass} data-testid="gs-periods" required value={form.weekly_periods} onChange={(e) => setForm({ ...form, weekly_periods: e.target.value })} />
+          </Field>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" data-testid="gs-total" checked={form.counts_toward_total} onChange={(e) => setForm({ ...form, counts_toward_total: e.target.checked })} />
+            {t("setup.gradeSubjects.inTotal")}
+          </label>
+          <button type="submit" className={buttonClass} data-testid="gs-submit" disabled={action.busy}>{t("setup.gradeSubjects.new")}</button>
+        </form>
+      )}
+      {can("subject.manage") && year.status === "planned" && others.length > 0 && (
+        <div data-testid="copy-grade-subjects" className="rounded border border-slate-200 p-3">
+          <h3 className="mb-1 text-sm font-medium">{t("setup.gradeSubjects.copyTitle")}</h3>
+          <p className="mb-2 text-xs text-slate-500">{t("setup.gradeSubjects.copyHint")}</p>
+          <form
+            className="grid gap-3 sm:grid-cols-3 sm:items-end"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              await action.run(async () => {
+                const r = await api<{ created: number }>(`/academic-years/${year.id}/copy-grade-subjects`, { method: "POST", body: copy });
+                setCreated(r.created);
+              });
+            }}
+          >
+            <Field label={t("setup.sections.copySource")}>
+              <select className={inputClass} data-testid="gs-copy-source" required value={copy.source_year_id} onChange={(e) => setCopy({ ...copy, source_year_id: e.target.value })}>
+                <option value="" />
+                {others.map((y) => <option key={y.id} value={y.id}>{y.name}</option>)}
+              </select>
+            </Field>
+            <Field label={t("setup.reason")}><input className={inputClass} data-testid="gs-copy-reason" required value={copy.reason} onChange={(e) => setCopy({ ...copy, reason: e.target.value })} /></Field>
+            <button type="submit" className={buttonClass} data-testid="gs-copy-submit" disabled={action.busy}>{t("setup.gradeSubjects.copy")}</button>
+          </form>
+          {created !== null && <p className="mt-2 text-sm text-emerald-700" data-testid="gs-copy-result" data-created={created}>{t("setup.gradeSubjects.copied")} {created}</p>}
+        </div>
+      )}
+      <ActionError code={action.error} testId="grade-subjects-error" />
     </Card>
   );
 }

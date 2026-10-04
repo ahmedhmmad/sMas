@@ -201,6 +201,8 @@ ALTER TABLE schools ADD CONSTRAINT schools_group_same_tenant_fk
 | (29) | `auth_identities` | P | ✅ G10 — حصرية هوية Tenant/Platform |
 | ✅ M27 | `schools.guardian_first_login_mode` | S | عمود — نمط أول دخول ولي الأمر (§5 من F2) |
 | (30) | `login_challenges` | T | ✅ M26 (F2/D3) — تحديات OTP لحسابات Tenant؛ بلا وصول عميل (§2.27) |
+| (31) | `subjects` | S | ✅ M39 (Phase 2B / 2B-1) — كتالوج مواد المدرسة (§2.28) |
+| (32) | `grade_subjects` | S (عبر السنة) | ✅ M39 (Phase 2B / 2B-1) — ربط المادة بالصف لكل سنة (§2.29) |
 
 ---
 
@@ -1158,6 +1160,50 @@ CREATE TRIGGER audit_log_no_truncate
 
 ---
 
+### 2.28 `subjects` — [S] ✅ M39 (Phase 2B / 2B-1)
+
+كتالوج مواد المدرسة (B9). مستقل عن السنة؛ ربطه بالصفوف لكل سنة في §2.29. الصلاحيتان `subject.read` / `subject.manage` (B10، M38 — الكتالوج 75).
+
+| العمود | النوع | NULL | افتراضي | ملاحظات |
+|---|---|---|---|---|
+| `id` | uuid | NOT NULL | `gen_random_uuid()` | PK |
+| `school_id` | uuid | NOT NULL | — | FK → `schools`؛ ثابت بعد الإنشاء |
+| `subject_code` | text | NOT NULL | — | `^[A-Z0-9][A-Z0-9_-]{1,31}$`؛ فريد في المدرسة؛ **ثابت بعد الإنشاء** |
+| `name` | text | NOT NULL | — | فريد في المدرسة؛ غير فارغ |
+| `status` | text | NOT NULL | `'active'` | `active` \| `inactive` |
+| `created_at`, `created_by`, `updated_at`, `updated_by` | | | | الأعمدة المشتركة (T6) |
+
+**القيود:** `subjects_pkey`، `subjects_id_school_uq (id, school_id)` (هدف FK مركّب)، `subjects_school_code_uq`، `subjects_school_name_uq`، `subjects_school_fk`، `subjects_code_chk`، `subjects_name_chk`، `subjects_status_chk`، `subjects_created_by_fk`، `subjects_updated_by_fk`.
+**T13 (`app.tg_subject_guard`، BEFORE UPDATE، `23514`):** المدرسة والرمز ثابتان؛ **لا تعطيل لمادة لها ربط `active` في سنة غير مغلقة**.
+**الامتيازات (`authenticated`):** INSERT `(school_id, subject_code, name)`؛ UPDATE `(name, status)`؛ لا DELETE. **RLS:** `can_access_school(school_id)` + `subject.read` (SELECT) / `subject.manage` (INSERT، UPDATE).
+**الفهارس:** المفاتيح الفريدة + `created_by`، `updated_by`.
+
+---
+
+### 2.29 `grade_subjects` — [S عبر السنة] ✅ M39 (Phase 2B / 2B-1)
+
+المادة المقررة على الصف **في سنة بعينها** (B15، ثابت 15): الحصص الأسبوعية والدخول في المجموع. حد النجاح ومكوّنات التقييم خارج 2B (المرحلة 6).
+
+| العمود | النوع | NULL | افتراضي | ملاحظات |
+|---|---|---|---|---|
+| `id` | uuid | NOT NULL | `gen_random_uuid()` | PK |
+| `school_id` | uuid | NOT NULL | — | من صف السنة (الـAPI)؛ الـFKs المركّبة تفرض اتساقه |
+| `academic_year_id` | uuid | NOT NULL | — | FK مركّب → `academic_years (id, school_id)` |
+| `grade_level_id` | uuid | NOT NULL | — | FK مركّب → `grade_levels (id, school_id)` |
+| `subject_id` | uuid | NOT NULL | — | FK مركّب → `subjects (id, school_id)` |
+| `weekly_periods` | integer | NOT NULL | — | 1..60 |
+| `counts_toward_total` | boolean | NOT NULL | `true` | |
+| `status` | text | NOT NULL | `'active'` | `active` \| `inactive`؛ **يولد active** (خارج INSERT) |
+| `created_at`, `created_by`, `updated_at`, `updated_by` | | | | الأعمدة المشتركة (T6) |
+
+**القيود:** `grade_subjects_pkey`، **`grade_subjects_key_uq (academic_year_id, grade_level_id, subject_id)`** — المفتاح الطبيعي (ونسخ M40)، `grade_subjects_year_fk`، `grade_subjects_grade_level_fk`، `grade_subjects_subject_fk`، `grade_subjects_periods_chk`، `grade_subjects_status_chk`، `grade_subjects_created_by_fk`، `grade_subjects_updated_by_fk`.
+**T13 (`app.tg_grade_subject_guard`، BEFORE INSERT OR UPDATE، `23514`):** الهوية (مدرسة، سنة، صف، مادة) ثابتة؛ **لا إنشاء ولا تعديل في سنة `closed`**؛ **الربط `active` تحت صف `active` ولمادة `active`** (عند الإنشاء وإعادة التفعيل). والجهة الثانية: `tg_grade_level_guard` (T12) يرفض تعطيل صف له ربط `active` في سنة غير مغلقة، و`tg_subject_guard` كذلك للمادة.
+**الامتيازات (`authenticated`):** INSERT `(school_id, academic_year_id, grade_level_id, subject_id, weekly_periods, counts_toward_total)`؛ UPDATE `(weekly_periods, counts_toward_total, status)`؛ لا DELETE. **RLS:** كـ`subjects`.
+**النسخ:** `app.copy_grade_subjects(source, target, reason)` (M40) — عقد M37 (§5.2 من المواصفة).
+**الفهارس:** `grade_subjects_year_idx`، `grade_subjects_grade_level_idx`، `grade_subjects_subject_idx` (على `(…_id, school_id)`)، `created_by`، `updated_by`.
+
+---
+
 ## 3. ملخص الفهارس (ERD §8)
 
 | الجدول | الفهرس | الغرض |
@@ -1199,8 +1245,9 @@ CREATE TRIGGER audit_log_no_truncate
 | **T12** | `sections`، `grade_levels`، `stages`: شعبة نشطة (في سنة غير مغلقة) ⇒ صف نشط ⇒ مرحلة نشطة، من الجهتين؛ هوية ثابتة؛ بنية السنة المغلقة مجمدة؛ لا تعطيل لشعبة فيها تسجيلات نشطة | ✅ M35 (Phase 2A، Q7) — يعتمد على الصف القديم وعلى صفوف في جداول أخرى (السنة، الأب، الأبناء، التسجيلات) |
 | **T11** | `terms` (INSERT، UPDATE): دورة الحياة، الفصل النشط داخل سنة نشطة، ما يُعدَّل حسب الحالة، تجمّد فصول السنة المغلقة | ✅ M34 (Phase 2A) — يعتمد على الصف القديم وعلى حالة صف في جدول آخر (السنة) |
 | **T10** | `academic_years` (UPDATE): ما يُعدَّل حسب الحالة والانتقالات المعلنة | ✅ M33 (Phase 2A، Q1) — يقارن الصف القديم بالجديد؛ لا بديل إعلاني (`CHECK` لا يرى الصف القديم، و RLS `WITH CHECK` كذلك) |
+| **T13** | `grade_subjects` (INSERT، UPDATE)، `subjects` (UPDATE)، و`grade_levels` (امتداد T12): ربط مادة نشط (في سنة غير مغلقة) ⇒ صف نشط ومادة نشطة، من الجهتين؛ هوية ثابتة؛ روابط السنة المغلقة مجمدة؛ رمز المادة ثابت | ✅ M39 (Phase 2B / 2B-1) — نمط T12 |
 
-**القائمة النهائية بعد Gate B: T5، T6، T7، T8، T9** — خمسة فقط (**+ T10، T11، T12 في Phase 2A: M33، M34، M35**). كل trigger يحتاج اختبار pgTAP. التصنيف الكامل لكل invariant وآليته: `DB_IMPLEMENTATION_SPEC_v1.md` §3.
+**القائمة النهائية بعد Gate B: T5، T6، T7، T8، T9** — خمسة فقط (**+ T10، T11، T12 في Phase 2A: M33، M34، M35؛ + T13 في Phase 2B: M39**). كل trigger يحتاج اختبار pgTAP. التصنيف الكامل لكل invariant وآليته: `DB_IMPLEMENTATION_SPEC_v1.md` §3.
 
 ---
 

@@ -68,6 +68,18 @@ test("tenant_admin: from nothing to ready_for_enrollment through the UI", async 
   await page.getByTestId("grade-submit").click();
   await expect(page.getByTestId("grade-row-الأول")).toBeVisible();
 
+  // المواد (2B-1): رمز مكرر ← تعارض مترجم
+  for (const [c, n] of [["AR", "اللغة العربية"], ["MA", "الرياضيات"]]) {
+    await page.getByTestId("subject-code").fill(c);
+    await page.getByTestId("subject-name").fill(n);
+    await page.getByTestId("subject-submit").click();
+    await expect(page.getByTestId(`subject-row-${c}`)).toBeVisible();
+  }
+  await page.getByTestId("subject-code").fill("AR");
+  await page.getByTestId("subject-name").fill("مكررة");
+  await page.getByTestId("subject-submit").click();
+  await expect(page.getByTestId("subjects-error")).toHaveAttribute("data-code", "conflict");
+
   // سنة، شعبة، تفعيل
   await page.getByTestId("year-name").fill("2040");
   await page.getByTestId("year-start").fill("2040-09-01");
@@ -80,6 +92,18 @@ test("tenant_admin: from nothing to ready_for_enrollment through the UI", async 
   await page.getByTestId("section-capacity").fill("30");
   await page.getByTestId("section-submit").click();
   await expect(page.getByTestId("section-row-الأول-أ")).toBeVisible();
+  for (const [c, label, n] of [["AR", "AR — اللغة العربية", "6"], ["MA", "MA — الرياضيات", "5"]]) {
+    await page.getByTestId("gs-grade").selectOption({ label: "الأول" });
+    await page.getByTestId("gs-subject").selectOption({ label });
+    await page.getByTestId("gs-periods").fill(n);
+    await page.getByTestId("gs-submit").click();
+    await expect(page.getByTestId(`gs-periods-الأول-${c}`)).toContainText(n);
+  }
+  // المادة تُدرَّس في سنة غير مغلقة ← تعطيلها مرفوض (T13)، رسالة مترجمة
+  await go(page, page.url().replace(/\/years\/.*$/, ""));
+  await page.getByTestId("subject-toggle-MA").click();
+  await expect(page.getByTestId("subjects-error")).toHaveAttribute("data-code", "invariant_violation");
+  await page.getByTestId("year-open-2040").click();
   await reason(page, "year-activate", "بداية العام");
   await expect(page.getByTestId("year-state")).toHaveText("نشط");
   await expect(page.getByTestId("year-edit-start")).toBeDisabled();
@@ -117,6 +141,14 @@ test("tenant_admin: from nothing to ready_for_enrollment through the UI", async 
   await expect(page.getByTestId("section-row-الأول-أ")).toBeVisible();
   await page.getByTestId("copy-submit").click();
   await expect(page.getByTestId("copy-result")).toHaveAttribute("data-created", "0");
+  // نسخ مواد الصفوف (M40): 2 ثم 0
+  await page.getByTestId("gs-copy-source").selectOption({ label: "2040" });
+  await page.getByTestId("gs-copy-reason").fill("العام القادم");
+  await page.getByTestId("gs-copy-submit").click();
+  await expect(page.getByTestId("gs-copy-result")).toHaveAttribute("data-created", "2");
+  await expect(page.getByTestId("gs-periods-الأول-AR")).toContainText("6");
+  await page.getByTestId("gs-copy-submit").click();
+  await expect(page.getByTestId("gs-copy-result")).toHaveAttribute("data-created", "0");
 
   // المعرّف في العنوان: تعارض مترجم، ثم تغيير ناجح
   await go(page, page.url().replace(/\/years\/.*$/, ""));
@@ -204,15 +236,18 @@ test("secretary: reads setup, every write control hidden, and the server refuses
   await page.getByTestId("nav-schools").click();
   await page.getByTestId("school-open-SA").click();
   await expect(page.getByTestId("readiness-state")).toHaveAttribute("data-ready", "true");
-  for (const id of ["school-edit-save", "school-slug", "guardian-mode", "school-archive", "year-submit", "stage-submit", "grade-submit"]) {
+  for (const id of ["school-edit-save", "school-slug", "guardian-mode", "school-archive", "year-submit", "stage-submit", "grade-submit", "subject-submit"]) {
     await expect(page.getByTestId(id)).toHaveCount(0);
   }
+  await expect(page.getByTestId("subjects")).toBeVisible();                  // subject.read (B15)
   await page.getByTestId("year-open-2026/2027").click();
   await expect(page.getByTestId("year-card")).toBeVisible();
-  for (const id of ["year-edit-save", "year-close", "term-submit", "section-submit", "copy-sections"]) {
+  await expect(page.getByTestId("grade-subjects")).toBeVisible();
+  for (const id of ["year-edit-save", "year-close", "term-submit", "section-submit", "copy-sections", "gs-submit", "copy-grade-subjects"]) {
     await expect(page.getByTestId(id)).toHaveCount(0);
   }
   const yearId = page.url().split("/years/")[1];
+  expect(await direct(page, "POST", `/schools/${f.schools.SA}/subjects`, { subject_code: "ZTWSEC", name: "x" })).toBe(403);
   expect(await direct(page, "PATCH", `/academic-years/${yearId}`, { name: "hijack" })).toBe(403);
   expect(await direct(page, "POST", `/academic-years/${yearId}/close`, { reason: "r" })).toBe(403);
   expect(await direct(page, "PATCH", `/schools/${f.schools.SA}`, { name: "hijack" })).toBe(403);
@@ -225,6 +260,8 @@ test("bus_supervisor, guardian-less staff and platform admin: no setup menu, not
   await go(page, `/setup/schools/${f.schools.SA}`);
   await expect(page.getByTestId("school")).toBeVisible();                 // المدرسة مرئية له (school.read)…
   await expect(page.getByTestId("readiness")).toHaveCount(0);              // …والجاهزية لا (403 من الخادم)
+  await expect(page.getByTestId("subjects")).toHaveCount(0);               // بلا subject.read
+  expect(await direct(page, "POST", `/schools/${f.schools.SA}/subjects`, { subject_code: "ZTWBUS", name: "x" })).toBe(403);
   expect(await direct(page, "GET", `/schools/${f.schools.SA}/readiness`)).toBe(403);
 
   const platform = await browser.newPage();

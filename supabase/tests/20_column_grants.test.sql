@@ -44,7 +44,9 @@ insert into expected values
   ('role_permissions',          'permission_id,role_id', ''),
   ('roles',                     'code,description,name,platform_tenant_id', 'description,name'),
   ('schools',                   'group_id,name,platform_tenant_id,school_code,slug,timezone', 'name,timezone'),   -- M36: slug بـset_school_slug
-  ('sections',                  'academic_year_id,capacity,gender_policy,grade_level_id,name,school_id,status', 'capacity,gender_policy,name,status'),   -- M35: هوية الشعبة ثابتة
+  ('sections',                  'academic_year_id,capacity,gender_policy,grade_level_id,name,school_id,status', 'capacity,gender_policy,name,status'),
+  ('subjects',                  'name,school_id,subject_code', 'name,status'),   -- M39: الرمز والمدرسة ثابتان
+  ('grade_subjects',            'academic_year_id,counts_toward_total,grade_level_id,school_id,subject_id,weekly_periods', 'counts_toward_total,status,weekly_periods'),   -- M39: يولد active، الهوية ثابتة   -- M35: هوية الشعبة ثابتة
   ('staff',                     '', 'birth_date,email,family_name,father_name,first_name,gender,grandfather_name,hire_date,national_id,phone_e164'),
   ('staff_school_assignments',  'effective_from,is_primary,job_title,platform_tenant_id,school_id,staff_id', 'is_primary,job_title'),
   ('stages',                    'name,school_id,sequence_no,status', 'name,sequence_no,status'),   -- M35: school_id ثابت
@@ -118,6 +120,7 @@ insert into controlled_allowlist values   -- M21
   ('app.activate_term(uuid,text)'), ('app.close_term(uuid,text)'),   -- M34
   ('app.set_school_slug(uuid,text,text)'),                           -- M36
   ('app.copy_sections(uuid,uuid,text)'),                             -- M37
+  ('app.copy_grade_subjects(uuid,uuid,text)'),                       -- M40
   ('app.close_enrollment(uuid,text,date,text)'), ('app.transfer_enrollment(uuid,uuid,date,text,text)'),
   ('app.set_role_status(uuid,text,text)'),
   -- M22
@@ -139,13 +142,13 @@ select pg_temp.rec('x.uncategorized', $q$select coalesce(string_agg(p.oid::regpr
 select pg_temp.rec('x.allowlist_missing', $q$select coalesce(string_agg(f::text, ','), 'none') from controlled_allowlist
   where not has_function_privilege('authenticated', f, 'EXECUTE')$q$);
 
-select plan(30 + 1 + 24 + 9 + 5 + 1);
+select plan(32 + 1 + 24 + 9 + 5 + 1);
 
 -- ---------- السجل: كل جدول بالاسم ----------
 select is(coalesce(a.ins, '<missing>') || ' | ' || coalesce(a.upd, '<missing>'), e.ins || ' | ' || e.upd,
           format('%s: INSERT | UPDATE columns match §4.6', e.t))
   from expected e left join actual a using (t) order by e.t;
-select set_eq('select t from actual', 'select t from expected', 'the registry covers exactly the 30 tables (29 Foundation + login_challenges)');
+select set_eq('select t from actual', 'select t from expected', 'the registry covers exactly the 32 tables (29 Foundation + login_challenges + subjects, grade_subjects)');
 
 -- ---------- الرفض السلوكي ----------
 select ok((select v from r where k = 'b.roles_status')     like 'ERR 42501%permission denied%roles%',                    'M19: roles.status is not client-writable');
@@ -199,7 +202,7 @@ select ok(not has_table_privilege('service_role', 'public.audit_log', 'UPDATE') 
 -- ---------- EXECUTE بفئتين ----------
 select is((select v from r where k = 'x.uncategorized'), 'none',
           'EXECUTE for authenticated: every function is either an RLS helper called by a policy or an allowlisted controlled function');
-select is((select v from r where k = 'x.allowlist_missing'), 'none', 'every allowlisted controlled function is executable (15 from M21 + 5 from M22 + 2 from M25 + 3 from M27 + 1 from M28 + 1 from M29 + 2 from M34 + 1 from M36 + 1 from M37)');
+select is((select v from r where k = 'x.allowlist_missing'), 'none', 'every allowlisted controlled function is executable (15 from M21 + 5 from M22 + 2 from M25 + 3 from M27 + 1 from M28 + 1 from M29 + 2 from M34 + 1 from M36 + 1 from M37 + 1 from M40)');
 select is((select count(*)::int from pg_proc p where p.pronamespace = 'app'::regnamespace and has_function_privilege('anon', p.oid, 'EXECUTE')), 0,
           'anon executes no function in app');
 select is((select count(*)::int from pg_proc p where p.pronamespace = 'app'::regnamespace
