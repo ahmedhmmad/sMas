@@ -1,7 +1,7 @@
 # Phase 2A — School Setup: وثيقة التصميم (P2-A)
 
 **التاريخ:** 2026-10-02
-**الحالة:** ✅ **معتمدة (2026-10-02)** مع Q1–Q9 كما اقتُرحت — **P2-B 🔒 (M33–M37)** · **P2-C 🔒** (`services/api/app/setup.py`) · **P2-D ✅ منفذة بانتظار المراجعة** (`apps/web/src/pages/setup/`)
+**الحالة:** ✅ **معتمدة (2026-10-02)** مع Q1–Q9 كما اقتُرحت — **P2-B 🔒 (M33–M37)** · **P2-C 🔒** (`services/api/app/setup.py`) · **P2-D 🔒** (`apps/web/src/pages/setup/`) · **P2-E ✅ القبول مستوفى** (`docs/PHASE2A_ACCEPTANCE.md`) — الإغلاق بعد CI
 **خط الأساس:** `39ba260` — 37 migration (M01–M32)، Phase 1 مغلقة
 **المرجع:** خطة النطاق المعتمدة والقرارات 1–11 (2026-10-02، `PLAN_v3.md` §9)؛ `DB_IMPLEMENTATION_SPEC_v1.md` §5.0 (عقد الدوال المتحكَّم بها)؛ `RLS_MODEL_v1.md` §7؛ `F4_API_SECURITY.md`؛ `F1_WEB_APP.md`
 
