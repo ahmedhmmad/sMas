@@ -14,7 +14,7 @@ async function bearer(): Promise<Record<string, string>> {
   return data.session ? { Authorization: `Bearer ${data.session.access_token}` } : {};
 }
 
-export async function api<T>(path: string, init: { method?: "GET" | "POST"; body?: unknown; auth?: boolean } = {}): Promise<T> {
+export async function api<T>(path: string, init: { method?: "GET" | "POST" | "PATCH"; body?: unknown; auth?: boolean } = {}): Promise<T> {
   const headers: Record<string, string> = { "Content-Type": "application/json", ...(init.auth === false ? {} : await bearer()) };
   let response: Response;
   try {

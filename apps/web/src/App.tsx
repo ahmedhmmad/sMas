@@ -10,6 +10,10 @@ import { ChangePassword } from "./pages/ChangePassword";
 import { Dashboard } from "./pages/Dashboard";
 import { Login } from "./pages/Login";
 import { PlatformTenants } from "./pages/PlatformTenants";
+import { Groups } from "./pages/setup/Groups";
+import { School } from "./pages/setup/School";
+import { Schools } from "./pages/setup/Schools";
+import { Year } from "./pages/setup/Year";
 import { StudentDetail } from "./pages/StudentDetail";
 import { Students } from "./pages/Students";
 
@@ -52,6 +56,10 @@ export function AppRoutes() {
         <Route path="/students" element={<Students />} />
         <Route path="/students/:id" element={<StudentDetail />} />
         <Route path="/platform/tenants" element={<PlatformTenants />} />
+        <Route path="/setup/groups" element={<Groups />} />
+        <Route path="/setup/schools" element={<Schools />} />
+        <Route path="/setup/schools/:id" element={<School />} />
+        <Route path="/setup/schools/:schoolId/years/:yearId" element={<Year />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
