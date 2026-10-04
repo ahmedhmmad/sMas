@@ -3,7 +3,7 @@
 **المشروع:** نظام إدارة المدارس متعدد المستأجرين (Multi-Tenant SMS)
 **تاريخ الإنشاء:** 2026-09-22
 **آخر تحديث:** 2026-10-03
-**المرحلة الحالية:** 🔒 **المرحلة 1 — الأساس (Foundation) مكتملة (2026-10-02)** — **المرحلة 2A (School Setup): P2-A ✅ · P2-B 🔒 (M33–M37) · P2-C ✅ منفذة بانتظار المراجعة (الـAPI)** (`docs/PHASE2_SCHOOL_SETUP.md`) (السجل: **Gate C 🔒 مكتمل: M01–M23**؛ **Gate E 🔒 مغلق تقنياً: E1–E6** — Production Backup Policy TBD؛ Gate F: **F4 🔒**؛ **F2 🔒**؛ **F1 🔒**؛ **F3 🔒** — **Gate F 🔒 مكتمل: F1–F4**؛ **🔒 Stage 1 مغلق** — المراجعة R1–R10 + M31/M32، CI `f41b0ff`)
+**المرحلة الحالية:** 🔒 **المرحلة 1 — الأساس (Foundation) مكتملة (2026-10-02)** — **المرحلة 2A (School Setup): P2-A ✅ · P2-B 🔒 (M33–M37) · P2-C 🔒 (الـAPI) · P2-D ✅ منفذة بانتظار المراجعة (الواجهة)** (`docs/PHASE2_SCHOOL_SETUP.md`) (السجل: **Gate C 🔒 مكتمل: M01–M23**؛ **Gate E 🔒 مغلق تقنياً: E1–E6** — Production Backup Policy TBD؛ Gate F: **F4 🔒**؛ **F2 🔒**؛ **F1 🔒**؛ **F3 🔒** — **Gate F 🔒 مكتمل: F1–F4**؛ **🔒 Stage 1 مغلق** — المراجعة R1–R10 + M31/M32، CI `f41b0ff`)
 
 ---
 
@@ -153,7 +153,7 @@ app.can_access_*() + app.has_permission() تبني عليه
 
 ## 2. حالة المستودع
 
-**الحالة:** المستودع على GitHub: `ahmedhmmad/sMas` (`main`). CI أخضر. 42 migration (M01–M37)؛ pgTAP 1743 (41 ملفاً)، pytest 239، Vitest 87، Playwright 21.
+**الحالة:** المستودع على GitHub: `ahmedhmmad/sMas` (`main`). CI أخضر. 42 migration (M01–M37)؛ pgTAP 1743 (41 ملفاً)، pytest 239، Vitest 105، Playwright 27.
 
 ```
 /docs                 وثائق التصميم + وثيقة لكل Gate + STAGE1_REVIEW  ✅
@@ -527,7 +527,7 @@ Platform Admin → Role → Permission + Platform-level scope
 | # | المرحلة | تعتمد على | الحالة |
 |---|---|---|---|
 | 1 | الأساس (Foundation) | — | 🔒 مكتملة (2026-10-02) |
-| 2 | إعداد المدرسة | 1 | 🔄 **2A**: P2-A ✅ · P2-B 🔒 (M33–M37) · P2-C ✅ بانتظار المراجعة · P2-D ⬜ · P2-E ⬜ — **2B** ⬜ بخطة مستقلة |
+| 2 | إعداد المدرسة | 1 | 🔄 **2A**: P2-A ✅ · P2-B 🔒 (M33–M37) · P2-C 🔒 · P2-D ✅ بانتظار المراجعة · P2-D ⬜ · P2-E ⬜ — **2B** ⬜ بخطة مستقلة |
 | 3 | الموظفون والتكليفات | 2 | ⬜ |
 | 4 | القبول والتسجيل والطلاب | 2 | ⬜ |
 | 5 | الحضور وإشعارات واتساب | 3، 4 | ⬜ |
@@ -683,6 +683,7 @@ Platform Admin → Role → Permission + Platform-level scope
 | 2026-09-22 | ✅ **C3** — اعتماد `platform_admin_roles → platform_admin_role_permissions → permissions`؛ `is_platform_admin()` اختبار هوية فقط، و`has_permission()` توحّد المسارين. الكتالوج 73 مفتاحاً بعد K4 (`tenant.create`) | `docs/ROLE_PERMISSION_SEED_v1.md`, `AUTHORIZATION_MATRIX_v1.md`, `docs/DATA_DICTIONARY_v1.md`, `CLAUDE.md` |
 | 2026-09-22 | ✅ **A3** — RLS Model: 7 دوال، سياسات كل الجداول، حل تعارض FORCE RLS/recursion، 30 اختبار pgTAP، و6 بنود معلّقة | `docs/RLS_MODEL_v1.md`, `CLAUDE.md` |
 | 2026-09-23 | ✅ **A5** — اعتماد A1–A4 كـFoundation Design Baseline | — |
+| 2026-10-04 | ✅ **P2-D — الواجهة** — `apps/web/src/pages/setup/` (المجموعات، المدارس، المدرسة، السنة): كل البيانات عبر FastAPI؛ الأزرار بالمفاتيح (عرض فقط)؛ الجاهزية من الـAPI وحده؛ أخطاء الـAPI بنصوص الفهرس؛ RTL و`t(key)` (قاعدة lint)؛ Vitest 105 (`setup.test` 18)، Playwright 27 (`setup.spec` 6: tenant_admin من الصفر حتى الجاهزية، مدير المجموعة، مدير المدرسة، السكرتير، بلا صلاحية، السياق ليس سلطة — وكل «ممنوع» يتجاوز الواجهة إلى الـAPI)؛ 7 ضوابط سلبية على الواجهة | `apps/web/src/{App.tsx,components/navigation.ts,i18n/ar.json,lib/api.ts,pages/setup/*,setup.test.tsx}`, `apps/web/e2e/setup.spec.ts`, `docs/PHASE2_SCHOOL_SETUP.md`, `CLAUDE.md` |
 | 2026-10-04 | ✅ **P2-C — الـAPI** — `services/api/app/setup.py`: المجموعات، المدارس (إنشاء، تعديل، `slug`، أرشفة، جاهزية، نمط ولي الأمر القائم)، السنوات (+ تفعيل/إغلاق/نسخ الشعب)، الفصول (+ تفعيل/إغلاق)، المراحل، الصفوف، الشعب؛ لا DELETE؛ لا سياق ولا سلطة من الطلب (`extra="forbid"`، الـTenant من DB، مدرسة الابن من أبيه)؛ 404 غير مرئي / 403 مرئي ومرفوض؛ `23P01`←409، `23502`←422؛ CORS + `PATCH`؛ `RETURNING` ممنوع لإدراج المجموعة والمدرسة (يُرفض حتى لمدير الـTenant — مُثبت). pytest 239 (`test_school_setup` 14)، pgTAP 1743، Vitest 87؛ الاستعادة PASS؛ 12 ضابطاً سلبياً على الكود | `services/api/app/{setup,main,deps}.py`, `services/api/tests/{conftest,test_school_setup}.py`, `docs/PHASE2_SCHOOL_SETUP.md`, `CLAUDE.md` |
 | 2026-10-03 | ✅ **M37 — نسخ الشعب** — pgTAP 1743 (37: 41)، pytest 225، Vitest 87؛ الاستعادة PASS (نظيفة وبالـseed)؛ 18 ضابطاً سلبياً؛ عقد §8 منقّح (لا `ON CONFLICT DO NOTHING`، سبب، صف domain) | `supabase/migrations/20261003130000_copy_sections.sql`, `supabase/tests/{20,31,37}_*.test.sql`, `docs/{PHASE2_SCHOOL_SETUP,DATA_DICTIONARY_v1,DB_IMPLEMENTATION_SPEC_v1,PLAN_v3}.md`, `CLAUDE.md` |
 | 2026-10-03 | ✅ **M36 — تغيير `slug` بدالة متحكَّم بها** — pgTAP 1702 (36: 46)، pytest 225، Vitest 87؛ الاستعادة PASS (نظيفة وبالـseed)؛ 14 ضابطاً سلبياً | `supabase/migrations/20261003110000_school_slug.sql`, `supabase/tests/{20,30b,31,36}_*.test.sql`, `docs/{PHASE2_SCHOOL_SETUP,DATA_DICTIONARY_v1,DB_IMPLEMENTATION_SPEC_v1,F3_HOST_CONTEXT}.md`, `CLAUDE.md` |
