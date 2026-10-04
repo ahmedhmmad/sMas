@@ -1,7 +1,7 @@
 # Phase 2A — School Setup: قبول الإغلاق (P2-E)
 
 **التاريخ:** 2026-10-04
-**الحالة:** ✅ قائمة القبول مستوفاة محلياً — الإغلاق بعد CI
+**الحالة:** 🔒 **Phase 2A مغلقة (2026-10-04)** — CI `3c68a7d`
 **المرجع:** `docs/PHASE2_SCHOOL_SETUP.md` (العقد)، القرارات 1–11 و Q1–Q9، شروط مراجعة M33–M37 و P2-C و P2-D
 **قاعدة P2-E:** اختبارات ووثائق فقط — لا migration، ولا صلاحية، ولا endpoint، ولا شاشة، ولا قاعدة أعمال جديدة.
 
@@ -54,7 +54,7 @@ Tenant Admin → Group → School → Stage → Grade → Academic Year → Sect
 | 18 | reset من الصفر | ✅ | `db reset --no-seed` ← pgTAP 1743/1743؛ تطبيقان بلا فرق بنيوي |
 | 19 | restore clean | ✅ | `scripts/restore-test.sh` على القاعدة النظيفة: PASS |
 | 20 | restore seeded | ✅ | `scripts/restore-test.sh` بعد الـseed: PASS |
-| 21 | CI كامل | ⏳ | يُعلَّم بعد الدفع |
+| 21 | CI كامل | ✅ | `3c68a7d` — https://github.com/ahmedhmmad/sMas/actions/runs/37207754351 |
 
 **الأرقام عند الإغلاق:** pgTAP 1743 (41 ملفاً) · pytest 240 · Vitest 105 · Playwright 27 · ضوابط سلبية في Phase 2A: 88 (DB) + 12 (API) + 7 (الواجهة).
 
