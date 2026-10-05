@@ -157,7 +157,7 @@ declare
   v_iscope uuid := (select id from public.identity_scopes where owner_id = v_scope);
   v_auth uuid := gen_random_uuid(); v_prof uuid;
 begin
-  insert into public.academic_years (school_id, name, start_date, end_date, status) values (p_school, '2026/2027', '2026-09-01', '2027-06-30', 'active') returning id into v_year;
+  insert into public.academic_years (school_id, name, start_date, end_date) values (p_school, '2026/2027', '2026-09-01', '2027-06-30') returning id into v_year;   -- planned ← active أدناه (M41: تقويم السنة النشطة مقيَّد بالتاريخ)
   insert into public.terms (academic_year_id, school_id, year_start_date, year_end_date, name, sequence_no, start_date, end_date)
     values (v_year, p_school, '2026-09-01', '2027-06-30', 'T1', 1, '2026-09-01', '2026-12-15');
   insert into public.stages (school_id, name, sequence_no) values (p_school, 'Primary', 1) returning id into v_stage;
@@ -165,6 +165,10 @@ begin
   insert into public.sections (school_id, academic_year_id, grade_level_id, name) values (p_school, v_year, v_grade, 'A') returning id into v_sec;
   insert into public.subjects (school_id, subject_code, name) values (p_school, 'AR', 'Arabic') returning id into v_subj;   -- M39
   insert into public.grade_subjects (school_id, academic_year_id, grade_level_id, subject_id, weekly_periods) values (p_school, v_year, v_grade, v_subj, 5);
+  insert into public.calendar_weekdays (school_id, academic_year_id, weekday) values (p_school, v_year, 0);   -- M41
+  insert into public.calendar_exceptions (school_id, academic_year_id, year_start_date, year_end_date, kind, name, start_date, end_date)
+    values (p_school, v_year, '2026-09-01', '2027-06-30', 'holiday', 'H', '2026-10-06', '2026-10-06');
+  update public.academic_years set status = 'active' where id = v_year;
   insert into public.families (platform_tenant_id, family_name) values (p_tenant, 'F' || p_tag) returning id into v_fam;
   insert into auth.users (id, email) values (v_auth, 'st' || p_tag || '@m14.invalid');
   insert into public.auth_identities values (v_auth, 'tenant');

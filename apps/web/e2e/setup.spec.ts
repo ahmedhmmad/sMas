@@ -104,9 +104,31 @@ test("tenant_admin: from nothing to ready_for_enrollment through the UI", async 
   await page.getByTestId("subject-toggle-MA").click();
   await expect(page.getByTestId("subjects-error")).toHaveAttribute("data-code", "invariant_violation");
   await page.getByTestId("year-open-2040").click();
+  // التقويم (2B-2) في السنة المخططة: أيام الدوام الأحد–الخميس، وعطلة بلا سبب (planned حرة)
+  for (const d of [0, 1, 2, 3, 4]) await page.getByTestId(`weekday-check-${d}`).check();
+  await page.getByTestId("weekdays-reason").fill("أسبوع الدراسة");
+  await page.getByTestId("weekdays-submit").click();
+  await expect(page.getByTestId("weekday-4")).toHaveAttribute("data-active", "true");
+  await expect(page.getByTestId("weekday-5")).toHaveAttribute("data-active", "false");
+  await page.getByTestId("exception-name").fill("إجازة أكتوبر");
+  await page.getByTestId("exception-start").fill("2040-10-07");
+  await page.getByTestId("exception-end").fill("2040-10-09");
+  await page.getByTestId("exception-submit").click();
+  await expect(page.getByTestId("exception-row-إجازة أكتوبر")).toBeVisible();
   await reason(page, "year-activate", "بداية العام");
   await expect(page.getByTestId("year-state")).toHaveText("نشط");
   await expect(page.getByTestId("year-edit-start")).toBeDisabled();
+  // السنة نشطة: الأسبوع ثابت؛ تمديد العطلة بسبب؛ والكتابة بلا سبب يرفضها DB حتى بتجاوز الواجهة (C3)
+  await expect(page.getByTestId("weekdays-fixed")).toBeVisible();
+  await expect(page.getByTestId("weekdays-submit")).toHaveCount(0);
+  await page.getByTestId("exception-end-إجازة أكتوبر").click();
+  await page.getByTestId("exception-end-إجازة أكتوبر-date").fill("2040-10-10");
+  await page.getByTestId("exception-end-إجازة أكتوبر-reason").fill("تمديد");
+  await page.getByTestId("exception-end-إجازة أكتوبر-confirm").click();
+  await expect(page.getByTestId("exception-dates-إجازة أكتوبر")).toContainText("2040-10-10");
+  const activeYearId = page.url().split("/years/")[1];
+  expect(await direct(page, "POST", `/academic-years/${activeYearId}/calendar-exceptions`,
+    { kind: "holiday", name: "بلا سبب", start_date: "2040-11-01", end_date: "2040-11-01" })).toBe(422);
 
   // الفصول: إنشاء، تفعيل، رفض فصل نشط ثانٍ (رسالة مترجمة)، إغلاق
   for (const [name, seq, s, e] of [["الأول", "1", "2040-09-01", "2040-12-31"], ["الثاني", "2", "2041-01-05", "2041-06-20"]]) {
@@ -149,6 +171,12 @@ test("tenant_admin: from nothing to ready_for_enrollment through the UI", async 
   await expect(page.getByTestId("gs-periods-الأول-AR")).toContainText("6");
   await page.getByTestId("gs-copy-submit").click();
   await expect(page.getByTestId("gs-copy-result")).toHaveAttribute("data-created", "0");
+  // نسخ أيام الدوام (M42): 5؛ العطلات المؤرخة لا تُنسخ
+  await page.getByTestId("weekdays-copy-source").selectOption({ label: "2040" });
+  await page.getByTestId("weekdays-copy-reason").fill("العام القادم");
+  await page.getByTestId("weekdays-copy-submit").click();
+  await expect(page.getByTestId("weekdays-copy-result")).toHaveAttribute("data-created", "5");
+  await expect(page.getByTestId("calendar-exceptions-empty")).toBeVisible();
 
   // المعرّف في العنوان: تعارض مترجم، ثم تغيير ناجح
   await go(page, page.url().replace(/\/years\/.*$/, ""));
@@ -243,11 +271,14 @@ test("secretary: reads setup, every write control hidden, and the server refuses
   await page.getByTestId("year-open-2026/2027").click();
   await expect(page.getByTestId("year-card")).toBeVisible();
   await expect(page.getByTestId("grade-subjects")).toBeVisible();
-  for (const id of ["year-edit-save", "year-close", "term-submit", "section-submit", "copy-sections", "gs-submit", "copy-grade-subjects"]) {
+  await expect(page.getByTestId("calendar")).toBeVisible();                  // academic_year.read
+  for (const id of ["year-edit-save", "year-close", "term-submit", "section-submit", "copy-sections", "gs-submit", "copy-grade-subjects", "weekdays-submit", "exception-submit"]) {
     await expect(page.getByTestId(id)).toHaveCount(0);
   }
   const yearId = page.url().split("/years/")[1];
   expect(await direct(page, "POST", `/schools/${f.schools.SA}/subjects`, { subject_code: "ZTWSEC", name: "x" })).toBe(403);
+  expect(await direct(page, "POST", `/academic-years/${yearId}/calendar-exceptions`, { kind: "holiday", name: "x", start_date: "2027-05-01", end_date: "2027-05-01", reason: "r" })).toBe(403);
+  expect(await direct(page, "PUT", `/academic-years/${yearId}/weekdays`, { weekdays: [0], reason: "r" })).toBe(403);
   expect(await direct(page, "PATCH", `/academic-years/${yearId}`, { name: "hijack" })).toBe(403);
   expect(await direct(page, "POST", `/academic-years/${yearId}/close`, { reason: "r" })).toBe(403);
   expect(await direct(page, "PATCH", `/schools/${f.schools.SA}`, { name: "hijack" })).toBe(403);

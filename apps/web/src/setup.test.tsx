@@ -204,6 +204,67 @@ describe("year page", () => {
     expect(apiMock.api).toHaveBeenCalledWith("/grade-subjects/l1", { method: "PATCH", body: { status: "active" } });
   });
 
+  it("calendar (2B-2): a planned year's week is saved with one PUT carrying the days and the reason", async () => {
+    auth.permissions = ["academic_year.read", "academic_year.update"];
+    route("/setup/schools/s1/years/y2", { "/schools/s1/academic-years": years, "/academic-years/y2/terms": empty, "/academic-years/y2/sections": empty,
+      "/schools/s1/grade-levels": empty, "/academic-years/y2/weekdays": empty, "/academic-years/y2/calendar-exceptions": empty,
+      "PUT /academic-years/y2/weekdays": { changed: 2, rows: [] } });
+    await userEvent.click(await screen.findByTestId("weekday-check-1"));
+    await userEvent.click(screen.getByTestId("weekday-check-0"));
+    await userEvent.type(screen.getByTestId("weekdays-reason"), "week");
+    await userEvent.click(screen.getByTestId("weekdays-submit"));
+    await waitFor(() => expect(apiMock.api).toHaveBeenCalledWith("/academic-years/y2/weekdays", { method: "PUT", body: { weekdays: [0, 1], reason: "week" } }));
+  });
+
+  it("calendar (2B-2): an active year's defined week is shown fixed (display; the DB decides)", async () => {
+    auth.permissions = ["academic_year.read", "academic_year.update"];
+    route("/setup/schools/s1/years/y1", { "/schools/s1/academic-years": years, "/academic-years/y1/terms": empty, "/academic-years/y1/sections": empty,
+      "/schools/s1/grade-levels": empty, "/academic-years/y1/weekdays": { rows: [{ id: "w0", weekday: 0, status: "active" }] },
+      "/academic-years/y1/calendar-exceptions": empty });
+    expect(await screen.findByTestId("weekdays-fixed")).toBeInTheDocument();
+    expect(screen.getByTestId("weekday-check-0")).toBeDisabled();
+    expect(screen.queryByTestId("weekdays-submit")).toBeNull();
+  });
+
+  it("calendar (2B-2): an active year with no week can define it once (C2)", async () => {
+    auth.permissions = ["academic_year.read", "academic_year.update"];
+    route("/setup/schools/s1/years/y1", { "/schools/s1/academic-years": years, "/academic-years/y1/terms": empty, "/academic-years/y1/sections": empty,
+      "/schools/s1/grade-levels": empty, "/academic-years/y1/weekdays": empty, "/academic-years/y1/calendar-exceptions": empty });
+    expect(await screen.findByTestId("weekdays-submit")).toBeInTheDocument();
+    expect(screen.getByTestId("weekday-check-3")).not.toBeDisabled();
+  });
+
+  it("calendar (2B-2): adding an exception sends the reason; a refusal is shown translated", async () => {
+    auth.permissions = ["academic_year.read", "academic_year.update"];
+    route("/setup/schools/s1/years/y1", { "/schools/s1/academic-years": years, "/academic-years/y1/terms": empty, "/academic-years/y1/sections": empty,
+      "/schools/s1/grade-levels": empty, "/academic-years/y1/weekdays": empty, "/academic-years/y1/calendar-exceptions": empty,
+      "POST /academic-years/y1/calendar-exceptions": new ApiError(422, "invariant_violation") });
+    await userEvent.type(await screen.findByTestId("exception-name"), "Trip");
+    await userEvent.type(screen.getByTestId("exception-start"), "2030-10-01");
+    await userEvent.type(screen.getByTestId("exception-end"), "2030-10-02");
+    await userEvent.type(screen.getByTestId("exception-reason"), "school trip");
+    await userEvent.click(screen.getByTestId("exception-submit"));
+    expect(await screen.findByTestId("calendar-exceptions-error")).toHaveTextContent(errorText("invariant_violation"));
+    expect(apiMock.api).toHaveBeenCalledWith("/academic-years/y1/calendar-exceptions",
+      { method: "POST", body: { kind: "holiday", name: "Trip", start_date: "2030-10-01", end_date: "2030-10-02", reason: "school trip" } });
+  });
+
+  it("calendar (2B-2): read-only without academic_year.update; month view marks school days, holidays and study days", async () => {
+    auth.permissions = ["academic_year.read"];
+    route("/setup/schools/s1/years/y1", { "/schools/s1/academic-years": years, "/academic-years/y1/terms": empty, "/academic-years/y1/sections": empty,
+      "/schools/s1/grade-levels": empty, "/academic-years/y1/weekdays": { rows: [{ id: "w0", weekday: 0, status: "active" }] },
+      "/academic-years/y1/calendar-exceptions": { rows: [
+        { id: "h", kind: "holiday", name: "H", start_date: "2030-09-08", end_date: "2030-09-08", status: "active" },
+        { id: "s", kind: "study_day", name: "S", start_date: "2030-09-13", end_date: "2030-09-13", status: "active" },
+        { id: "c", kind: "holiday", name: "C", start_date: "2030-09-15", end_date: "2030-09-15", status: "cancelled" }] } });
+    expect(await screen.findByTestId("month-day-2030-09-01")).toHaveAttribute("data-kind", "school");     // الأحد
+    expect(screen.getByTestId("month-day-2030-09-02")).toHaveAttribute("data-kind", "rest");
+    expect(screen.getByTestId("month-day-2030-09-08")).toHaveAttribute("data-kind", "holiday");
+    expect(screen.getByTestId("month-day-2030-09-13")).toHaveAttribute("data-kind", "study_day");
+    expect(screen.getByTestId("month-day-2030-09-15")).toHaveAttribute("data-kind", "school");            // عطلة ملغاة
+    for (const id of ["weekdays-submit", "exception-submit", "exception-cancel-H", "copy-weekdays"]) expect(screen.queryByTestId(id)).toBeNull();
+  });
+
   it("copy sections is not offered on an active year", async () => {
     auth.permissions = ["section.manage"];
     route("/setup/schools/s1/years/y1", { "/schools/s1/academic-years": years, "/academic-years/y1/terms": empty,

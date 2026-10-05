@@ -203,6 +203,8 @@ ALTER TABLE schools ADD CONSTRAINT schools_group_same_tenant_fk
 | (30) | `login_challenges` | T | ✅ M26 (F2/D3) — تحديات OTP لحسابات Tenant؛ بلا وصول عميل (§2.27) |
 | (31) | `subjects` | S | ✅ M39 (Phase 2B / 2B-1) — كتالوج مواد المدرسة (§2.28) |
 | (32) | `grade_subjects` | S (عبر السنة) | ✅ M39 (Phase 2B / 2B-1) — ربط المادة بالصف لكل سنة (§2.29) |
+| (33) | `calendar_weekdays` | S (عبر السنة) | ✅ M41 (Phase 2B / 2B-2) — أيام الدوام الأسبوعية لكل سنة (§2.30) |
+| (34) | `calendar_exceptions` | S (عبر السنة) | ✅ M41 (Phase 2B / 2B-2) — العطلات والأيام الدراسية الاستثنائية (§2.31) |
 
 ---
 
@@ -1204,6 +1206,47 @@ CREATE TRIGGER audit_log_no_truncate
 
 ---
 
+### 2.30 `calendar_weekdays` — [S عبر السنة] ✅ M41 (Phase 2B / 2B-2)
+
+أيام الدوام الأسبوعية لسنة بعينها (B7، الثابت 15). التصميم: `docs/PHASE2B_2_CALENDAR.md`.
+
+| العمود | النوع | NULL | افتراضي | ملاحظات |
+|---|---|---|---|---|
+| `id` | uuid | NOT NULL | `gen_random_uuid()` | PK |
+| `school_id` | uuid | NOT NULL | — | من صف السنة |
+| `academic_year_id` | uuid | NOT NULL | — | FK مركّب → `academic_years (id, school_id)` |
+| `weekday` | smallint | NOT NULL | — | **0 = الأحد … 6 = السبت** (`extract(dow)`) |
+| `status` | text | NOT NULL | `'active'` | `active` \| `inactive` — إزالة يوم = `inactive` (لا DELETE) |
+| `created_at`, `created_by`, `updated_at`, `updated_by` | | | | الأعمدة المشتركة (T6) |
+
+**القيود:** `calendar_weekdays_pkey`، **`calendar_weekdays_key_uq (academic_year_id, weekday)`**، `calendar_weekdays_year_fk`، `calendar_weekdays_weekday_chk` (0..6)، `calendar_weekdays_status_chk`، `calendar_weekdays_created_by_fk`، `calendar_weekdays_updated_by_fk`.
+**الكتابة:** **لا منح كتابة للعميل** — `app.set_calendar_weekdays(year, weekdays, reason)` وحدها (`planned`: المجموعة كما هي؛ `active`: التعريف الأول مرة واحدة — C2؛ `closed`: مرفوض) و`app.copy_calendar_weekdays` (M42). **T14** يحرس الهوية وتجمّد السنة المغلقة على كل مسار.
+**RLS:** SELECT `can_access_school(school_id)` + `academic_year.read`؛ لا سياسة كتابة (لا منح).
+
+---
+
+### 2.31 `calendar_exceptions` — [S عبر السنة] ✅ M41 (Phase 2B / 2B-2)
+
+العطلات (`holiday`، يوم أو فترة) والأيام الدراسية الاستثنائية (`study_day`، يوم واحد — C5).
+
+| العمود | النوع | NULL | افتراضي | ملاحظات |
+|---|---|---|---|---|
+| `id` | uuid | NOT NULL | `gen_random_uuid()` | PK |
+| `school_id`, `academic_year_id` | uuid | NOT NULL | — | |
+| `year_start_date`, `year_end_date` | date | NOT NULL | — | نسخة حدود السنة — FK مركّب `ON UPDATE CASCADE` (نمط `terms`/I35) |
+| `kind` | text | NOT NULL | — | `holiday` \| `study_day` |
+| `name` | text | NOT NULL | — | غير فارغ |
+| `start_date`, `end_date` | date | NOT NULL | — | `start ≤ end`؛ داخل حدود السنة؛ `study_day` ⇒ `start = end` |
+| `status` | text | NOT NULL | `'active'` | `active` \| `cancelled` — **الإلغاء نهائي** |
+| `created_at`, `created_by`, `updated_at`, `updated_by` | | | | الأعمدة المشتركة (T6) |
+
+**القيود:** `calendar_exceptions_pkey`، `calendar_exceptions_year_fk` (`ON UPDATE CASCADE`)، `calendar_exceptions_kind_chk`، `calendar_exceptions_name_chk`، `calendar_exceptions_dates_chk`، `calendar_exceptions_within_year_chk`، `calendar_exceptions_study_day_chk`، `calendar_exceptions_status_chk`، **`calendar_exceptions_no_overlap`** (EXCLUDE: لا تداخل بين عطلتين نشطتين في السنة)، **`calendar_exceptions_study_day_uq`** (يوم استثنائي نشط واحد لكل تاريخ — فريد جزئي)، `calendar_exceptions_created_by_fk`، `calendar_exceptions_updated_by_fk`.
+**T14 (`app.tg_calendar_exception_guard`، BEFORE INSERT OR UPDATE، `23514`؛ السبب الغائب `22023`) — B8 بقرارات C1–C5:** «اليوم» = `app.school_today(school)` بتوقيت `schools.timezone`؛ الهوية (مدرسة، سنة، نوع) ثابتة؛ الإلغاء نهائي؛ `planned` حر؛ `active`: **سبب إلزامي في سياق التدقيق**، الإضافة من اليوم فصاعداً، تعديل ما بدأ من اليوم فصاعداً حر بشرط بقائه ≥ اليوم، ما بدأ قبل اليوم: `end_date` وحده والقديم والجديد ≥ اليوم ولا إلغاء؛ `closed` مجمَّد؛ اليوم الاستثنائي لا يُقبل على يوم دراسي عادي.
+**الامتيازات (`authenticated`):** INSERT `(school_id, academic_year_id, year_start_date, year_end_date, kind, name, start_date, end_date)`؛ UPDATE `(name, start_date, end_date, status)`؛ لا DELETE. **RLS:** `can_access_school(school_id)` + `academic_year.read` (SELECT) / `academic_year.update` (INSERT، UPDATE) — B12.
+**«هل اليوم دراسي؟»:** `app.is_school_day(school, date)` (M41) — بلا EXECUTE لأدوار الـAPI؛ تستهلكها المرحلة 5.
+
+---
+
 ## 3. ملخص الفهارس (ERD §8)
 
 | الجدول | الفهرس | الغرض |
@@ -1245,9 +1288,10 @@ CREATE TRIGGER audit_log_no_truncate
 | **T12** | `sections`، `grade_levels`، `stages`: شعبة نشطة (في سنة غير مغلقة) ⇒ صف نشط ⇒ مرحلة نشطة، من الجهتين؛ هوية ثابتة؛ بنية السنة المغلقة مجمدة؛ لا تعطيل لشعبة فيها تسجيلات نشطة | ✅ M35 (Phase 2A، Q7) — يعتمد على الصف القديم وعلى صفوف في جداول أخرى (السنة، الأب، الأبناء، التسجيلات) |
 | **T11** | `terms` (INSERT، UPDATE): دورة الحياة، الفصل النشط داخل سنة نشطة، ما يُعدَّل حسب الحالة، تجمّد فصول السنة المغلقة | ✅ M34 (Phase 2A) — يعتمد على الصف القديم وعلى حالة صف في جدول آخر (السنة) |
 | **T10** | `academic_years` (UPDATE): ما يُعدَّل حسب الحالة والانتقالات المعلنة | ✅ M33 (Phase 2A، Q1) — يقارن الصف القديم بالجديد؛ لا بديل إعلاني (`CHECK` لا يرى الصف القديم، و RLS `WITH CHECK` كذلك) |
+| **T14** | `calendar_exceptions` (INSERT، UPDATE)، `calendar_weekdays` (UPDATE): B8 بقرارات C1–C5 — «اليوم» بتوقيت المدرسة؛ السبب إلزامي في سنة نشطة؛ الماضي لا يُعدَّل؛ الإلغاء نهائي؛ السنة المغلقة مجمدة | ✅ M41 (Phase 2B / 2B-2) — يعتمد على التاريخ الحالي وحالة السنة وصفوف التقويم |
 | **T13** | `grade_subjects` (INSERT، UPDATE)، `subjects` (UPDATE)، و`grade_levels` (امتداد T12): ربط مادة نشط (في سنة غير مغلقة) ⇒ صف نشط ومادة نشطة، من الجهتين؛ هوية ثابتة؛ روابط السنة المغلقة مجمدة؛ رمز المادة ثابت | ✅ M39 (Phase 2B / 2B-1) — نمط T12 |
 
-**القائمة النهائية بعد Gate B: T5، T6، T7، T8، T9** — خمسة فقط (**+ T10، T11، T12 في Phase 2A: M33، M34، M35؛ + T13 في Phase 2B: M39**). كل trigger يحتاج اختبار pgTAP. التصنيف الكامل لكل invariant وآليته: `DB_IMPLEMENTATION_SPEC_v1.md` §3.
+**القائمة النهائية بعد Gate B: T5، T6، T7، T8، T9** — خمسة فقط (**+ T10، T11، T12 في Phase 2A: M33، M34، M35؛ + T13، T14 في Phase 2B: M39، M41**). كل trigger يحتاج اختبار pgTAP. التصنيف الكامل لكل invariant وآليته: `DB_IMPLEMENTATION_SPEC_v1.md` §3.
 
 ---
 

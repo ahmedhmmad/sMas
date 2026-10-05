@@ -7,6 +7,7 @@ import { NotFound } from "../../components/states";
 import { t } from "../../i18n";
 import { api } from "../../lib/api";
 import { ActionError, buttonClass, Card, Field, inputClass, linkButtonClass, PageState, ReasonAction, statusText, useAction, useApi } from "./common";
+import { Calendar } from "./Calendar";
 import type { Subject } from "./School";
 
 type Year = { id: string; name: string; start_date: string; end_date: string; status: string };
@@ -30,6 +31,7 @@ export function Year() {
       <YearCard year={year} reload={years.reload} />
       <Terms year={year} />
       <Sections year={year} schoolId={schoolId!} others={years.data.rows.filter((y) => y.id !== year.id)} />
+      <Calendar year={year} others={years.data.rows.filter((y) => y.id !== year.id)} />
       {can("subject.read") && <GradeSubjects year={year} schoolId={schoolId!} others={years.data.rows.filter((y) => y.id !== year.id)} />}
     </section>
   );

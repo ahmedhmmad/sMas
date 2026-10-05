@@ -70,7 +70,7 @@ class HostCORSMiddleware(CORSMiddleware):
 app = FastAPI(title="SMas API", lifespan=lifespan)
 # الـBearer في Authorization — لا cookies
 app.add_middleware(HostCORSMiddleware, base=origin_base(), allow_credentials=False,
-                   allow_methods=["GET", "POST", "PATCH"], allow_headers=["Authorization", "Content-Type"])
+                   allow_methods=["GET", "POST", "PATCH", "PUT"], allow_headers=["Authorization", "Content-Type"])
 app.include_router(student_login.router)
 app.include_router(students.router)
 app.include_router(first_login.router)

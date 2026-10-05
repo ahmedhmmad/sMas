@@ -155,6 +155,29 @@ class CopyGradeSubjects(CopySections):
     pass
 
 
+class Weekdays(Reason):
+    weekdays: list[int] = Field(min_length=1, max_length=7)
+
+
+class CopyWeekdays(CopySections):
+    pass
+
+
+class NewCalendarException(_Body):
+    kind: str = Field(pattern="^(holiday|study_day)$")
+    name: str = Field(min_length=1, max_length=200)
+    start_date: datetime.date
+    end_date: datetime.date
+    reason: str | None = Field(default=None, max_length=500)
+
+
+class CalendarExceptionPatch(_Body):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    start_date: datetime.date | None = None
+    end_date: datetime.date | None = None
+    reason: str | None = Field(default=None, max_length=500)
+
+
 # الأعمدة المقروءة لكل مورد — والأعمدة التي يقبلها PATCH هي حقول نموذجه وحدها (سجل §4.6 في DB هو الحد الفعلي)
 _COLUMNS = {
     "groups": "id, group_code, name, status",
@@ -166,6 +189,8 @@ _COLUMNS = {
     "sections": "id, school_id, academic_year_id, grade_level_id, name, capacity, gender_policy, status",
     "subjects": "id, school_id, subject_code, name, status",
     "grade_subjects": "id, school_id, academic_year_id, grade_level_id, subject_id, weekly_periods, counts_toward_total, status",
+    "calendar_weekdays": "id, school_id, academic_year_id, weekday, status",
+    "calendar_exceptions": "id, school_id, academic_year_id, kind, name, start_date, end_date, status",
 }
 
 
@@ -195,8 +220,16 @@ def _rows(conn: psycopg.Connection, table: str, where: str = "true", params: lis
     return conn.execute(q, params or []).fetchall()
 
 
-def _patch(conn: psycopg.Connection, table: str, row_id: uuid.UUID, body: _Body) -> dict:
-    changes = body.model_dump(exclude_unset=True)
+def _patch(conn: psycopg.Connection, table: str, row_id: uuid.UUID, body: _Body, exclude: set[str] | None = None) -> dict:
+    return _update(conn, table, row_id, body.model_dump(exclude_unset=True, exclude=exclude))
+
+
+def _reason(conn: psycopg.Connection, reason: str | None) -> None:
+    """C3 (2B-2): السبب من الجسم إلى سياق التدقيق في معاملة الكتابة نفسها. ليس سلطة — DB تقرر هل هو مطلوب، وT7 يسجله."""
+    conn.execute("select set_config('app.audit_reason', %s, true)", [reason or ""])
+
+
+def _update(conn: psycopg.Connection, table: str, row_id: uuid.UUID, changes: dict) -> dict:
     if not changes:
         raise _EMPTY
     q = sql.SQL("update public.{} set {} where id = %s returning id").format(
@@ -516,4 +549,69 @@ def copy_grade_subjects(year_id: uuid.UUID, body: CopyGradeSubjects, c: dict = D
     def work(conn):
         created = _call(conn, "select app.copy_grade_subjects(%s, %s, %s) as n", [body.source_year_id, year_id, body.reason])["n"]
         return {"created": created}
+    return _tx(c, database, work)
+
+
+# ------------------------------------------------------------------ calendar (Phase 2B / 2B-2 — M41، M42؛ C1–C5)
+@router.get("/academic-years/{year_id}/weekdays")
+def list_weekdays(year_id: uuid.UUID, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    def work(conn):
+        _visible(conn, "academic_years", year_id)
+        return {"rows": _rows(conn, "calendar_weekdays", "academic_year_id = %s", [year_id], order="weekday")}
+    return _tx(c, database, work)
+
+
+@router.put("/academic-years/{year_id}/weekdays")
+def set_weekdays(year_id: uuid.UUID, body: Weekdays, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    """عملية مجموعة ذرية في DB (set_calendar_weekdays) — لا loop هنا؛ قواعد B8/C2 في الدالة."""
+    def work(conn):
+        changed = _call(conn, "select app.set_calendar_weekdays(%s, %s::smallint[], %s) as n", [year_id, body.weekdays, body.reason])["n"]
+        return {"changed": changed, "rows": _rows(conn, "calendar_weekdays", "academic_year_id = %s", [year_id], order="weekday")}
+    return _tx(c, database, work)
+
+
+@router.post("/academic-years/{year_id}/copy-weekdays")
+def copy_weekdays(year_id: uuid.UUID, body: CopyWeekdays, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    """M42: عملية domain واحدة ذرية؛ year_id هو الهدف؛ الاستثناءات المؤرخة لا تُنسخ."""
+    def work(conn):
+        created = _call(conn, "select app.copy_calendar_weekdays(%s, %s, %s) as n", [body.source_year_id, year_id, body.reason])["n"]
+        return {"created": created}
+    return _tx(c, database, work)
+
+
+@router.get("/academic-years/{year_id}/calendar-exceptions")
+def list_calendar_exceptions(year_id: uuid.UUID, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    def work(conn):
+        _visible(conn, "academic_years", year_id)
+        return {"rows": _rows(conn, "calendar_exceptions", "academic_year_id = %s", [year_id], order="start_date")}
+    return _tx(c, database, work)
+
+
+@router.post("/academic-years/{year_id}/calendar-exceptions", status_code=201)
+def create_calendar_exception(year_id: uuid.UUID, body: NewCalendarException, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    def work(conn):
+        _visible(conn, "academic_years", year_id)
+        _reason(conn, body.reason)
+        # المدرسة وحدود السنة من صف السنة المقروء تحت RLS — لا من العميل
+        row = _call(conn,
+                    "insert into public.calendar_exceptions (school_id, academic_year_id, year_start_date, year_end_date, kind, name, start_date, end_date)"
+                    " select y.school_id, y.id, y.start_date, y.end_date, %s, %s, %s, %s from public.academic_years y where y.id = %s returning id",
+                    [body.kind, body.name, body.start_date, body.end_date, year_id])
+        return _visible(conn, "calendar_exceptions", row["id"])
+    return _tx(c, database, work)
+
+
+@router.patch("/calendar-exceptions/{exception_id}")
+def update_calendar_exception(exception_id: uuid.UUID, body: CalendarExceptionPatch, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    def work(conn):
+        _reason(conn, body.reason)
+        return _patch(conn, "calendar_exceptions", exception_id, body, exclude={"reason"})
+    return _tx(c, database, work)
+
+
+@router.post("/calendar-exceptions/{exception_id}/cancel")
+def cancel_calendar_exception(exception_id: uuid.UUID, body: Reason, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    def work(conn):
+        _reason(conn, body.reason)
+        return _update(conn, "calendar_exceptions", exception_id, {"status": "cancelled"})
     return _tx(c, database, work)
