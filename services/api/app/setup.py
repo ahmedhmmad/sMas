@@ -171,6 +171,50 @@ class NewCalendarException(_Body):
     reason: str | None = Field(default=None, max_length=500)
 
 
+class NewBellSchedule(_Body):
+    name: str = Field(min_length=1, max_length=100)
+    reason: str | None = Field(default=None, max_length=500)
+
+
+class BellSchedulePatch(_Body):
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    status: str | None = Field(default=None, pattern="^(active|inactive)$")
+    reason: str | None = Field(default=None, max_length=500)
+
+
+class NewBellPeriod(_Body):
+    weekday: int = Field(ge=0, le=6)
+    kind: str = Field(pattern="^(lesson|break)$")
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    start_time: datetime.time
+    end_time: datetime.time
+    reason: str | None = Field(default=None, max_length=500)
+
+
+class BellPeriodPatch(_Body):
+    weekday: int | None = Field(default=None, ge=0, le=6)
+    kind: str | None = Field(default=None, pattern="^(lesson|break)$")
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    start_time: datetime.time | None = None
+    end_time: datetime.time | None = None
+    status: str | None = Field(default=None, pattern="^(active|inactive)$")
+    reason: str | None = Field(default=None, max_length=500)
+
+
+class CopyBellDay(Reason):
+    from_weekday: int = Field(ge=0, le=6)
+    to_weekdays: list[int] = Field(min_length=1, max_length=6)
+
+
+class GradeBellSchedule(_Body):
+    bell_schedule_id: uuid.UUID
+    reason: str | None = Field(default=None, max_length=500)
+
+
+class CopyBellSchedules(CopySections):
+    pass
+
+
 class CalendarExceptionPatch(_Body):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     start_date: datetime.date | None = None
@@ -191,6 +235,9 @@ _COLUMNS = {
     "grade_subjects": "id, school_id, academic_year_id, grade_level_id, subject_id, weekly_periods, counts_toward_total, status",
     "calendar_weekdays": "id, school_id, academic_year_id, weekday, status",
     "calendar_exceptions": "id, school_id, academic_year_id, kind, name, start_date, end_date, status",
+    "bell_schedules": "id, school_id, academic_year_id, name, status",
+    "bell_periods": "id, school_id, academic_year_id, bell_schedule_id, weekday, kind, name, start_time, end_time, status",
+    "grade_level_bell_schedules": "id, school_id, academic_year_id, grade_level_id, bell_schedule_id",
 }
 
 
@@ -614,4 +661,115 @@ def cancel_calendar_exception(exception_id: uuid.UUID, body: Reason, c: dict = D
     def work(conn):
         _reason(conn, body.reason)
         return _update(conn, "calendar_exceptions", exception_id, {"status": "cancelled"})
+    return _tx(c, database, work)
+
+
+# ------------------------------------------------------------------ bell schedules (Phase 2B / 2B-3 — M43، M44؛ D1–D7)
+# رقم الحصة الظاهر مشتق لا مخزن (D5): ترتيب start_time للحصص النشطة من نوع lesson في اليوم؛ id هو المعرّف الثابت للفتحة.
+_PERIODS = """
+    select p.id, p.school_id, p.academic_year_id, p.bell_schedule_id, p.weekday, p.kind, p.name, p.start_time, p.end_time, p.status,
+           case when p.kind = 'lesson' and p.status = 'active'
+                then row_number() over (partition by p.weekday, (p.kind = 'lesson' and p.status = 'active') order by p.start_time) end as lesson_no
+      from public.bell_periods p where p.bell_schedule_id = %s order by p.weekday, p.start_time, p.id
+"""
+
+
+@router.get("/academic-years/{year_id}/bell-schedules")
+def list_bell_schedules(year_id: uuid.UUID, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    def work(conn):
+        _visible(conn, "academic_years", year_id)
+        return {"rows": _rows(conn, "bell_schedules", "academic_year_id = %s", [year_id])}
+    return _tx(c, database, work)
+
+
+@router.post("/academic-years/{year_id}/bell-schedules", status_code=201)
+def create_bell_schedule(year_id: uuid.UUID, body: NewBellSchedule, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    def work(conn):
+        _visible(conn, "academic_years", year_id)
+        _reason(conn, body.reason)
+        row = _call(conn, "insert into public.bell_schedules (school_id, academic_year_id, name)"
+                          " select y.school_id, y.id, %s from public.academic_years y where y.id = %s returning id", [body.name, year_id])
+        return _visible(conn, "bell_schedules", row["id"])
+    return _tx(c, database, work)
+
+
+@router.patch("/bell-schedules/{schedule_id}")
+def update_bell_schedule(schedule_id: uuid.UUID, body: BellSchedulePatch, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    def work(conn):
+        _reason(conn, body.reason)
+        return _patch(conn, "bell_schedules", schedule_id, body, exclude={"reason"})
+    return _tx(c, database, work)
+
+
+@router.get("/bell-schedules/{schedule_id}/periods")
+def list_bell_periods(schedule_id: uuid.UUID, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    def work(conn):
+        _visible(conn, "bell_schedules", schedule_id)
+        return {"rows": conn.execute(_PERIODS, [schedule_id]).fetchall()}
+    return _tx(c, database, work)
+
+
+@router.post("/bell-schedules/{schedule_id}/periods", status_code=201)
+def create_bell_period(schedule_id: uuid.UUID, body: NewBellPeriod, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    def work(conn):
+        _visible(conn, "bell_schedules", schedule_id)
+        _reason(conn, body.reason)
+        # المدرسة والسنة من صف الجدول المقروء تحت RLS — لا من العميل
+        row = _call(conn, "insert into public.bell_periods (school_id, academic_year_id, bell_schedule_id, weekday, kind, name, start_time, end_time)"
+                          " select s.school_id, s.academic_year_id, s.id, %s, %s, %s, %s, %s from public.bell_schedules s where s.id = %s returning id",
+                    [body.weekday, body.kind, body.name, body.start_time, body.end_time, schedule_id])
+        return _visible(conn, "bell_periods", row["id"])
+    return _tx(c, database, work)
+
+
+@router.patch("/bell-periods/{period_id}")
+def update_bell_period(period_id: uuid.UUID, body: BellPeriodPatch, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    def work(conn):
+        _reason(conn, body.reason)
+        return _patch(conn, "bell_periods", period_id, body, exclude={"reason"})
+    return _tx(c, database, work)
+
+
+@router.post("/bell-schedules/{schedule_id}/copy-day")
+def copy_bell_day(schedule_id: uuid.UUID, body: CopyBellDay, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    """عملية واحدة في DB (copy_bell_day) — لا loop هنا؛ لا دمج صامت في يوم له حصص."""
+    def work(conn):
+        created = _call(conn, "select app.copy_bell_day(%s, %s::smallint, %s::smallint[], %s) as n",
+                        [schedule_id, body.from_weekday, body.to_weekdays, body.reason])["n"]
+        return {"created": created}
+    return _tx(c, database, work)
+
+
+@router.get("/academic-years/{year_id}/grade-bell-schedules")
+def list_grade_bell_schedules(year_id: uuid.UUID, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    def work(conn):
+        _visible(conn, "academic_years", year_id)
+        return {"rows": _rows(conn, "grade_level_bell_schedules", "academic_year_id = %s", [year_id], order="grade_level_id")}
+    return _tx(c, database, work)
+
+
+@router.put("/academic-years/{year_id}/grade-bell-schedules/{grade_level_id}")
+def assign_grade_bell_schedule(year_id: uuid.UUID, grade_level_id: uuid.UUID, body: GradeBellSchedule,
+                               c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    """D2: الصف ← جدول واحد في السنة. موجود (مرئي تحت RLS) ← تغيير الجدول؛ وإلا إنشاء — والقرار كله في DB."""
+    def work(conn):
+        _visible(conn, "academic_years", year_id)
+        _reason(conn, body.reason)
+        current = conn.execute("select id from public.grade_level_bell_schedules where academic_year_id = %s and grade_level_id = %s",
+                               [year_id, grade_level_id]).fetchone()
+        if current is not None:
+            return _update(conn, "grade_level_bell_schedules", current["id"], {"bell_schedule_id": body.bell_schedule_id})
+        row = _call(conn, "insert into public.grade_level_bell_schedules (school_id, academic_year_id, grade_level_id, bell_schedule_id)"
+                          " select y.school_id, y.id, %s, %s from public.academic_years y where y.id = %s returning id",
+                    [grade_level_id, body.bell_schedule_id, year_id])
+        return _visible(conn, "grade_level_bell_schedules", row["id"])
+    return _tx(c, database, work)
+
+
+@router.post("/academic-years/{year_id}/copy-bell-schedules")
+def copy_bell_schedules(year_id: uuid.UUID, body: CopyBellSchedules, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    """M44: الجداول والحصص والإسناد ذرياً؛ year_id هو الهدف."""
+    def work(conn):
+        created = _call(conn, "select app.copy_bell_schedules(%s, %s, %s) as n", [body.source_year_id, year_id, body.reason])["n"]
+        return {"created": created}
     return _tx(c, database, work)

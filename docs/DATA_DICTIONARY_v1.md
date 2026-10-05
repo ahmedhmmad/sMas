@@ -205,6 +205,9 @@ ALTER TABLE schools ADD CONSTRAINT schools_group_same_tenant_fk
 | (32) | `grade_subjects` | S (عبر السنة) | ✅ M39 (Phase 2B / 2B-1) — ربط المادة بالصف لكل سنة (§2.29) |
 | (33) | `calendar_weekdays` | S (عبر السنة) | ✅ M41 (Phase 2B / 2B-2) — أيام الدوام الأسبوعية لكل سنة (§2.30) |
 | (34) | `calendar_exceptions` | S (عبر السنة) | ✅ M41 (Phase 2B / 2B-2) — العطلات والأيام الدراسية الاستثنائية (§2.31) |
+| (35) | `bell_schedules` | S (عبر السنة) | ✅ M43 (Phase 2B / 2B-3) — جدول دوام = فترة في سنة (§2.32) |
+| (36) | `bell_periods` | S (عبر السنة) | ✅ M43 (Phase 2B / 2B-3) — الحصص والاستراحات لكل يوم (§2.33) |
+| (37) | `grade_level_bell_schedules` | S (عبر السنة) | ✅ M43 (Phase 2B / 2B-3) — إسناد الصف إلى جدول في السنة (§2.34) |
 
 ---
 
@@ -1247,6 +1250,61 @@ CREATE TRIGGER audit_log_no_truncate
 
 ---
 
+### 2.32 `bell_schedules` — [S عبر السنة] ✅ M43 (Phase 2B / 2B-3)
+
+جدول دوام = **فترة** (صباحية، مسائية…) في سنة بعينها (B11، الثابت 15). التصميم: `docs/PHASE2B_3_BELL_SCHEDULES.md`.
+
+| العمود | النوع | NULL | افتراضي | ملاحظات |
+|---|---|---|---|---|
+| `id` | uuid | NOT NULL | `gen_random_uuid()` | PK |
+| `school_id`, `academic_year_id` | uuid | NOT NULL | — | FK مركّب → `academic_years (id, school_id)` |
+| `name` | text | NOT NULL | — | فريد في السنة؛ غير فارغ |
+| `status` | text | NOT NULL | `'active'` | `active` \| `inactive` — لا DELETE |
+| `created_at`, `created_by`, `updated_at`, `updated_by` | | | | الأعمدة المشتركة (T6) |
+
+**القيود:** `bell_schedules_pkey`، `bell_schedules_ref_uq (id, school_id, academic_year_id)` (هدف FKs مركّبة)، `bell_schedules_name_uq (academic_year_id, name)`، `bell_schedules_year_fk`، `bell_schedules_name_chk`، `bell_schedules_status_chk`، `bell_schedules_created_by_fk`، `bell_schedules_updated_by_fk`.
+**الامتيازات:** INSERT `(school_id, academic_year_id, name)`؛ UPDATE `(name, status)`. **T15:** الهوية ثابتة؛ حالة السنة (D3)؛ لا تعطيل لجدول له حصص نشطة أو مُسنَد إليه صف.
+
+---
+
+### 2.33 `bell_periods` — [S عبر السنة] ✅ M43 (Phase 2B / 2B-3)
+
+حصة أو استراحة في يوم أسبوع بعينه داخل جدول (D1). **`id` معرّف ثابت للفتحة لا رقم الحصة الظاهر**؛ الترتيب ورقم الحصة **مشتقان** من `start_time` للحصص النشطة من نوع `lesson` في اليوم (D5) — لا عمود تسلسل.
+
+| العمود | النوع | NULL | افتراضي | ملاحظات |
+|---|---|---|---|---|
+| `id` | uuid | NOT NULL | `gen_random_uuid()` | PK |
+| `school_id`, `academic_year_id`, `bell_schedule_id` | uuid | NOT NULL | — | FK مركّب → `bell_schedules (id, school_id, academic_year_id)` |
+| `weekday` | smallint | NOT NULL | — | 0..6 (اصطلاح M41)؛ يوم دوام نشط للسنة (D4) |
+| `kind` | text | NOT NULL | — | `lesson` \| `break` (D7) |
+| `name` | text | NULL | — | إلزامي للاستراحة؛ غير فارغ إن وُجد |
+| `start_time`, `end_time` | time | NOT NULL | — | `start < end` — لا عبور لمنتصف الليل |
+| `status` | text | NOT NULL | `'active'` | `active` \| `inactive` |
+| `created_at`, `created_by`, `updated_at`, `updated_by` | | | | الأعمدة المشتركة (T6) |
+
+**القيود:** `bell_periods_pkey`، `bell_periods_schedule_fk`، `bell_periods_weekday_chk`، `bell_periods_kind_chk`، `bell_periods_name_chk`، `bell_periods_times_chk`، `bell_periods_status_chk`، **`bell_periods_no_overlap`** (EXCLUDE: لا تداخل بين حصتين نشطتين في (الجدول، اليوم)؛ المدى `[)` — التلاصق ليس تداخلاً؛ D6)، `bell_periods_created_by_fk`، `bell_periods_updated_by_fk`.
+**الامتيازات:** INSERT `(school_id, academic_year_id, bell_schedule_id, weekday, kind, name, start_time, end_time)`؛ UPDATE `(weekday, kind, name, start_time, end_time, status)`. **T15:** الهوية (مدرسة، سنة، جدول) ثابتة؛ حالة السنة (D3)؛ الحصة النشطة تحت جدول نشط وعلى يوم دوام نشط (D4).
+
+---
+
+### 2.34 `grade_level_bell_schedules` — [S عبر السنة] ✅ M43 (Phase 2B / 2B-3)
+
+إسناد الصف إلى جدول دوام في السنة (D2)؛ الشعب ترث صفها.
+
+| العمود | النوع | NULL | افتراضي | ملاحظات |
+|---|---|---|---|---|
+| `id` | uuid | NOT NULL | `gen_random_uuid()` | PK |
+| `school_id`, `academic_year_id` | uuid | NOT NULL | — | |
+| `grade_level_id` | uuid | NOT NULL | — | FK مركّب → `grade_levels (id, school_id)` |
+| `bell_schedule_id` | uuid | NOT NULL | — | FK مركّب → `bell_schedules (id, school_id, academic_year_id)` — الجدول من سنة الإسناد |
+| `created_at`, `created_by`, `updated_at`, `updated_by` | | | | الأعمدة المشتركة (T6) |
+
+**القيود:** `grade_level_bell_schedules_pkey`، **`grade_level_bell_schedules_key_uq (academic_year_id, grade_level_id)`**، `grade_level_bell_schedules_grade_level_fk`، `grade_level_bell_schedules_schedule_fk`، `…_created_by_fk`، `…_updated_by_fk`.
+**الامتيازات:** INSERT `(school_id, academic_year_id, grade_level_id, bell_schedule_id)`؛ UPDATE `(bell_schedule_id)` — تغيير الإسناد. **T15:** الهوية ثابتة؛ حالة السنة؛ الجدول نشط؛ الصف نشط عند الإسناد.
+**RLS (الجداول الثلاثة):** `can_access_school(school_id)` + `academic_year.read` (SELECT) / `academic_year.update` (INSERT، UPDATE) — B12.
+
+---
+
 ## 3. ملخص الفهارس (ERD §8)
 
 | الجدول | الفهرس | الغرض |
@@ -1288,10 +1346,11 @@ CREATE TRIGGER audit_log_no_truncate
 | **T12** | `sections`، `grade_levels`، `stages`: شعبة نشطة (في سنة غير مغلقة) ⇒ صف نشط ⇒ مرحلة نشطة، من الجهتين؛ هوية ثابتة؛ بنية السنة المغلقة مجمدة؛ لا تعطيل لشعبة فيها تسجيلات نشطة | ✅ M35 (Phase 2A، Q7) — يعتمد على الصف القديم وعلى صفوف في جداول أخرى (السنة، الأب، الأبناء، التسجيلات) |
 | **T11** | `terms` (INSERT، UPDATE): دورة الحياة، الفصل النشط داخل سنة نشطة، ما يُعدَّل حسب الحالة، تجمّد فصول السنة المغلقة | ✅ M34 (Phase 2A) — يعتمد على الصف القديم وعلى حالة صف في جدول آخر (السنة) |
 | **T10** | `academic_years` (UPDATE): ما يُعدَّل حسب الحالة والانتقالات المعلنة | ✅ M33 (Phase 2A، Q1) — يقارن الصف القديم بالجديد؛ لا بديل إعلاني (`CHECK` لا يرى الصف القديم، و RLS `WITH CHECK` كذلك) |
+| **T15** | `bell_schedules`، `bell_periods`، `grade_level_bell_schedules` (INSERT، UPDATE) + امتداد T14 على `calendar_weekdays`: حالة السنة (D3: السبب في النشطة، المغلقة مجمدة)؛ الهوية؛ الحصة النشطة تحت جدول نشط وعلى يوم دوام نشط، ولا تعطيل يوم دوام له حصص نشطة (D4)؛ لا تعطيل لجدول له حصص نشطة أو إسناد | ✅ M43 (Phase 2B / 2B-3) |
 | **T14** | `calendar_exceptions` (INSERT، UPDATE)، `calendar_weekdays` (UPDATE): B8 بقرارات C1–C5 — «اليوم» بتوقيت المدرسة؛ السبب إلزامي في سنة نشطة؛ الماضي لا يُعدَّل؛ الإلغاء نهائي؛ السنة المغلقة مجمدة | ✅ M41 (Phase 2B / 2B-2) — يعتمد على التاريخ الحالي وحالة السنة وصفوف التقويم |
 | **T13** | `grade_subjects` (INSERT، UPDATE)، `subjects` (UPDATE)، و`grade_levels` (امتداد T12): ربط مادة نشط (في سنة غير مغلقة) ⇒ صف نشط ومادة نشطة، من الجهتين؛ هوية ثابتة؛ روابط السنة المغلقة مجمدة؛ رمز المادة ثابت | ✅ M39 (Phase 2B / 2B-1) — نمط T12 |
 
-**القائمة النهائية بعد Gate B: T5، T6، T7، T8، T9** — خمسة فقط (**+ T10، T11، T12 في Phase 2A: M33، M34، M35؛ + T13، T14 في Phase 2B: M39، M41**). كل trigger يحتاج اختبار pgTAP. التصنيف الكامل لكل invariant وآليته: `DB_IMPLEMENTATION_SPEC_v1.md` §3.
+**القائمة النهائية بعد Gate B: T5، T6، T7، T8، T9** — خمسة فقط (**+ T10، T11، T12 في Phase 2A: M33، M34، M35؛ + T13، T14، T15 في Phase 2B: M39، M41، M43**). كل trigger يحتاج اختبار pgTAP. التصنيف الكامل لكل invariant وآليته: `DB_IMPLEMENTATION_SPEC_v1.md` §3.
 
 ---
 

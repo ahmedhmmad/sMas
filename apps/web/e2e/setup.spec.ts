@@ -115,6 +115,30 @@ test("tenant_admin: from nothing to ready_for_enrollment through the UI", async 
   await page.getByTestId("exception-end").fill("2040-10-09");
   await page.getByTestId("exception-submit").click();
   await expect(page.getByTestId("exception-row-إجازة أكتوبر")).toBeVisible();
+  // الدوام (2B-3): فترة صباحية، حصص الأحد مع استراحة، التداخل يرفضه DB، نسخ الأحد إلى بقية الأيام، إسناد الصف
+  await page.getByTestId("bell-schedule-name").fill("صباحية");
+  await page.getByTestId("bell-schedule-submit").click();
+  await page.getByTestId("bell-schedule-open-صباحية").click();
+  for (const [kind, name, s, e] of [["lesson", "", "08:00", "08:45"], ["break", "فسحة", "08:45", "09:00"], ["lesson", "", "09:00", "09:45"]]) {
+    await page.getByTestId("bell-period-day").selectOption("0");
+    await page.getByTestId("bell-period-kind").selectOption(kind);
+    if (name) await page.getByTestId("bell-period-name").fill(name);
+    await page.getByTestId("bell-period-start").fill(s);
+    await page.getByTestId("bell-period-end").fill(e);
+    await page.getByTestId("bell-period-submit").click();
+    await expect(page.getByTestId(`bell-period-صباحية-0-${s}`)).toBeVisible();
+  }
+  await expect(page.getByTestId("bell-period-label-صباحية-0-09:00")).toContainText("2");      // D5: رقم مشتق
+  await page.getByTestId("bell-period-start").fill("09:30");
+  await page.getByTestId("bell-period-end").fill("10:30");
+  await page.getByTestId("bell-period-submit").click();
+  await expect(page.getByTestId("bell-periods-error-صباحية")).toHaveAttribute("data-code", "conflict");   // D6
+  for (const d of [1, 2, 3, 4]) await page.getByTestId(`bell-copy-day-to-${d}`).check();
+  await page.getByTestId("bell-copy-day-reason").fill("كل الأيام");
+  await page.getByTestId("bell-copy-day-submit").click();
+  await expect(page.getByTestId("bell-period-صباحية-4-09:00")).toBeVisible();
+  await page.getByTestId("grade-bell-select-الأول").selectOption({ label: "صباحية" });
+  await expect(page.getByTestId("grade-bell-select-الأول")).toHaveValue(/.+/);
   await reason(page, "year-activate", "بداية العام");
   await expect(page.getByTestId("year-state")).toHaveText("نشط");
   await expect(page.getByTestId("year-edit-start")).toBeDisabled();
@@ -129,6 +153,7 @@ test("tenant_admin: from nothing to ready_for_enrollment through the UI", async 
   const activeYearId = page.url().split("/years/")[1];
   expect(await direct(page, "POST", `/academic-years/${activeYearId}/calendar-exceptions`,
     { kind: "holiday", name: "بلا سبب", start_date: "2040-11-01", end_date: "2040-11-01" })).toBe(422);
+  expect(await direct(page, "POST", `/academic-years/${activeYearId}/bell-schedules`, { name: "مسائية" })).toBe(422);   // D3: السبب في DB
 
   // الفصول: إنشاء، تفعيل، رفض فصل نشط ثانٍ (رسالة مترجمة)، إغلاق
   for (const [name, seq, s, e] of [["الأول", "1", "2040-09-01", "2040-12-31"], ["الثاني", "2", "2041-01-05", "2041-06-20"]]) {
@@ -177,6 +202,11 @@ test("tenant_admin: from nothing to ready_for_enrollment through the UI", async 
   await page.getByTestId("weekdays-copy-submit").click();
   await expect(page.getByTestId("weekdays-copy-result")).toHaveAttribute("data-created", "5");
   await expect(page.getByTestId("calendar-exceptions-empty")).toBeVisible();
+  // نسخ الدوام (M44): الفترة + 15 حصة واستراحة (3 × 5 أيام) + إسناد الصف = 17
+  await page.getByTestId("bell-copy-source").selectOption({ label: "2040" });
+  await page.getByTestId("bell-copy-reason").fill("العام القادم");
+  await page.getByTestId("bell-copy-submit").click();
+  await expect(page.getByTestId("bell-copy-result")).toHaveAttribute("data-created", "17");
 
   // المعرّف في العنوان: تعارض مترجم، ثم تغيير ناجح
   await go(page, page.url().replace(/\/years\/.*$/, ""));
@@ -272,13 +302,15 @@ test("secretary: reads setup, every write control hidden, and the server refuses
   await expect(page.getByTestId("year-card")).toBeVisible();
   await expect(page.getByTestId("grade-subjects")).toBeVisible();
   await expect(page.getByTestId("calendar")).toBeVisible();                  // academic_year.read
-  for (const id of ["year-edit-save", "year-close", "term-submit", "section-submit", "copy-sections", "gs-submit", "copy-grade-subjects", "weekdays-submit", "exception-submit"]) {
+  await expect(page.getByTestId("bell-schedules")).toBeVisible();
+  for (const id of ["year-edit-save", "year-close", "term-submit", "section-submit", "copy-sections", "gs-submit", "copy-grade-subjects", "weekdays-submit", "exception-submit", "bell-schedule-submit"]) {
     await expect(page.getByTestId(id)).toHaveCount(0);
   }
   const yearId = page.url().split("/years/")[1];
   expect(await direct(page, "POST", `/schools/${f.schools.SA}/subjects`, { subject_code: "ZTWSEC", name: "x" })).toBe(403);
   expect(await direct(page, "POST", `/academic-years/${yearId}/calendar-exceptions`, { kind: "holiday", name: "x", start_date: "2027-05-01", end_date: "2027-05-01", reason: "r" })).toBe(403);
   expect(await direct(page, "PUT", `/academic-years/${yearId}/weekdays`, { weekdays: [0], reason: "r" })).toBe(403);
+  expect(await direct(page, "POST", `/academic-years/${yearId}/bell-schedules`, { name: "x", reason: "r" })).toBe(403);
   expect(await direct(page, "PATCH", `/academic-years/${yearId}`, { name: "hijack" })).toBe(403);
   expect(await direct(page, "POST", `/academic-years/${yearId}/close`, { reason: "r" })).toBe(403);
   expect(await direct(page, "PATCH", `/schools/${f.schools.SA}`, { name: "hijack" })).toBe(403);

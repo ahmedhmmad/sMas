@@ -152,7 +152,7 @@ insert into public.role_permissions (role_id, permission_id)
 create function pg_temp.people(p_tenant uuid, p_school uuid, p_tag text) returns void
 language plpgsql as $$
 declare
-  v_year uuid; v_stage uuid; v_grade uuid; v_sec uuid; v_fam uuid; v_st uuid; v_g uuid; v_staff uuid; v_subj uuid;
+  v_year uuid; v_stage uuid; v_grade uuid; v_sec uuid; v_fam uuid; v_st uuid; v_g uuid; v_staff uuid; v_subj uuid; v_bell uuid;
   v_scope uuid := (select scope_owner_id from public.schools where id = p_school);
   v_iscope uuid := (select id from public.identity_scopes where owner_id = v_scope);
   v_auth uuid := gen_random_uuid(); v_prof uuid;
@@ -168,6 +168,9 @@ begin
   insert into public.calendar_weekdays (school_id, academic_year_id, weekday) values (p_school, v_year, 0);   -- M41
   insert into public.calendar_exceptions (school_id, academic_year_id, year_start_date, year_end_date, kind, name, start_date, end_date)
     values (p_school, v_year, '2026-09-01', '2027-06-30', 'holiday', 'H', '2026-10-06', '2026-10-06');
+  insert into public.bell_schedules (school_id, academic_year_id, name) values (p_school, v_year, 'Morning') returning id into v_bell;   -- M43
+  insert into public.bell_periods (school_id, academic_year_id, bell_schedule_id, weekday, kind, start_time, end_time) values (p_school, v_year, v_bell, 0, 'lesson', '08:00', '08:45');
+  insert into public.grade_level_bell_schedules (school_id, academic_year_id, grade_level_id, bell_schedule_id) values (p_school, v_year, v_grade, v_bell);
   update public.academic_years set status = 'active' where id = v_year;
   insert into public.families (platform_tenant_id, family_name) values (p_tenant, 'F' || p_tag) returning id into v_fam;
   insert into auth.users (id, email) values (v_auth, 'st' || p_tag || '@m14.invalid');

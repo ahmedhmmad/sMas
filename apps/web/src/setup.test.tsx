@@ -265,6 +265,61 @@ describe("year page", () => {
     for (const id of ["weekdays-submit", "exception-submit", "exception-cancel-H", "copy-weekdays"]) expect(screen.queryByTestId(id)).toBeNull();
   });
 
+  describe("bell schedules (2B-3)", () => {
+    const base = { "/schools/s1/academic-years": years, "/academic-years/y2/terms": empty, "/academic-years/y2/sections": empty,
+      "/academic-years/y2/calendar-exceptions": empty, "/academic-years/y2/weekdays": { rows: [{ weekday: 0, status: "active" }, { weekday: 1, status: "active" }] },
+      "/academic-years/y2/bell-schedules": { rows: [{ id: "b1", name: "Morning", status: "active" }] },
+      "/schools/s1/grade-levels": { rows: [{ id: "g1", name: "G1", status: "active" }] },
+      "/academic-years/y2/grade-bell-schedules": empty,
+      "/bell-schedules/b1/periods": { rows: [
+        { id: "p1", weekday: 0, kind: "lesson", name: null, start_time: "08:00:00", end_time: "08:45:00", status: "active", lesson_no: 1 },
+        { id: "p2", weekday: 0, kind: "break", name: "Recess", start_time: "08:45:00", end_time: "09:00:00", status: "active", lesson_no: null },
+        { id: "p3", weekday: 0, kind: "lesson", name: null, start_time: "09:00:00", end_time: "09:45:00", status: "active", lesson_no: 2 }] } };
+
+    it("lesson numbers come from the API (derived, D5); breaks show their name; read-only without academic_year.update", async () => {
+      auth.permissions = ["academic_year.read"];
+      route("/setup/schools/s1/years/y2", base);
+      await userEvent.click(await screen.findByTestId("bell-schedule-open-Morning"));
+      expect(await screen.findByTestId("bell-period-label-Morning-0-09:00")).toHaveTextContent(`${t("setup.bell.lesson")} 2`);
+      expect(screen.getByTestId("bell-period-label-Morning-0-08:45")).toHaveTextContent("Recess");
+      for (const id of ["bell-schedule-submit", "bell-period-submit", "bell-copy-day-Morning", "bell-period-remove-Morning-0-08:00", "copy-bell-schedules"]) {
+        expect(screen.queryByTestId(id)).toBeNull();
+      }
+      expect(screen.getByTestId("grade-bell-select-G1")).toBeDisabled();
+    });
+
+    it("an overlapping period: the database refusal is shown translated", async () => {
+      auth.permissions = ["academic_year.read", "academic_year.update"];
+      route("/setup/schools/s1/years/y2", { ...base, "POST /bell-schedules/b1/periods": new ApiError(409, "conflict") });
+      await userEvent.click(await screen.findByTestId("bell-schedule-open-Morning"));
+      await userEvent.type(await screen.findByTestId("bell-period-start"), "09:30");
+      await userEvent.type(screen.getByTestId("bell-period-end"), "10:30");
+      await userEvent.click(screen.getByTestId("bell-period-submit"));
+      expect(await screen.findByTestId("bell-periods-error-Morning")).toHaveTextContent(errorText("conflict"));
+      expect(apiMock.api).toHaveBeenCalledWith("/bell-schedules/b1/periods",
+        { method: "POST", body: { weekday: 0, kind: "lesson", name: undefined, start_time: "09:30", end_time: "10:30", reason: undefined } });
+    });
+
+    it("copy a day is one call with the source day and the target days", async () => {
+      auth.permissions = ["academic_year.read", "academic_year.update"];
+      route("/setup/schools/s1/years/y2", { ...base, "POST /bell-schedules/b1/copy-day": { created: 3 } });
+      await userEvent.click(await screen.findByTestId("bell-schedule-open-Morning"));
+      await userEvent.click(await screen.findByTestId("bell-copy-day-to-1"));
+      await userEvent.type(screen.getByTestId("bell-copy-day-reason"), "same as sunday");
+      await userEvent.click(screen.getByTestId("bell-copy-day-submit"));
+      await waitFor(() => expect(apiMock.api).toHaveBeenCalledWith("/bell-schedules/b1/copy-day",
+        { method: "POST", body: { from_weekday: 0, to_weekdays: [1], reason: "same as sunday" } }));
+    });
+
+    it("assigning a grade level is one PUT for that grade (D2)", async () => {
+      auth.permissions = ["academic_year.read", "academic_year.update"];
+      route("/setup/schools/s1/years/y2", { ...base, "PUT /academic-years/y2/grade-bell-schedules/g1": {} });
+      await userEvent.selectOptions(await screen.findByTestId("grade-bell-select-G1"), "b1");
+      await waitFor(() => expect(apiMock.api).toHaveBeenCalledWith("/academic-years/y2/grade-bell-schedules/g1",
+        { method: "PUT", body: { bell_schedule_id: "b1", reason: undefined } }));
+    });
+  });
+
   it("copy sections is not offered on an active year", async () => {
     auth.permissions = ["section.manage"];
     route("/setup/schools/s1/years/y1", { "/schools/s1/academic-years": years, "/academic-years/y1/terms": empty,
