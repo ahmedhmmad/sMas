@@ -111,3 +111,13 @@ python -m venv .venv && .venv/Scripts/python -m pip install -r requirements.txt
 ```
 
 الخدمة: `SUPABASE_URL` و`API_DATABASE_URL` (انظر `.env.example`) ثم `uvicorn app.main:app`.
+
+---
+
+## إضافة 2B-4 (2026-10-06) — موضع ثانٍ للمفتاح السري: Storage
+
+`services/api/app/storage_admin.py` هو **الموضع الثاني** الذي يقرأ `SUPABASE_SECRET_KEY` (الأول `auth_admin.py`). لا يقرر شيئاً: كل رفع يسبقه
+`app.register_school_asset` وكل رابط يسبقه `app.authorize_asset_url` — بجلسة المستخدم في معاملة `authenticated` كبقية الـAPI. المفتاح لا يغادر
+الخادم (الثابت 14)؛ الـbucket `school-assets` خاص ولا سياسة على `storage.objects` لأي دور عميل؛ الحذف الوحيد تعويض الـSaga لكائن رفعه الطلب نفسه
+(`docs/PHASE2B_4_PROFILE_STORAGE.md` §1 E5). الاعتمادية الجديدة: `python-multipart` (E10، معتمدة).
+

@@ -128,3 +128,10 @@ begin
   end loop;
 end $$;
 select line from _fp order by 1;
+
+-- 2B-4 (E9): بيانات Storage الوصفية (الـbuckets وقائمة الكائنات) في الـdump، ونتيجة فحص الاتساق بين صفوف الأصول والكائنات.
+-- **محتوى الكائنات (البايتات) خارج pg_dump** — نسخه واستعادته Production Readiness Gate (B6)؛ هذه الأسطر تثبت ما يغطيه الـdump.
+select 'storage | buckets | ' || count(*) || ' ' || coalesce(md5(string_agg(id || ':' || public::text || ':' || coalesce(file_size_limit::text, '') || ':'
+       || coalesce(array_to_string(allowed_mime_types, ','), ''), ',' order by id)), '-') from storage.buckets;
+select 'storage | objects | ' || count(*) || ' ' || coalesce(md5(string_agg(bucket_id || '/' || name, ',' order by bucket_id, name)), '-') from storage.objects;
+select 'asset_consistency | ' || count(*) || ' ' || coalesce(md5(string_agg(issue || ':' || object_path, ',' order by issue, object_path)), '-') from app.school_asset_consistency();

@@ -33,3 +33,19 @@ export async function api<T>(path: string, init: { method?: "GET" | "POST" | "PA
   }
   return payload as T;
 }
+
+// 2B-4: رفع ملف (multipart) — المتصفح يضع الـboundary؛ لا Content-Type يدوي. القرار والتحقق في الخادم (E5، E6).
+export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(`${config.apiUrl}${path}`, { method: "POST", headers: await bearer(), body: form });
+  } catch {
+    throw new ApiError(0, "network");
+  }
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const detail = typeof payload?.detail === "string" ? payload.detail : "generic";
+    throw new ApiError(response.status, detail);
+  }
+  return payload as T;
+}

@@ -5,4 +5,5 @@ psycopg[binary,pool]==3.3.6
 psycopg-pool==3.3.3
 PyJWT[crypto]==2.15.0
 httpx==0.28.1
+python-multipart==0.0.32   # 2B-4 (E10، معتمدة 2026-10-06): رفع أصول المدرسة multipart/form-data
 pytest==9.1.1

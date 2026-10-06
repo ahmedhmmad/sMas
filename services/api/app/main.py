@@ -22,7 +22,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from . import account_login, accounts, first_login, onboarding, setup, student_login, students
+from . import account_login, accounts, assets, first_login, onboarding, setup, student_login, students
 from .audit import write_access_audit
 from .auth_admin import AuthAdmin
 from .config import load_settings, origin_base
@@ -31,6 +31,7 @@ from .db import Database
 from .deps import claims, db
 from .host_context import OriginBase
 from .security import TokenVerifier
+from .storage_admin import StorageAdmin
 
 
 @asynccontextmanager
@@ -38,6 +39,7 @@ async def lifespan(app: FastAPI):
     settings = load_settings()
     app.state.settings = settings
     app.state.auth_admin = AuthAdmin(settings.supabase_url, settings.publishable_key)
+    app.state.storage = StorageAdmin(settings.supabase_url)   # 2B-4: الموضع الثاني للمفتاح السري
     app.state.otp_sender = load_sender(settings.environment)
     app.state.login_limiter = student_login.AttemptLimiter(limit=settings.login_attempts, window_s=settings.login_window_s)
     app.state.verifier = TokenVerifier.from_jwks(
@@ -53,6 +55,7 @@ async def lifespan(app: FastAPI):
     finally:
         app.state.db.close()
         app.state.auth_admin.close()
+        app.state.storage.close()
 
 
 class HostCORSMiddleware(CORSMiddleware):
@@ -78,6 +81,7 @@ app.include_router(account_login.router)
 app.include_router(accounts.router)
 app.include_router(onboarding.router)
 app.include_router(setup.router)                # Phase 2A — إعداد المدرسة
+app.include_router(assets.router)               # Phase 2B-4 — ملف المدرسة وأصولها
 
 
 @app.exception_handler(psycopg.errors.InsufficientPrivilege)

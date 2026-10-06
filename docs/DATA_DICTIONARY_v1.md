@@ -208,6 +208,8 @@ ALTER TABLE schools ADD CONSTRAINT schools_group_same_tenant_fk
 | (35) | `bell_schedules` | S (عبر السنة) | ✅ M43 (Phase 2B / 2B-3) — جدول دوام = فترة في سنة (§2.32) |
 | (36) | `bell_periods` | S (عبر السنة) | ✅ M43 (Phase 2B / 2B-3) — الحصص والاستراحات لكل يوم (§2.33) |
 | (37) | `grade_level_bell_schedules` | S (عبر السنة) | ✅ M43 (Phase 2B / 2B-3) — إسناد الصف إلى جدول في السنة (§2.34) |
+| (38) | `school_profiles` | S | ✅ M45 (Phase 2B / 2B-4) — ملف المدرسة 1:1 (§2.35) |
+| (39) | `school_assets` | S | ✅ M45 (Phase 2B / 2B-4) — الشعار والختم والتوقيعات بنسخ (§2.36) |
 
 ---
 
@@ -1305,6 +1307,50 @@ CREATE TRIGGER audit_log_no_truncate
 
 ---
 
+### 2.35 `school_profiles` — [S] ✅ M45 (Phase 2B / 2B-4)
+
+ملف المدرسة 1:1 (B2، E1): للعرض والوثائق، لا للتفويض؛ **بلا تاريخ نسخ** — الوثائق الرسمية (المرحلة 6) تلتقط ما تطبعه. التصميم: `docs/PHASE2B_4_PROFILE_STORAGE.md`.
+
+| العمود | النوع | NULL | ملاحظات |
+|---|---|---|---|
+| `id` | uuid | NOT NULL | PK (`gen_random_uuid()`) — T7 يسجّل `entity_id` منه كبقية الجداول |
+| `school_id` | uuid | NOT NULL | **فريد** و FK → `schools` — علاقة 1:1 |
+| `address` | text | NULL | غير فارغ إن وُجد |
+| `phone_e164` | text | NULL | `^\+[1-9][0-9]{7,14}$` (الثابت 12) |
+| `email` | text | NULL | صيغة بسيطة |
+| `website` | text | NULL | يبدأ بـ`https://` |
+| `principal_display_name` | text | NULL | للعرض فقط — ليس هوية ولا صلاحية |
+| `created_at`, `created_by`, `updated_at`, `updated_by` | | | الأعمدة المشتركة (T6) |
+
+**القيود:** `school_profiles_pkey`، `school_profiles_school_uq`، `school_profiles_school_fk`، `school_profiles_address_chk`، `school_profiles_phone_chk`، `school_profiles_email_chk`، `school_profiles_website_chk`، `school_profiles_principal_chk`، `…_created_by_fk`، `…_updated_by_fk`.
+**الامتيازات:** INSERT `(school_id, address, phone_e164, email, website, principal_display_name)`؛ UPDATE الأعمدة نفسها عدا `school_id`. **RLS:** `can_access_school` + `school.read` / `school.update`. **T16:** المدرسة المؤرشفة للقراءة فقط؛ `school_id` ثابت.
+
+---
+
+### 2.36 `school_assets` — [S] ✅ M45 (Phase 2B / 2B-4)
+
+الشعار والختم والتوقيعات **بنسخ لا تُستبدل** (B3، E2–E4). الكائنات في bucket خاص `school-assets`؛ **محتواها خارج `pg_dump`** (E9 — Production Readiness Gate).
+
+| العمود | النوع | NULL | ملاحظات |
+|---|---|---|---|
+| `id` | uuid | NOT NULL | PK — يولده FastAPI؛ جزء من المسار |
+| `school_id` | uuid | NOT NULL | FK → `schools` |
+| `kind` | text | NOT NULL | `logo` \| `stamp` \| `signature` |
+| `signer_title` | text | NULL | إلزامي للتوقيع وممنوع لغيره (E2) |
+| `object_path` | text | NOT NULL | فريد؛ = `{tenant_id}/{school_id}/{kind}/{id}.{png\|jpg}` — **تشتقه DB** من صف المدرسة وتتحقق من تطابقه (E4) |
+| `content_type` | text | NOT NULL | `image/png` \| `image/jpeg` — من بايتات الملف لا من العميل (E6) |
+| `byte_size` | integer | NOT NULL | 1..1048576 |
+| `width`, `height` | integer | NOT NULL | 1..4000 |
+| `sha256` | text | NOT NULL | 64 hex — للبايتات المخزنة فعلاً |
+| `status` | text | NOT NULL | `active` \| `retired` — **نهائي** (E3) |
+| `retired_at` | timestamptz | NULL | ⟺ `retired` |
+| `created_at`, `created_by`, `updated_at`, `updated_by` | | | الأعمدة المشتركة (T6) |
+
+**القيود:** `school_assets_pkey`، `school_assets_school_fk`، `school_assets_path_uq`، `school_assets_kind_chk`، `school_assets_signer_chk`، `school_assets_path_chk`، `school_assets_ext_chk` (الامتداد يطابق النوع)، `school_assets_type_chk`، `school_assets_size_chk`، `school_assets_dims_chk`، `school_assets_sha_chk`، `school_assets_status_chk`، `school_assets_retired_chk`؛ فهرسان فريدان جزئيان: `school_assets_one_active_uq (school_id, kind) WHERE status='active' AND kind<>'signature'` و`school_assets_one_signature_uq (school_id, lower(btrim(signer_title))) WHERE status='active' AND kind='signature'`.
+**الامتيازات:** SELECT فقط — **لا INSERT ولا UPDATE للعميل**: `app.register_school_asset` و`app.retire_school_asset` وحدهما. **RLS:** SELECT `can_access_school` + `school.read`. **T16:** التقاعد نهائي؛ الصف ثابت عدا الحالة.
+
+---
+
 ## 3. ملخص الفهارس (ERD §8)
 
 | الجدول | الفهرس | الغرض |
@@ -1346,11 +1392,12 @@ CREATE TRIGGER audit_log_no_truncate
 | **T12** | `sections`، `grade_levels`، `stages`: شعبة نشطة (في سنة غير مغلقة) ⇒ صف نشط ⇒ مرحلة نشطة، من الجهتين؛ هوية ثابتة؛ بنية السنة المغلقة مجمدة؛ لا تعطيل لشعبة فيها تسجيلات نشطة | ✅ M35 (Phase 2A، Q7) — يعتمد على الصف القديم وعلى صفوف في جداول أخرى (السنة، الأب، الأبناء، التسجيلات) |
 | **T11** | `terms` (INSERT، UPDATE): دورة الحياة، الفصل النشط داخل سنة نشطة، ما يُعدَّل حسب الحالة، تجمّد فصول السنة المغلقة | ✅ M34 (Phase 2A) — يعتمد على الصف القديم وعلى حالة صف في جدول آخر (السنة) |
 | **T10** | `academic_years` (UPDATE): ما يُعدَّل حسب الحالة والانتقالات المعلنة | ✅ M33 (Phase 2A، Q1) — يقارن الصف القديم بالجديد؛ لا بديل إعلاني (`CHECK` لا يرى الصف القديم، و RLS `WITH CHECK` كذلك) |
+| **T16** | `school_profiles` (INSERT، UPDATE)، `school_assets` (UPDATE): المدرسة المؤرشفة للقراءة فقط؛ الأصل لا يتغير عدا التقاعد، والتقاعد نهائي | ✅ M45 (Phase 2B / 2B-4) |
 | **T15** | `bell_schedules`، `bell_periods`، `grade_level_bell_schedules` (INSERT، UPDATE) + امتداد T14 على `calendar_weekdays`: حالة السنة (D3: السبب في النشطة، المغلقة مجمدة)؛ الهوية؛ الحصة النشطة تحت جدول نشط وعلى يوم دوام نشط، ولا تعطيل يوم دوام له حصص نشطة (D4)؛ لا تعطيل لجدول له حصص نشطة أو إسناد | ✅ M43 (Phase 2B / 2B-3) |
 | **T14** | `calendar_exceptions` (INSERT، UPDATE)، `calendar_weekdays` (UPDATE): B8 بقرارات C1–C5 — «اليوم» بتوقيت المدرسة؛ السبب إلزامي في سنة نشطة؛ الماضي لا يُعدَّل؛ الإلغاء نهائي؛ السنة المغلقة مجمدة | ✅ M41 (Phase 2B / 2B-2) — يعتمد على التاريخ الحالي وحالة السنة وصفوف التقويم |
 | **T13** | `grade_subjects` (INSERT، UPDATE)، `subjects` (UPDATE)، و`grade_levels` (امتداد T12): ربط مادة نشط (في سنة غير مغلقة) ⇒ صف نشط ومادة نشطة، من الجهتين؛ هوية ثابتة؛ روابط السنة المغلقة مجمدة؛ رمز المادة ثابت | ✅ M39 (Phase 2B / 2B-1) — نمط T12 |
 
-**القائمة النهائية بعد Gate B: T5، T6، T7، T8، T9** — خمسة فقط (**+ T10، T11، T12 في Phase 2A: M33، M34، M35؛ + T13، T14، T15 في Phase 2B: M39، M41، M43**). كل trigger يحتاج اختبار pgTAP. التصنيف الكامل لكل invariant وآليته: `DB_IMPLEMENTATION_SPEC_v1.md` §3.
+**القائمة النهائية بعد Gate B: T5، T6، T7، T8، T9** — خمسة فقط (**+ T10، T11، T12 في Phase 2A: M33، M34، M35؛ + T13–T16 في Phase 2B: M39، M41، M43، M45**). كل trigger يحتاج اختبار pgTAP. التصنيف الكامل لكل invariant وآليته: `DB_IMPLEMENTATION_SPEC_v1.md` §3.
 
 ---
 

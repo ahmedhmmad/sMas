@@ -61,9 +61,12 @@ jobs:
       - name: API security tests (F4)
         # FastAPI ← authenticator ← RLS على seed E5؛ المتغيرات من `supabase status` داخل conftest
         working-directory: services/api
+        # 2B-4 (B6/E10): خدمة Storage لا تعمل في CI ← اختبارات `storage` مستبعدة صراحةً ويُعلنها الملخص (EXCLUDED)؛
+        # كل اختبارات DB/الأمن/الـAPI غير المعتمدة على Storage إلزامية هنا. Excluded ≠ skipped.
         run: |
           pip install -r requirements.txt
-          python -m pytest
+          echo "::notice title=Storage tests excluded::Storage integration tests (pytest -m storage) are excluded in CI — the Storage service is not started here (B6/E10). They run locally with storage-api."
+          python -m pytest -m "not storage"
 
       - name: Web — install (F1)
         working-directory: apps/web
@@ -91,4 +94,5 @@ jobs:
           E2E_PYTHON: python
         run: |
           npx playwright install --with-deps chromium
-          npx playwright test
+          echo "::notice title=Storage E2E excluded::Browser tests tagged @storage are excluded in CI — no Storage service here (B6/E10). They run locally with storage-api."
+          npx playwright test --grep-invert @storage

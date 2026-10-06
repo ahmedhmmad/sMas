@@ -7,8 +7,8 @@ import type { Capabilities } from "./auth/AuthProvider";
 import { navItems } from "./components/navigation";
 import { errorText, t } from "./i18n";
 
-const apiMock = vi.hoisted(() => ({ api: vi.fn() }));
-vi.mock("./lib/api", async (orig) => ({ ...(await orig<typeof import("./lib/api")>()), api: apiMock.api }));
+const apiMock = vi.hoisted(() => ({ api: vi.fn(), apiUpload: vi.fn() }));
+vi.mock("./lib/api", async (orig) => ({ ...(await orig<typeof import("./lib/api")>()), api: apiMock.api, apiUpload: apiMock.apiUpload }));
 
 const auth = vi.hoisted(() => ({ permissions: [] as string[] }));
 vi.mock("./auth/AuthProvider", async (orig) => ({
@@ -44,6 +44,7 @@ function route(path: string, responses: Record<string, unknown | ApiError>) {
 
 beforeEach(() => {
   apiMock.api.mockReset();
+  apiMock.apiUpload.mockReset();
   auth.permissions = [];
 });
 
@@ -130,6 +131,60 @@ describe("school page", () => {
     await screen.findByTestId("school");
     expect(screen.queryByTestId("subjects")).toBeNull();
     expect(apiMock.api).not.toHaveBeenCalledWith("/schools/s1/subjects");
+  });
+
+  describe("school profile & assets (2B-4)", () => {
+    const assets = { rows: [
+      { id: "a1", kind: "logo", signer_title: null, status: "active", retired_at: null, created_at: "2026-10-06", width: 120, height: 60 },
+      { id: "a2", kind: "stamp", signer_title: null, status: "active", retired_at: null, created_at: "2026-10-06", width: 100, height: 100 },
+      { id: "a3", kind: "stamp", signer_title: null, status: "retired", retired_at: "2026-10-05", created_at: "2026-10-01", width: 100, height: 100 }] };
+    const base = { "/schools": { rows: [SCHOOL] }, "/schools/s1/assets": assets,
+      "/schools/s1/profile": { address: "Cairo", phone_e164: "+201000000001", email: null, website: null, principal_display_name: null } };
+
+    it("read-only without school.update; the stamp is not previewable without security.manage (display — the server decides)", async () => {
+      auth.permissions = ["school.read"];
+      route("/setup/schools/s1", base);
+      expect(await screen.findByTestId("profile-address")).toBeDisabled();
+      expect(screen.queryByTestId("profile-save")).toBeNull();
+      expect(screen.getByTestId("asset-preview-a1")).toBeInTheDocument();
+      expect(screen.queryByTestId("asset-preview-a2")).toBeNull();
+      for (const id of ["asset-upload", "asset-retire-a1", "asset-retire-a2"]) expect(screen.queryByTestId(id)).toBeNull();
+      expect(screen.getByTestId("asset-row-a3")).toHaveAttribute("data-status", "retired");          // سجل النسخ
+    });
+
+    it("school.update alone: logo only in the upload form; the profile is saved with one PUT", async () => {
+      auth.permissions = ["school.read", "school.update"];
+      route("/setup/schools/s1", { ...base, "PUT /schools/s1/profile": {} });
+      const kind = await screen.findByTestId("asset-kind");
+      expect([...kind.querySelectorAll("option")].map((o) => o.getAttribute("value"))).toEqual(["logo"]);
+      expect(screen.queryByTestId("asset-retire-a2")).toBeNull();
+      await userEvent.clear(screen.getByTestId("profile-address"));
+      await userEvent.type(screen.getByTestId("profile-address"), "Giza");
+      await userEvent.click(screen.getByTestId("profile-save"));
+      await waitFor(() => expect(apiMock.api).toHaveBeenCalledWith("/schools/s1/profile", { method: "PUT",
+        body: { address: "Giza", phone_e164: "+201000000001", email: null, website: null, principal_display_name: null } }));
+    });
+
+    it("upload goes as multipart through FastAPI; a rejected file shows the translated reason", async () => {
+      auth.permissions = ["school.read", "school.update", "security.manage"];
+      route("/setup/schools/s1", base);
+      apiMock.apiUpload.mockRejectedValue(new ApiError(422, "invalid_file_format"));
+      await userEvent.selectOptions(await screen.findByTestId("asset-kind"), "stamp");
+      await userEvent.upload(screen.getByTestId("asset-file"), new File(["<svg/>"], "x.png", { type: "image/png" }));
+      await userEvent.type(screen.getByTestId("asset-reason"), "new stamp");
+      await userEvent.click(screen.getByTestId("asset-submit"));
+      expect(await screen.findByTestId("assets-error")).toHaveTextContent(errorText("invalid_file_format"));
+      const [path, form] = apiMock.apiUpload.mock.calls[0] as [string, FormData];
+      expect(path).toBe("/schools/s1/assets");
+      expect([form.get("kind"), form.get("reason"), (form.get("file") as File).name]).toEqual(["stamp", "new stamp", "x.png"]);
+    });
+
+    it("a preview asks the API for a short-lived link when shown", async () => {
+      auth.permissions = ["school.read", "security.manage"];
+      route("/setup/schools/s1", { ...base, "/assets/a2/url": { url: "https://storage.example/signed", expires_in: 60 } });
+      await userEvent.click(await screen.findByTestId("asset-preview-a2"));
+      expect(await screen.findByTestId("asset-image-a2")).toHaveAttribute("src", "https://storage.example/signed");
+    });
   });
 
   it("a slug conflict shows the translated message, not the database error", async () => {

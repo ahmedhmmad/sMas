@@ -20,7 +20,8 @@ insert into expected values
   ('login_challenges'),                      -- M26 (F2/D3): بلا سياسة ولا منح — دوال متحكَّم بها فقط
   ('subjects'), ('grade_subjects'),          -- M39 (Phase 2B / 2B-1)
   ('calendar_weekdays'), ('calendar_exceptions'),   -- M41 (Phase 2B / 2B-2)
-  ('bell_schedules'), ('bell_periods'), ('grade_level_bell_schedules');   -- M43 (Phase 2B / 2B-3)
+  ('bell_schedules'), ('bell_periods'), ('grade_level_bell_schedules'),   -- M43 (Phase 2B / 2B-3)
+  ('school_profiles'), ('school_assets');   -- M45 (Phase 2B / 2B-4)
 
 create temp view actual as
   select c.relname::text as t, c.relrowsecurity as enabled, c.relforcerowsecurity as forced
@@ -28,12 +29,12 @@ create temp view actual as
   where c.relnamespace = 'public'::regnamespace
     and c.relkind in ('r', 'p');
 
-select plan(1 + 1 + 37 + 37 + 1 + 1);
+select plan(1 + 1 + 39 + 39 + 1 + 1);
 
-select is((select count(*)::int from expected), 37, 'the expected list has 37 tables (29 Foundation + login_challenges + 2 subjects + 2 calendar + 3 bell schedules)');
+select is((select count(*)::int from expected), 39, 'the expected list has 39 tables (29 Foundation + login_challenges + 2 subjects + 2 calendar + 3 bell schedules + 2 profile/assets)');
 
 select set_eq('select t from actual', 'select t from expected',
-              'public holds exactly the 37 expected tables — none missing, none unlisted');
+              'public holds exactly the 39 expected tables — none missing, none unlisted');
 
 -- لكل جدول بالاسم؛ LEFT JOIN: جدول متوقع غير موجود يُنتج فشلاً لا اختباراً ناقصاً
 select ok(coalesce(a.enabled, false), format('%s: ROW LEVEL SECURITY enabled', e.t))

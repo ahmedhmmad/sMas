@@ -7,6 +7,7 @@ import { NotFound } from "../../components/states";
 import { t } from "../../i18n";
 import { api } from "../../lib/api";
 import { ActionError, buttonClass, Card, Field, inputClass, linkButtonClass, PageState, ReasonAction, statusText, useAction, useApi } from "./common";
+import { SchoolProfile } from "./SchoolProfile";
 import type { School as SchoolRow } from "./Schools";
 
 type Year = { id: string; name: string; start_date: string; end_date: string; status: string };
@@ -28,6 +29,7 @@ export function School() {
       <h1 className="mb-4 mt-2 text-2xl font-semibold" data-testid="school-title">{school.name}</h1>
       <ReadinessPanel schoolId={school.id} />
       <Info school={school} reload={schools.reload} />
+      <SchoolProfile school={school} />
       {can("school.update") && school.status === "active" && <SlugForm school={school} reload={schools.reload} />}
       {can("security.manage") && school.status === "active" && <GuardianMode school={school} reload={schools.reload} />}
       <Years school={school} />

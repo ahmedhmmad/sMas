@@ -172,6 +172,9 @@ begin
   insert into public.bell_periods (school_id, academic_year_id, bell_schedule_id, weekday, kind, start_time, end_time) values (p_school, v_year, v_bell, 0, 'lesson', '08:00', '08:45');
   insert into public.grade_level_bell_schedules (school_id, academic_year_id, grade_level_id, bell_schedule_id) values (p_school, v_year, v_grade, v_bell);
   update public.academic_years set status = 'active' where id = v_year;
+  insert into public.school_profiles (school_id, address) values (p_school, 'A ' || p_tag);   -- M45
+  insert into public.school_assets (id, school_id, kind, object_path, content_type, byte_size, width, height, sha256)
+    select a, p_school, 'logo', format('%s/%s/logo/%s.png', p_tenant, p_school, a), 'image/png', 1, 1, 1, repeat('a', 64) from (select gen_random_uuid() a) q;
   insert into public.families (platform_tenant_id, family_name) values (p_tenant, 'F' || p_tag) returning id into v_fam;
   insert into auth.users (id, email) values (v_auth, 'st' || p_tag || '@m14.invalid');
   insert into public.auth_identities values (v_auth, 'tenant');

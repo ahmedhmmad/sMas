@@ -63,6 +63,23 @@ ENV = _load_env()
 from app.main import app  # noqa: E402 — بعد ضبط البيئة
 
 
+# 2B-4 (E10): Excluded ≠ skipped. CI يشغّل `-m "not storage"` لغياب خدمة Storage؛ الاختبارات المستبعدة تُعدّ وتُعلن
+# صراحةً في الملخص — لا تختفي بصمت. محلياً (مع storage-api) تُشغَّل كلها وتكون إلزامية.
+_EXCLUDED_STORAGE: list[str] = []
+
+
+def pytest_deselected(items):
+    _EXCLUDED_STORAGE.extend(i.nodeid for i in items if i.get_closest_marker("storage"))
+
+
+def pytest_terminal_summary(terminalreporter):
+    if _EXCLUDED_STORAGE:
+        terminalreporter.write_sep("=", f"EXCLUDED: {len(_EXCLUDED_STORAGE)} Storage integration tests — "
+                                        "Storage service not available here (B6/E10); all DB/security/API tests ran", yellow=True)
+        for nodeid in _EXCLUDED_STORAGE:
+            terminalreporter.write_line(f"  excluded: {nodeid}")
+
+
 @pytest.fixture(scope="session")
 def client():
     with TestClient(app, raise_server_exceptions=False) as c:

@@ -24,8 +24,9 @@ def test_service_does_not_read_the_service_role_key():
 
 
 def test_secret_key_read_only_by_auth_admin():
+    """قائمة مغلقة: Auth Admin، و Storage منذ 2B-4 (E10؛ موثق في F4_API_SECURITY.md) — لا موضع ثالث."""
     readers = {n for n, src in _sources().items() if "SECRET_KEY" in src}
-    assert readers == {"auth_admin.py"}
+    assert readers == {"auth_admin.py", "storage_admin.py"}
 
 
 def test_role_switch_to_service_role_only_in_named_places():

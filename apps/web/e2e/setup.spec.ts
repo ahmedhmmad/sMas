@@ -341,3 +341,50 @@ test("context is not authority: a tenant admin on a school host still sees every
   await page.goto(at(HOSTS.SA, "/setup/schools"));
   for (const c of ["SA", "SB", "SS"]) await expect(page.getByTestId(`school-row-${c}`)).toBeVisible();
 });
+
+// ------------------------------------------------------------------ 2B-4: ملف المدرسة والأصول
+const PNG_1X1 = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
+
+// رفع multipart مباشرة بجلسة الصفحة (تجاوز الواجهة) — يعيد رمز الحالة
+async function directUpload(page: Page, schoolId: string, kind: string): Promise<number> {
+  return page.evaluate(async ({ api, schoolId, kind, bytes }) => {
+    const key = Object.keys(localStorage).find((k) => k.endsWith("-auth-token"))!;
+    const token = JSON.parse(localStorage.getItem(key)!).access_token;
+    const form = new FormData();
+    form.append("kind", kind);
+    form.append("reason", "bypass");
+    form.append("file", new Blob([new Uint8Array(bytes)], { type: "image/png" }), "x.png");
+    const r = await fetch(`${api}/schools/${schoolId}/assets`, { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: form });
+    return r.status;
+  }, { api: API, schoolId, kind, bytes: [...PNG_1X1] });
+}
+
+test("school profile (2B-4): secretary reads it, cannot edit or upload — the server refuses the bypass", async ({ page }) => {
+  const f = fx();
+  await staffLogin(page, "secretary@dev.smas.test");
+  await go(page, `/setup/schools/${f.schools.SA}`);
+  await expect(page.getByTestId("school-profile")).toBeVisible();
+  await expect(page.getByTestId("profile-address")).toBeDisabled();
+  for (const id of ["profile-save", "asset-upload"]) await expect(page.getByTestId(id)).toHaveCount(0);
+  expect(await directUpload(page, f.schools.SA, "logo")).toBe(403);
+  expect(await directUpload(page, f.schools.SA, "stamp")).toBe(403);
+});
+
+test("school profile (2B-4): the admin uploads a logo and previews it through a short-lived link @storage", async ({ page }) => {
+  const f = fx();
+  await staffLogin(page, "school.admin@dev.smas.test");
+  await go(page, `/setup/schools/${f.schools.SA}`);
+  await page.getByTestId("profile-phone_e164").fill("+201000000777");
+  await page.getByTestId("profile-save").click();
+  await page.getByTestId("asset-kind").selectOption("logo");
+  await page.getByTestId("asset-file").setInputFiles({ name: "logo.png", mimeType: "image/png", buffer: PNG_1X1 });
+  await page.getByTestId("asset-reason").fill("شعار جديد");
+  await page.getByTestId("asset-submit").click();
+  const row = page.locator("[data-kind='logo'][data-status='active']").first();
+  await expect(row).toBeVisible();
+  await row.locator("[data-testid^='asset-preview-']").click();
+  const image = row.locator("img");
+  await expect(image).toBeVisible();
+  await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth)).toBe(1);   // البايتات وصلت من Storage
+});
+

@@ -1,7 +1,7 @@
 # Phase 2B-4 — ملف المدرسة و Storage: وثيقة التصميم — Design Gate
 
 **التاريخ:** 2026-10-06
-**الحالة:** ⏳ **بانتظار الاعتماد** — لا SQL ولا كود قبل اعتماد القرارات E1–E10
+**الحالة:** ✅ **معتمدة (2026-10-06)؛ منفَّذة (M45 — §8) — بانتظار المراجعة** — E1–E10؛ `python-multipart` معتمدة صراحةً؛ ملاحظات الاعتماد مدمجة: E5 ليست معاملة ذرية عبر النظامين والتنظيف للكائن الذي رفعه الطلب وحده وتعذّره خطأ مرئي؛ E4 التطابق في DB؛ E6 `sha256` للبايتات المخزنة؛ E8 لا رابط ولا token في التدقيق؛ Excluded ≠ skipped
 **خط الأساس:** 2B-3 مغلقة (CI `8d736c2`)؛ 49 migration (M01–M44)؛ الكتالوج 75
 **المرجع:** `docs/PHASE2B_SCOPE.md` §0 (B2–B6، معتمدة؛ **B6 معدَّل**) و§1؛ `docs/F4_API_SECURITY.md` (FastAPI ← DB؛ تدقيق القراءة)؛ `CLAUDE.md` §1 (الثوابت 9، 14، 16، 17)
 
@@ -44,7 +44,8 @@
 
 | العمود | النوع | ملاحظات |
 |---|---|---|
-| `school_id` | uuid | **PK** و FK → `schools` (1:1) |
+| `id` | uuid | PK — T7 يسجّل `entity_id` منه كبقية الجداول (تنفيذ) |
+| `school_id` | uuid | **فريد** و FK → `schools` (1:1) |
 | `address` | text | اختياري |
 | `phone_e164` | text | اختياري؛ CHECK E.164 (`^\+[1-9][0-9]{7,14}$`، الثابت 12) |
 | `email` | text | اختياري؛ CHECK صيغة بسيطة |
@@ -126,3 +127,16 @@
 ## 7. ما لا يدخل 2B-4
 
 إثبات backup/restore الإنتاجي للملفات وسياسة الاحتفاظ/الإتلاف (**Production Readiness Gate** — B6)؛ تركيب الشهادات ولقطاتها (المرحلة 6)؛ صور الطلاب والمستندات (المرحلة 4)؛ إعادة ترميز الصور (E6 — قرار لاحق إن لزم)؛ CDN أو روابط عامة.
+
+---
+
+## 8. التنفيذ (2026-10-06) — بانتظار المراجعة
+
+| البند | المنفَّذ |
+|---|---|
+| M45 `school_profile_assets` | الجدولان؛ T16؛ الدوال الأربع (§3)؛ الـbucket الخاص؛ لا سياسة على `storage.objects` للعميل. **تعديل تنفيذي:** `school_profiles` بمفتاح `id` و`school_id` فريد (1:1) — T7 يسجّل `entity_id` من `id` كبقية الجداول |
+| FastAPI | `app/images.py` (E6 — قراءة الترويسة، بلا مكتبة)؛ `app/storage_admin.py` (الموضع الثاني للمفتاح — موثق في `F4_API_SECURITY.md`)؛ `app/assets.py` (الـSaga E5 بالضبط: DB ← Storage ← commit؛ أي فشل بعد بدء الرفع ← حذف **مسار هذا الطلب وحده**؛ تعذّر الحذف ← `500 asset_cleanup_failed` مسجلاً بالمسار)؛ `python-multipart==0.0.32` في `requirements.txt` |
+| الاتساق والاستعادة (E9) | `app.school_asset_consistency()`؛ بصمة الاستعادة (`scripts/db-fingerprint.sql`) تحمل الآن: الـbuckets، قائمة الكائنات، ونتيجة فحص الاتساق — فتثبت الاستعادةُ أن الصفوف وبيانات الكائنات الوصفية في الـdump سليمة؛ **البايتات خارجه** (Production Readiness Gate) |
+| CI (E10) | `pytest -m "not storage"` و`playwright --grep-invert @storage` مع `::notice` صريح، وملخص pytest يطبع **EXCLUDED: N Storage integration tests** بأسمائها — Excluded ≠ skipped؛ محلياً مع `storage-api` تُشغَّل كلها |
+| الواجهة | قسم «ملف المدرسة» في صفحة المدرسة (`pages/setup/SchoolProfile.tsx`)؛ `apiUpload` (multipart) في `lib/api.ts` |
+
