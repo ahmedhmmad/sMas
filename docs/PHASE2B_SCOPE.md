@@ -1,7 +1,7 @@
 # Phase 2B — School Setup (تتمة): خطة النطاق — Design Gate
 
 **التاريخ:** 2026-10-04
-**الحالة:** ✅ **معتمدة (2026-10-04)** — B1–B5، B7–B15 كما اقتُرحت؛ **B6 معدَّل** (أدناه). التنفيذ جزءاً جزءاً بمراجعة بعد كل جزء — **2B-1 (المواد) 🔒 مغلقة (2026-10-05، CI `7187ccd`)** (§3)؛ **2B-2 (التقويم) 🔒 مغلقة (M41، M42، CI `c5a0aaf`)** (`docs/PHASE2B_2_CALENDAR.md`)؛ **2B-3 (الدوام والحصص) 🔒 مغلقة (M43، M44، CI `8d736c2`)**؛ **2B-4 (ملف المدرسة و Storage) 🔒 مغلقة (M45، CI `0bb66e4`)**؛ **2B-5 (المعالج) 🔒 مغلقة (CI `aeca5df`)**؛ **2B-6 (قبول الإغلاق): التالي** (`docs/PHASE2B_5_WIZARD.md`) (`docs/PHASE2B_4_PROFILE_STORAGE.md`) (`docs/PHASE2B_3_BELL_SCHEDULES.md`)
+**الحالة:** ✅ **معتمدة (2026-10-04)** — B1–B5، B7–B15 كما اقتُرحت؛ **B6 معدَّل** (أدناه). التنفيذ جزءاً جزءاً بمراجعة بعد كل جزء — **2B-1 (المواد) 🔒 مغلقة (2026-10-05، CI `7187ccd`)** (§3)؛ **2B-2 (التقويم) 🔒 مغلقة (M41، M42، CI `c5a0aaf`)** (`docs/PHASE2B_2_CALENDAR.md`)؛ **2B-3 (الدوام والحصص) 🔒 مغلقة (M43، M44، CI `8d736c2`)**؛ **2B-4 (ملف المدرسة و Storage) 🔒 مغلقة (M45، CI `0bb66e4`)**؛ **2B-5 (المعالج) 🔒 مغلقة (CI `aeca5df`)**؛ **2B-6 (قبول الإغلاق): ✅ منفَّذة — بانتظار المراجعة النهائية** (`docs/PHASE2B_ACCEPTANCE.md`) (`docs/PHASE2B_5_WIZARD.md`) (`docs/PHASE2B_4_PROFILE_STORAGE.md`) (`docs/PHASE2B_3_BELL_SCHEDULES.md`)
 **خط الأساس:** `610a513` — Phase 2A مغلقة (`docs/PHASE2A_ACCEPTANCE.md`)؛ 42 migration (M01–M37)؛ كتالوج الصلاحيات 73
 **المرجع:** `PLAN_v3.md` §5 المرحلة 2، §4.2 (`subjects`, `grade_subjects`, `bell_schedules`, `periods`, `holidays`)، §7.4/§7.11 (التقويم والحضور)، §7.5/§7.18 (التقييم)، المرحلة 11 (الجدول)؛ `DATA_DICTIONARY_v1.md` §6 (المستبعد من Foundation إلى المرحلة 2)؛ `CLAUDE.md` §1 (الثوابت)
 
