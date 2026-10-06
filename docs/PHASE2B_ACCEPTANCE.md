@@ -75,7 +75,7 @@
 | Vitest | **127** |
 | Playwright | **31/31** محلياً (منها 1 `@storage` — مستبعد صراحةً في CI) |
 | الاستعادة (نظيفة، بالـseed) | **PASS / PASS** — البصمة تشمل بيانات Storage الوصفية والاتساق |
-| CI | ⏳ على commit الـ2B-6 — يُسجَّل هنا بعد التشغيل |
+| CI | ✅ أخضر على `94d0ccb` — https://github.com/ahmedhmmad/sMas/actions/runs/37421998492 (Storage مستبعد صراحةً بإشعارين) |
 
 ---
 
