@@ -12,7 +12,7 @@ type Asset = { id: string; kind: string; signer_title: string | null; status: st
 
 const FIELDS = ["address", "phone_e164", "email", "website", "principal_display_name"] as const;
 
-export function SchoolProfile({ school }: { school: School }) {
+export function SchoolProfile({ school, part = "all" }: { school: School; part?: "all" | "profile" | "assets" }) {
   const { can } = useAuth();
   const profile = useApi<Profile>(`/schools/${school.id}/profile`);
   const assets = useApi<{ rows: Asset[] }>(`/schools/${school.id}/assets`);
@@ -20,8 +20,8 @@ export function SchoolProfile({ school }: { school: School }) {
   const active = school.status === "active";
   return (
     <Card title={t("setup.profile.title")} testId="school-profile">
-      {profile.data && <ProfileForm school={school} profile={profile.data} editable={can("school.update") && active} reload={profile.reload} />}
-      {assets.data && <Assets school={school} rows={assets.data.rows} reload={assets.reload} active={active} />}
+      {part !== "assets" && profile.data && <ProfileForm school={school} profile={profile.data} editable={can("school.update") && active} reload={profile.reload} />}
+      {part !== "profile" && assets.data && <Assets school={school} rows={assets.data.rows} reload={assets.reload} active={active} />}
     </Card>
   );
 }

@@ -19,6 +19,7 @@ vi.mock("./auth/AuthProvider", async (orig) => ({
 
 import { ApiError } from "./lib/api";
 import { School } from "./pages/setup/School";
+import { Wizard } from "./pages/setup/Wizard";
 import { Year } from "./pages/setup/Year";
 
 const SCHOOL = { id: "s1", group_id: null, school_code: "ZT1", name: "ZT One", slug: "zt-one", timezone: "Africa/Cairo",
@@ -37,6 +38,7 @@ function route(path: string, responses: Record<string, unknown | ApiError>) {
       <Routes>
         <Route path="/setup/schools/:id" element={<School />} />
         <Route path="/setup/schools/:schoolId/years/:yearId" element={<Year />} />
+        <Route path="/setup/schools/:id/wizard" element={<Wizard />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -383,3 +385,57 @@ describe("year page", () => {
     expect(screen.queryByTestId("copy-sections")).toBeNull();
   });
 });
+
+describe("setup wizard (2B-5)", () => {
+  const years = { rows: [
+    { id: "y1", name: "2030", start_date: "2030-09-01", end_date: "2031-06-30", status: "active" },
+    { id: "y2", name: "2031", start_date: "2031-09-01", end_date: "2032-06-30", status: "planned" }] };
+  const progress = (year: string, over: Record<string, unknown> = {}) => ({
+    year: { id: year, name: year === "y1" ? "2030" : "2031", status: year === "y1" ? "active" : "planned" },
+    steps: [
+      { key: "profile", done: true }, { key: "year", done: true }, { key: "calendar", done: false },
+      { key: "structure", done: true }, { key: "subjects", done: false, missing: 2 }, { key: "bell", done: false, missing: 1 },
+      { key: "assets", done: false, optional: true }],
+    setup_complete: false, ready_for_enrollment: true, ...over });
+  const base = { "/schools": { rows: [SCHOOL] }, "/schools/s1/academic-years": years,
+    "/schools/s1/setup-progress": progress("y1"), "/schools/s1/setup-progress?year_id=y1": progress("y1"),
+    "/schools/s1/setup-progress?year_id=y2": progress("y2", { ready_for_enrollment: true }),
+    "/schools/s1/profile": { address: null, phone_e164: null, email: null, website: null, principal_display_name: null },
+    "/schools/s1/assets": { rows: [] } };
+
+  it("the step bar comes from setup-progress: done marks, optional assets, missing grades", async () => {
+    auth.permissions = ["school.read", "academic_year.read", "subject.read"];
+    route("/setup/schools/s1/wizard", { ...base, "/schools/s1/subjects": { rows: [] }, "/academic-years/y1/grade-subjects": { rows: [] }, "/schools/s1/grade-levels": { rows: [] } });
+    expect(await screen.findByTestId("wizard-step-profile")).toHaveAttribute("data-done", "true");
+    expect(screen.getByTestId("wizard-step-calendar")).toHaveAttribute("data-done", "false");
+    expect(screen.getByTestId("wizard-step-assets")).toHaveTextContent(t("setup.wizard.optional"));
+    await userEvent.click(screen.getByTestId("wizard-step-subjects"));
+    expect(await screen.findByTestId("wizard-missing")).toHaveTextContent("2");
+  });
+
+  it("W1: the default year is pinned once known — later requests name it explicitly; another year only by choice", async () => {
+    auth.permissions = ["school.read", "academic_year.read"];
+    route("/setup/schools/s1/wizard", base);
+    await screen.findByTestId("wizard-steps");
+    await waitFor(() => expect(apiMock.api).toHaveBeenCalledWith("/schools/s1/setup-progress?year_id=y1"));
+    await userEvent.selectOptions(screen.getByTestId("wizard-year"), "y2");
+    await waitFor(() => expect(apiMock.api).toHaveBeenCalledWith("/schools/s1/setup-progress?year_id=y2"));
+  });
+
+  it("W3: review shows setup_complete and ready_for_enrollment as two independent indicators", async () => {
+    auth.permissions = ["school.read", "academic_year.read"];
+    route("/setup/schools/s1/wizard", base);
+    await userEvent.click(await screen.findByTestId("wizard-step-review"));
+    expect(await screen.findByTestId("wizard-setup-complete")).toHaveAttribute("data-value", "false");
+    expect(screen.getByTestId("wizard-ready")).toHaveAttribute("data-value", "true");
+    expect(screen.getByTestId("review-assets")).toHaveTextContent(t("setup.wizard.optional"));
+  });
+
+  it("W4: without the read keys the API answers 403 and the wizard shows the refusal — no partial progress", async () => {
+    auth.permissions = ["school.read"];
+    route("/setup/schools/s1/wizard", { ...base, "/schools/s1/setup-progress": new ApiError(403, "forbidden") });
+    expect(await screen.findByTestId("state-forbidden")).toBeInTheDocument();
+    expect(screen.queryByTestId("wizard-steps")).toBeNull();
+  });
+});
+

@@ -27,6 +27,7 @@ export function School() {
     <section data-testid="school">
       <Link to="/setup/schools" className={linkButtonClass}>{t("setup.back")}</Link>
       <h1 className="mb-4 mt-2 text-2xl font-semibold" data-testid="school-title">{school.name}</h1>
+      <Link to={`/setup/schools/${school.id}/wizard`} className={`${linkButtonClass} mb-4 inline-block`} data-testid="open-wizard">{t("setup.wizard.open")}</Link>
       <ReadinessPanel schoolId={school.id} />
       <Info school={school} reload={schools.reload} />
       <SchoolProfile school={school} />
@@ -153,7 +154,7 @@ function GuardianMode({ school, reload }: { school: SchoolRow; reload: () => voi
   );
 }
 
-function Years({ school }: { school: SchoolRow }) {
+export function Years({ school }: { school: SchoolRow }) {
   const { can } = useAuth();
   const years = useApi<{ rows: Year[] }>(`/schools/${school.id}/academic-years`);
   const action = useAction(years.reload);
@@ -194,7 +195,7 @@ function Years({ school }: { school: SchoolRow }) {
   );
 }
 
-function Structure({ school }: { school: SchoolRow }) {
+export function Structure({ school }: { school: SchoolRow }) {
   const { can } = useAuth();
   const stages = useApi<{ rows: Stage[] }>(`/schools/${school.id}/stages`);
   const grades = useApi<{ rows: Grade[] }>(`/schools/${school.id}/grade-levels`);
@@ -274,7 +275,7 @@ function Structure({ school }: { school: SchoolRow }) {
 }
 
 // Phase 2B / 2B-1 — كتالوج المواد. الرمز ثابت بعد الإنشاء؛ التعطيل مرفوض في الخادم ما دامت المادة تُدرَّس في سنة غير مغلقة (T13).
-function Subjects({ school }: { school: SchoolRow }) {
+export function Subjects({ school }: { school: SchoolRow }) {
   const { can } = useAuth();
   const subjects = useApi<{ rows: Subject[] }>(`/schools/${school.id}/subjects`);
   const action = useAction(subjects.reload);

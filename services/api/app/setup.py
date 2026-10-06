@@ -381,6 +381,75 @@ def readiness(school_id: uuid.UUID, c: dict = Depends(claims), database: Databas
     return _tx(c, database, work)
 
 
+# ------------------------------------------------------------------ setup progress (Phase 2B / 2B-5 — W1–W6)
+# المعالج طبقة orchestration/visibility فقط: هذا المسار قراءة مشتقة تحت RLS بصلاحيات المستخدم الفعلية — لا تخزين ولا كتابة،
+# ولا يغيّر ready_for_enrollment (يُحسب باستعلام _READINESS نفسه، تعريف 2A حرفياً).
+_PROGRESS_KEYS = ("school.read", "academic_year.read", "term.read", "stage.read", "grade_level.read", "section.read", "subject.read")
+
+# W2: الصفوف «المعنية» = الصفوف النشطة التي لها شعب نشطة في سنة الإعداد؛ المواد والدوام شرط شامل عليها كلها.
+_PROGRESS = """
+    with graded as (
+      select distinct g.id from public.grade_levels g join public.sections x on x.grade_level_id = g.id
+       where g.school_id = %(school)s and g.status = 'active' and x.academic_year_id = %(year)s and x.status = 'active')
+    select
+      exists (select 1 from public.school_profiles p where p.school_id = %(school)s and p.address is not null and p.phone_e164 is not null) as profile,
+      %(year)s::uuid is not null and exists (select 1 from public.terms t where t.academic_year_id = %(year)s) as year,
+      exists (select 1 from public.calendar_weekdays w where w.academic_year_id = %(year)s and w.status = 'active') as calendar,
+      exists (select 1 from public.stages st where st.school_id = %(school)s and st.status = 'active')
+        and exists (select 1 from public.grade_levels g where g.school_id = %(school)s and g.status = 'active')
+        and exists (select 1 from graded) as structure,
+      (select count(*) from graded) as graded,
+      (select count(*) from graded g where not exists (
+         select 1 from public.grade_subjects gs where gs.academic_year_id = %(year)s and gs.grade_level_id = g.id and gs.status = 'active')) as subjects_missing,
+      (select count(*) from graded g where not exists (
+         select 1 from public.grade_level_bell_schedules a
+           join public.bell_schedules b on b.id = a.bell_schedule_id and b.status = 'active'
+          where a.academic_year_id = %(year)s and a.grade_level_id = g.id
+            and exists (select 1 from public.bell_periods bp where bp.bell_schedule_id = b.id and bp.kind = 'lesson' and bp.status = 'active'))) as bell_missing,
+      exists (select 1 from public.school_assets a where a.school_id = %(school)s and a.kind = 'logo' and a.status = 'active') as assets
+"""
+
+
+@router.get("/schools/{school_id}/setup-progress")
+def setup_progress(school_id: uuid.UUID, year_id: uuid.UUID | None = None, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    """W1: سنة القياس = year_id المختارة صراحةً (غير مغلقة ومرئية)، وإلا النشطة، وإلا أقرب planned — لا تُخزَّن.
+    W4: المدرسة غير مرئية ← 404؛ نقص أي مفتاح قراءة ← 403 (الشروط «غير مرئية» لا «غير مكتملة»)."""
+    def work(conn):
+        _visible(conn, "schools", school_id)
+        keys = conn.execute("select bool_and(app.has_permission(k)) as ok from unnest(%s::text[]) k", [list(_PROGRESS_KEYS)]).fetchone()
+        if not keys["ok"]:
+            raise _FORBIDDEN
+        if year_id is not None:
+            year = conn.execute("select id, name, status from public.academic_years where id = %s and school_id = %s and status <> 'closed'",
+                                [year_id, school_id]).fetchone()
+            if year is None:
+                raise _NOT_FOUND
+        else:
+            year = conn.execute("select id, name, status from public.academic_years where school_id = %s and status in ('active', 'planned')"
+                                " order by (status = 'active') desc, start_date limit 1", [school_id]).fetchone()
+        r = conn.execute(_PROGRESS, {"school": school_id, "year": year["id"] if year else None}).fetchone()
+        subjects = r["graded"] > 0 and r["subjects_missing"] == 0
+        bell = r["graded"] > 0 and r["bell_missing"] == 0
+        steps = [
+            {"key": "profile", "done": r["profile"]},
+            {"key": "year", "done": bool(r["year"])},
+            {"key": "calendar", "done": r["calendar"]},
+            {"key": "structure", "done": r["structure"]},
+            {"key": "subjects", "done": subjects, "missing": r["subjects_missing"]},
+            {"key": "bell", "done": bell, "missing": r["bell_missing"]},
+            {"key": "assets", "done": r["assets"], "optional": True},
+        ]
+        ready = conn.execute(_READINESS, [school_id]).fetchone()
+        return {
+            "year": year,
+            "steps": steps,
+            # W3: الخطوات 1–6 وحدها — لا الأصول ولا الجاهزية
+            "setup_complete": all(s["done"] for s in steps if not s.get("optional")),
+            "ready_for_enrollment": all(ready.values()),
+        }
+    return _tx(c, database, work)
+
+
 # ------------------------------------------------------------------ academic years
 @router.get("/schools/{school_id}/academic-years")
 def list_years(school_id: uuid.UUID, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:

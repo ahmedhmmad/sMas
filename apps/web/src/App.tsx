@@ -13,6 +13,7 @@ import { PlatformTenants } from "./pages/PlatformTenants";
 import { Groups } from "./pages/setup/Groups";
 import { School } from "./pages/setup/School";
 import { Schools } from "./pages/setup/Schools";
+import { Wizard } from "./pages/setup/Wizard";
 import { Year } from "./pages/setup/Year";
 import { StudentDetail } from "./pages/StudentDetail";
 import { Students } from "./pages/Students";
@@ -59,6 +60,7 @@ export function AppRoutes() {
         <Route path="/setup/groups" element={<Groups />} />
         <Route path="/setup/schools" element={<Schools />} />
         <Route path="/setup/schools/:id" element={<School />} />
+        <Route path="/setup/schools/:id/wizard" element={<Wizard />} />
         <Route path="/setup/schools/:schoolId/years/:yearId" element={<Year />} />
         <Route path="*" element={<NotFound />} />
       </Route>

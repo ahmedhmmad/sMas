@@ -39,7 +39,7 @@ export function Year() {
   );
 }
 
-function YearCard({ year, reload }: { year: Year; reload: () => void }) {
+export function YearCard({ year, reload }: { year: Year; reload: () => void }) {
   const { can } = useAuth();
   const action = useAction(reload);
   const [form, setForm] = useState({ name: year.name, start_date: year.start_date, end_date: year.end_date });
@@ -80,7 +80,7 @@ function YearCard({ year, reload }: { year: Year; reload: () => void }) {
   );
 }
 
-function Terms({ year }: { year: Year }) {
+export function Terms({ year }: { year: Year }) {
   const { can } = useAuth();
   const terms = useApi<{ rows: Term[] }>(`/academic-years/${year.id}/terms`);
   const action = useAction(terms.reload);
@@ -130,7 +130,7 @@ function Terms({ year }: { year: Year }) {
   );
 }
 
-function Sections({ year, schoolId, others }: { year: Year; schoolId: string; others: Year[] }) {
+export function Sections({ year, schoolId, others }: { year: Year; schoolId: string; others: Year[] }) {
   const { can } = useAuth();
   const sections = useApi<{ rows: Section[] }>(`/academic-years/${year.id}/sections`);
   const grades = useApi<{ rows: Grade[] }>(`/schools/${schoolId}/grade-levels`);
@@ -219,7 +219,7 @@ function Sections({ year, schoolId, others }: { year: Year; schoolId: string; ot
 
 // Phase 2B / 2B-1 — مواد الصفوف لهذه السنة: الحصص الأسبوعية والدخول في المجموع، ونسخها إلى سنة مخططة (M40).
 // السنة المغلقة للقراءة فقط (T13 هو الحكم)؛ الربط الجديد يولد active.
-function GradeSubjects({ year, schoolId, others }: { year: Year; schoolId: string; others: Year[] }) {
+export function GradeSubjects({ year, schoolId, others }: { year: Year; schoolId: string; others: Year[] }) {
   const { can } = useAuth();
   const links = useApi<{ rows: GradeSubject[] }>(`/academic-years/${year.id}/grade-subjects`);
   const grades = useApi<{ rows: Grade[] }>(`/schools/${schoolId}/grade-levels`);
