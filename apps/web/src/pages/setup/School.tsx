@@ -28,6 +28,9 @@ export function School() {
       <Link to="/setup/schools" className={linkButtonClass}>{t("setup.back")}</Link>
       <h1 className="mb-4 mt-2 text-2xl font-semibold" data-testid="school-title">{school.name}</h1>
       <Link to={`/setup/schools/${school.id}/wizard`} className={`${linkButtonClass} mb-4 inline-block`} data-testid="open-wizard">{t("setup.wizard.open")}</Link>
+      {can("staff.read") && (
+        <Link to={`/setup/schools/${school.id}/staff`} className={`${linkButtonClass} mb-4 ms-4 inline-block`} data-testid="open-staff">{t("setup.staff.open")}</Link>
+      )}
       <ReadinessPanel schoolId={school.id} />
       <Info school={school} reload={schools.reload} />
       <SchoolProfile school={school} />

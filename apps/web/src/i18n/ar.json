@@ -312,6 +312,57 @@
       "yes": "نعم",
       "no": "لا",
       "independent": "مؤشران مستقلان: اكتمال الإعداد يقيس خطوات المعالج، والجاهزية للتسجيل تعريف المرحلة 2A كما هو."
+    },
+    "staff": {
+      "open": "الموظفون",
+      "title": "موظفو المدرسة",
+      "new": "موظف جديد",
+      "employeeCode": "الرقم الوظيفي",
+      "jobTitle": "المسمّى الوظيفي",
+      "effectiveFrom": "بداية التكليف",
+      "effectiveTo": "تاريخ الانتهاء",
+      "hasAccount": "له حساب دخول",
+      "noAccount": "بلا حساب",
+      "person": "البيانات الشخصية",
+      "statusTitle": "حالة الموظف",
+      "toLeave": "إجازة",
+      "toActive": "عودة من الإجازة",
+      "toEnded": "إنهاء الخدمة",
+      "assignments": "تكليفات المدارس",
+      "primary": "أساسي",
+      "endAssignment": "إنهاء التكليف",
+      "specialties": "التخصصات",
+      "specialty": "التخصص",
+      "qualifications": "المؤهلات",
+      "degreeLabel": "الدرجة",
+      "field": "المجال",
+      "institution": "الجهة المانحة",
+      "graduationYear": "سنة التخرج",
+      "disable": "تعطيل",
+      "enable": "تفعيل",
+      "fields": {
+        "first_name": "الاسم الأول",
+        "father_name": "اسم الأب",
+        "grandfather_name": "اسم الجد",
+        "family_name": "اسم العائلة",
+        "national_id": "الرقم القومي",
+        "phone_e164": "الهاتف",
+        "email": "البريد الإلكتروني"
+      },
+      "degree": {
+        "diploma": "دبلوم",
+        "bachelor": "بكالوريوس / ليسانس",
+        "higher_diploma": "دبلوم عالٍ",
+        "master": "ماجستير",
+        "doctorate": "دكتوراه",
+        "other": "أخرى"
+      },
+      "statusLabel": {
+        "active": "نشط",
+        "on_leave": "في إجازة",
+        "ended": "منتهي",
+        "archived": "مؤرشف"
+      }
     }
   }
 }

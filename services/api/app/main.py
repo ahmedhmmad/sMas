@@ -11,6 +11,7 @@ F3: `Origin` يحدد سياق الدخول فقط («أين يُبحث عن ا�
   /schools/{id}/students/export         قناة التصدير منفصلة عن القراءة (P3) + تدقيق
   /platform/tenants[/{id}]              قراءة Platform Admin لبيانات Tenant — دالة M29 تقرأ وتدقّق (N5)
   Phase 2A (setup.py)                   إعداد المدرسة — CRUD تحت RLS ودوال M21/M33–M37 المتحكَّم بها
+  Phase 3A (staff.py)                   ملف الموظف — staff بالعلاقة، provision_staff، set_staff_status، end_staff_assignment، M46
 """
 
 import uuid
@@ -22,7 +23,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from . import account_login, accounts, assets, first_login, onboarding, setup, student_login, students
+from . import account_login, accounts, assets, first_login, onboarding, setup, staff, student_login, students
 from .audit import write_access_audit
 from .auth_admin import AuthAdmin
 from .config import load_settings, origin_base
@@ -82,6 +83,7 @@ app.include_router(accounts.router)
 app.include_router(onboarding.router)
 app.include_router(setup.router)                # Phase 2A — إعداد المدرسة
 app.include_router(assets.router)               # Phase 2B-4 — ملف المدرسة وأصولها
+app.include_router(staff.router)                # Phase 3A / 3-1 — ملف الموظف
 
 
 @app.exception_handler(psycopg.errors.InsufficientPrivilege)

@@ -172,7 +172,15 @@ def test_phase2_acceptance_path(client, admin, ids):
             "bell_periods", "grade_level_bell_schedules", "school_assets"} <= tables
 
 
+# ما أضافته المراحل اللاحقة لخط أساس المرحلة 2 — كل إضافة بقرار مرحلتها (لا تعديل على المرحلة 2 نفسها)
+_AFTER_PHASE2_TABLES = {"staff_specialties", "staff_qualifications"}   # Phase 3A / 3-1 (M46)
+_AFTER_PHASE2_KEYS: set[str] = set()                                     # Phase 3A / 3-4: *.read_assigned (P3) — حين تُنفَّذ
+
+
 def test_no_phase2_schema_or_permission_drift(admin):
-    """2B-6 لا يضيف شيئاً: الكتالوج 75، والجداول 39 — كما تركتها 2B-4."""
-    assert admin.execute("select count(*) n from public.permissions").fetchone()["n"] == 75
-    assert admin.execute("select count(*) n from pg_tables where schemaname = 'public'").fetchone()["n"] == 39
+    """2B-6 لا يضيف شيئاً: الكتالوج 75، والجداول 39 — كما تركتها 2B-4. خط الأساس محفوظ بعد المراحل اللاحقة:
+    ما زاد عليه هو بالضبط ما سجلته تلك المراحل أعلاه، ولا شيء من المرحلة 2 حُذف."""
+    keys = {r["code"] for r in admin.execute("select code from public.permissions").fetchall()}
+    assert len(keys - _AFTER_PHASE2_KEYS) == 75 and _AFTER_PHASE2_KEYS <= keys
+    tables = {r["tablename"] for r in admin.execute("select tablename from pg_tables where schemaname = 'public'").fetchall()}
+    assert len(tables - _AFTER_PHASE2_TABLES) == 39 and _AFTER_PHASE2_TABLES <= tables

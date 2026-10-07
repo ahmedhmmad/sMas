@@ -54,6 +54,8 @@ insert into expected values
   ('grade_level_bell_schedules','academic_year_id,bell_schedule_id,grade_level_id,school_id', 'bell_schedule_id'),   -- M43: تغيير الإسناد وحده
   ('school_profiles',           'address,email,phone_e164,principal_display_name,school_id,website', 'address,email,phone_e164,principal_display_name,website'),   -- M45
   ('school_assets',             '', ''),     -- M45: لا كتابة للعميل — register/retire_school_asset
+  ('staff_specialties',         'name,platform_tenant_id,staff_id', 'name,status'),   -- M46: يولد active، الموظف والـTenant ثابتان
+  ('staff_qualifications',      'degree,field,graduation_year,institution,notes,platform_tenant_id,staff_id', 'degree,field,graduation_year,institution,notes,status'),   -- M46
   ('staff',                     '', 'birth_date,email,family_name,father_name,first_name,gender,grandfather_name,hire_date,national_id,phone_e164'),
   ('staff_school_assignments',  'effective_from,is_primary,job_title,platform_tenant_id,school_id,staff_id', 'is_primary,job_title'),
   ('stages',                    'name,school_id,sequence_no,status', 'name,sequence_no,status'),   -- M35: school_id ثابت
@@ -156,13 +158,13 @@ select pg_temp.rec('x.uncategorized', $q$select coalesce(string_agg(p.oid::regpr
 select pg_temp.rec('x.allowlist_missing', $q$select coalesce(string_agg(f::text, ','), 'none') from controlled_allowlist
   where not has_function_privilege('authenticated', f, 'EXECUTE')$q$);
 
-select plan(39 + 1 + 24 + 9 + 5 + 1);
+select plan(41 + 1 + 24 + 9 + 5 + 1);
 
 -- ---------- السجل: كل جدول بالاسم ----------
 select is(coalesce(a.ins, '<missing>') || ' | ' || coalesce(a.upd, '<missing>'), e.ins || ' | ' || e.upd,
           format('%s: INSERT | UPDATE columns match §4.6', e.t))
   from expected e left join actual a using (t) order by e.t;
-select set_eq('select t from actual', 'select t from expected', 'the registry covers exactly the 39 tables (29 Foundation + login_challenges + 2 subjects + 2 calendar + 3 bell schedules + 2 profile/assets)');
+select set_eq('select t from actual', 'select t from expected', 'the registry covers exactly the 41 tables (29 Foundation + login_challenges + 2 subjects + 2 calendar + 3 bell schedules + 2 profile/assets + 2 staff profile)');
 
 -- ---------- الرفض السلوكي ----------
 select ok((select v from r where k = 'b.roles_status')     like 'ERR 42501%permission denied%roles%',                    'M19: roles.status is not client-writable');

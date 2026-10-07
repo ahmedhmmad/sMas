@@ -1351,6 +1351,46 @@ CREATE TRIGGER audit_log_no_truncate
 
 ---
 
+### 2.37 `staff_specialties` — [I] ✅ M46 (Phase 3A / 3-1)
+
+تخصصات الموظف (P12): **تتبع الشخص لا المدرسة** (ثابت 3) — بلا `school_id`، وتُرى **بالعلاقة** كـ`staff` (§1.1 بند 11). نص حر: لا ربط بـ`subjects` (كتالوج مدرسي، والموظف عبر المدارس)، ولا يُشترط تطابقه مع مادة التكليف. التصميم: `docs/PHASE3_SCOPE.md` §1.
+
+| العمود | النوع | NULL | ملاحظات |
+|---|---|---|---|
+| `id` | uuid | NOT NULL | PK |
+| `platform_tenant_id` | uuid | NOT NULL | FK → `platform_tenants`؛ ثابت |
+| `staff_id` | uuid | NOT NULL | FK مركّب `(staff_id, platform_tenant_id)` → `staff` (§0.6)؛ ثابت |
+| `name` | text | NOT NULL | مشذَّب غير فارغ، ≤ 120؛ فريد لكل موظف |
+| `status` | text | NOT NULL | `active` \| `inactive` — يولد `active`؛ التعطيل بديل الحذف |
+| `created_at`, `created_by`, `updated_at`, `updated_by` | | | الأعمدة المشتركة (T6) |
+
+**القيود:** `staff_specialties_pkey`، `staff_specialties_staff_fk`، `staff_specialties_tenant_fk`، `staff_specialties_name_uq (staff_id, name)`، `staff_specialties_name_chk`، `staff_specialties_status_chk`، `…_created_by_fk`، `…_updated_by_fk`؛ فهارس: `(staff_id, platform_tenant_id)`، `platform_tenant_id`، `created_by`، `updated_by`.
+**الامتيازات:** INSERT `(platform_tenant_id, staff_id, name)`؛ UPDATE `(name, status)`؛ لا DELETE. **RLS:** `platform_tenant_id = current_tenant_id()` ∧ `staff.read` (SELECT) / `staff.update` (INSERT، UPDATE) ∧ `app.staff_in_scope(staff_id)`. T6، T7؛ بلا حارس. **PD1:** أعمدة مهنية فقط.
+
+---
+
+### 2.38 `staff_qualifications` — [I] ✅ M46 (Phase 3A / 3-1)
+
+مؤهلات الموظف (P12) — الملكية والرؤية كـ§2.37.
+
+| العمود | النوع | NULL | ملاحظات |
+|---|---|---|---|
+| `id` | uuid | NOT NULL | PK |
+| `platform_tenant_id` | uuid | NOT NULL | FK → `platform_tenants`؛ ثابت |
+| `staff_id` | uuid | NOT NULL | FK مركّب `(staff_id, platform_tenant_id)` → `staff`؛ ثابت |
+| `degree` | text | NOT NULL | `diploma` \| `bachelor` \| `higher_diploma` \| `master` \| `doctorate` \| `other` |
+| `field` | text | NOT NULL | غير فارغ، ≤ 200 |
+| `institution` | text | NULL | غير فارغ إن وُجد، ≤ 200 |
+| `graduation_year` | smallint | NULL | 1900..2100 |
+| `notes` | text | NULL | غير فارغ إن وُجد، ≤ 1000 |
+| `status` | text | NOT NULL | `active` \| `inactive` — يولد `active` |
+| `created_at`, `created_by`, `updated_at`, `updated_by` | | | الأعمدة المشتركة (T6) |
+
+**القيود:** `staff_qualifications_pkey`، `…_staff_fk`، `…_tenant_fk`، `…_degree_chk`، `…_field_chk`، `…_institution_chk`، `…_year_chk`، `…_notes_chk`، `…_status_chk`، `…_created_by_fk`، `…_updated_by_fk`؛ الفهارس كـ§2.37.
+**الامتيازات:** INSERT `(platform_tenant_id, staff_id, degree, field, institution, graduation_year, notes)`؛ UPDATE `(degree, field, institution, graduation_year, notes, status)`؛ لا DELETE. **RLS:** كـ§2.37.
+
+---
+
 ## 3. ملخص الفهارس (ERD §8)
 
 | الجدول | الفهرس | الغرض |
@@ -1430,7 +1470,7 @@ app.can_access_*() + app.has_permission() تبني عليه
 ## 6. ما تم استبعاده عمداً من Foundation
 
 - `subjects`, `grade_subjects`, `bell_schedules`, `periods`, `holidays` — المرحلة 2
-- `teaching_assignments`, `class_teacher_assignments`, `staff_specialties` — المرحلة 3 (لكن `teaching_assignments` يؤثر على سياسة RLS للمعلم في ERD §7.5 → تُكتب السياسة بشكل يستوعبه لاحقاً دون تعديل الجداول)
+- `teaching_assignments`, `class_teacher_assignments`, `staff_specialties` (✅ §2.37، M46) — المرحلة 3 (لكن `teaching_assignments` يؤثر على سياسة RLS للمعلم في ERD §7.5 → تُكتب السياسة بشكل يستوعبه لاحقاً دون تعديل الجداول)
 - `student_documents`, `student_notes`, `section_transfers`, `student_transfers` — المرحلة 4
 - كل جداول Attendance / Assessment / Finance / Communication / Timetable
 

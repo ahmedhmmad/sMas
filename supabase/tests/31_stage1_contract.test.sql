@@ -112,6 +112,8 @@ insert into expected_policies values
   ('grade_level_bell_schedules.grade_level_bell_schedules_insert:INSERT'), ('grade_level_bell_schedules.grade_level_bell_schedules_select:SELECT'), ('grade_level_bell_schedules.grade_level_bell_schedules_update:UPDATE'),
   ('school_profiles.school_profiles_insert:INSERT'), ('school_profiles.school_profiles_select:SELECT'), ('school_profiles.school_profiles_update:UPDATE'),   -- M45
   ('school_assets.school_assets_select:SELECT'),
+  ('staff_specialties.staff_specialties_insert:INSERT'), ('staff_specialties.staff_specialties_select:SELECT'), ('staff_specialties.staff_specialties_update:UPDATE'),   -- M46
+  ('staff_qualifications.staff_qualifications_insert:INSERT'), ('staff_qualifications.staff_qualifications_select:SELECT'), ('staff_qualifications.staff_qualifications_update:UPDATE'),
   ('staff.staff_update:UPDATE'), ('staff_school_assignments.staff_school_assignments_insert:INSERT'), ('staff_school_assignments.staff_school_assignments_select:SELECT'),
   ('staff_school_assignments.staff_school_assignments_update:UPDATE'), ('stages.stages_insert:INSERT'), ('stages.stages_select:SELECT'),
   ('stages.stages_update:UPDATE'), ('student_guardians.student_guardians_insert:INSERT'), ('student_guardians.student_guardians_select:SELECT'),
@@ -135,6 +137,8 @@ insert into expected_triggers values
   ('grade_level_bell_schedules.audit:tg_audit:AFTER INSERT OR DELETE OR UPDATE'), ('grade_level_bell_schedules.stamp:tg_stamp:BEFORE INSERT OR UPDATE'), ('grade_level_bell_schedules.guard:tg_grade_level_bell_schedule_guard:BEFORE INSERT OR UPDATE'),
   ('school_profiles.audit:tg_audit:AFTER INSERT OR DELETE OR UPDATE'), ('school_profiles.stamp:tg_stamp:BEFORE INSERT OR UPDATE'), ('school_profiles.guard:tg_school_profile_guard:BEFORE INSERT OR UPDATE'),   -- M45 (T16)
   ('school_assets.audit:tg_audit:AFTER INSERT OR DELETE OR UPDATE'), ('school_assets.stamp:tg_stamp:BEFORE INSERT OR UPDATE'), ('school_assets.guard:tg_school_asset_guard:BEFORE INSERT OR UPDATE'),
+  ('staff_specialties.audit:tg_audit:AFTER INSERT OR DELETE OR UPDATE'), ('staff_specialties.stamp:tg_stamp:BEFORE INSERT OR UPDATE'),   -- M46 (بلا حارس)
+  ('staff_qualifications.audit:tg_audit:AFTER INSERT OR DELETE OR UPDATE'), ('staff_qualifications.stamp:tg_stamp:BEFORE INSERT OR UPDATE'),
   ('audit_log.audit_log_immutable:tg_reject_mutation:BEFORE DELETE OR UPDATE'), ('audit_log.audit_log_no_truncate:tg_reject_mutation:BEFORE TRUNCATE'),
   ('auth_identities.audit:tg_audit:AFTER INSERT OR DELETE OR UPDATE'), ('auth_identities.stamp:tg_stamp:BEFORE INSERT OR UPDATE'),
   ('enrollments.audit:tg_audit:AFTER INSERT OR DELETE OR UPDATE'), ('enrollments.stamp:tg_stamp:BEFORE INSERT OR UPDATE'),
@@ -281,7 +285,7 @@ select ok((select v from r where k = 'i23.guardian')    like 'ERR 23505%guardian
 select ok((select v from r where k = 'i27.student')     like 'ERR 23503%student_guardians_student_fk%', 'I27: a guardian link cannot reference a student of another tenant');
 
 -- ---------- السياسات ----------
-select is((select count(*)::int from expected_policies), 84, 'the reviewed policy list has 84 policies (61 + 6 subjects M39 + 4 calendar M41 + 9 bell schedules M43 + 4 profile/assets M45)');
+select is((select count(*)::int from expected_policies), 90, 'the reviewed policy list has 90 policies (61 + 6 subjects M39 + 4 calendar M41 + 9 bell schedules M43 + 4 profile/assets M45 + 6 staff profile M46)');
 select set_eq($q$select tablename || '.' || policyname || ':' || cmd from pg_policies where schemaname in ('public', 'app')$q$,
               'select p from expected_policies', 'policies: exactly the reviewed set — none added, none dropped, no command changed');
 select is((select count(*)::int from pg_policies where schemaname = 'public' and (roles <> '{authenticated}' or permissive <> 'PERMISSIVE')), 0,

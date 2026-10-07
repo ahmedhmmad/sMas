@@ -188,6 +188,8 @@ begin
   insert into public.student_guardians (student_id, guardian_id, platform_tenant_id, relationship_type) values (v_st, v_g, p_tenant, 'father');
   insert into public.staff (platform_tenant_id, employee_code, first_name, family_name) values (p_tenant, 'E' || p_tag, 'E', 'E') returning id into v_staff;
   insert into public.staff_school_assignments (staff_id, school_id, platform_tenant_id, job_title, effective_from) values (v_staff, p_school, p_tenant, 'Teacher', '2026-09-01');
+  insert into public.staff_specialties (platform_tenant_id, staff_id, name) values (p_tenant, v_staff, 'Spec ' || p_tag);   -- M46
+  insert into public.staff_qualifications (platform_tenant_id, staff_id, degree, field) values (p_tenant, v_staff, 'bachelor', 'Field ' || p_tag);
 end $$;
 select pg_temp.people('10000000-0000-0000-0000-000000000001', '5a100000-0000-0000-0000-000000000001', '11');
 select pg_temp.people('20000000-0000-0000-0000-000000000002', '52a00000-0000-0000-0000-000000000005', '22');
