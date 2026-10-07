@@ -678,6 +678,10 @@ as $$
 $$;
 
 -- هل يملك الفاعل سلطة على العضوية كلها؟ (منح/سحب أدوار، إنهاء، تعديل profile)
+-- ✅ M47 (2026-10-07، Phase 3A / 3-2): أُضيف إلى المجموعة الأخيرة (عضوية بلا نطاقات) فرع الموظف —
+--     or exists (select 1 from public.staff st where st.profile_id = m.profile_id and app.staff_in_scope(st.id))
+--   نقطة دخول لأول منح لحساب موظف له تكليف مدرسة نشط ضمن نطاق الفاعل. امتداد متحكَّم به لـM12؛ كل ما عداه كما هو.
+--   (can_see_membership تحمل فرع الموظف منذ M12.) النص أدناه نص M12.
 create or replace function app.can_manage_membership(p_membership_id uuid)
 returns boolean
 language sql stable security definer set search_path = app, public, pg_temp

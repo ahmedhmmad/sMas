@@ -128,7 +128,7 @@
 | I18 | `permissions.code = resource.operation` | CHECK | |
 | I19 | صلاحيات الدور المُسنَد/المُعدَّل ⊆ صلاحيات الفاعل | **Trigger T8** | يعتمد على هوية الفاعل — لا بديل إعلاني |
 | I20 | النطاق الممنوح ⊆ نطاق الفاعل | RLS `WITH CHECK` | تفويض |
-| I21 | الفاعل يملك سلطة على العضوية الهدف | RLS (`app.can_manage_membership`) | **جديد** — §4.4 F4 |
+| I21 | الفاعل يملك سلطة على العضوية الهدف | RLS (`app.can_manage_membership`) | **جديد** — §4.4 F4؛ **M47**: + أول منح لعضوية موظف بلا نطاقات (تكليف نشط ضمن نطاق الفاعل) |
 
 **People**
 
@@ -770,6 +770,7 @@ helpers ─► state fns ─► provisioning fns ─► reference data
 | # | الـMigration | المحتوى | اختبار pgTAP |
 |---|---|---|---|
 | M31 ✅ | `security_relationship_source` | **S1:** `student_guardians.relationship_source` (`direct`\|`provisioned`، افتراضي `direct`، خارج GRANT)؛ `provision_guardian` تكتب `provisioned`؛ `guardian_account_for_issue` تشترط ارتباطاً `provisioned` نشطاً بطالب في النطاق الحالي. **S2:** `students_update` WITH CHECK += `family_id IS NULL OR family_in_scope(family_id)` | `32_security_relationship_source` ✅ 40/40 |
+| M47 ✅ | `staff_membership_grant` (Phase 3A / 3-2، P13، Q3) | `create or replace app.can_manage_membership`: نص M12 + فرع الموظف للعضوية بلا نطاقات (`staff_in_scope` — تكليف نشط ضمن نطاق الفاعل)؛ **امتداد متحكَّم به لـM12**، لا مفتاح ولا سياسة ولا تغيير في التوقيع/المالك/المنح؛ DB مصدر الحقيقة لأول منح لعضوية موظف | `46_staff_membership_grant` ✅ 40/40 — المصفوفة، الحالات العشر، وضابط سلبي داخل الحزمة (نص M12 يُفشل مسار مدير المدرسة) |
 | M46 ✅ | `staff_profile` (Phase 3A / 3-1، P12) | `staff_specialties` و`staff_qualifications` [I]: بلا `school_id`، FK مركّب بالـTenant، الرؤية والكتابة بالعلاقة (`staff_in_scope`) + `staff.read`/`staff.update`؛ RLS + FORCE، 6 سياسات بلا DELETE؛ الموظف والـTenant ثابتان، الصف يولد active؛ T6، T7؛ **بلا دالة ولا حارس ولا مفتاح**؛ PD1: أعمدة مهنية فقط | `45_staff_profile` ✅ 54/54؛ `11` (T7 على 39)، `13` (41)، `14` (fixture)، `20` (سجل ×2)، `31` (+6 سياسات، +4 triggers) |
 | M45 ✅ | `school_profile_assets` (Phase 2B / 2B-4، B2–B6؛ E1–E10) | `school_profiles` (1:1، CRUD) و`school_assets` (بلا كتابة للعميل)؛ RLS + FORCE، 4 سياسات؛ **T16**؛ المسار `{tenant}/{school}/{kind}/{id}.{ext}` تشتقه DB وتتحقق منه (CHECK + الحارس للـtenant)؛ نشط واحد لكل نوع/صفة مُطبَّعة؛ bucket خاص `school-assets` (PNG/JPEG، 1MiB) بلا سياسة عميل على `storage.objects`؛ `app_owner` يقرأ `storage.objects` (USAGE + SELECT) لفحص الاتساق وحده | `44_school_profile_assets` ✅ 74/74؛ `11` (T7 على 37)، `13` (39)، `14` (fixture)، `20` (سجل ×2، allowlist +3)، `31` (+4 سياسات، +6 triggers، 101 دالة) |
 | M44 ✅ | `copy_bell_schedules` (Phase 2B / 2B-3، B13) | `app.copy_bell_schedules` — الجداول وحصصها وإسناد الصفوف **ذرياً معاً** بعقد M37/M40/M42؛ التعارضات: جدول بالاسم معطَّل، حصة متداخلة لا تطابق (الوقت والنوع والاسم)، يوم ليس دوام نشطاً في الهدف (D4)، صف مُسنَد لجدول آخر | `43_copy_bell_schedules` ✅ 40/40؛ `20` (allowlist +1)؛ `31` |
