@@ -116,6 +116,7 @@ export function StaffDetail() {
       </p>
       <PersonCard staff={data} reload={reload} />
       <StatusCard staff={data} reload={reload} />
+      <AccessCard staff={data} schoolId={schoolId!} />
       <AssignmentsCard staffId={data.id} />
       <SpecialtiesCard staffId={data.id} />
       <QualificationsCard staffId={data.id} />
@@ -313,6 +314,105 @@ function QualificationsCard({ staffId }: { staffId: string }) {
         </form>
       )}
       <ActionError code={action.error} testId="staff-qualification-error" />
+    </Card>
+  );
+}
+
+// ------------------------------------------------------------------ 3-2: الحساب والصلاحيات
+type Access = {
+  has_account: boolean; email: string | null; membership_status: string | null; can_login: boolean;
+  roles: { id: string; code: string; name: string }[];
+  scopes: { scope_type: string; school_id: string | null; school_code: string | null; name: string | null }[];
+};
+type RoleOption = { id: string; code: string; name: string; assignable: boolean };
+
+// لا تفويض هنا: الخادم و DB (M47، سياسة النطاق، T8) يقررون؛ «قابل للإسناد» عرض فقط. المدرسة والموظف والدور أهداف في المسار.
+function AccessCard({ staff, schoolId }: { staff: Staff; schoolId: string }) {
+  const { can } = useAuth();
+  const visible = can("membership.read");
+  const { data, reload } = useApi<Access>(visible ? `/staff/${staff.id}/access` : null);
+  const roles = useApi<{ rows: RoleOption[] }>(visible && can("role.assign") ? `/staff/${staff.id}/access/assignable-roles` : null);
+  const action = useAction(reload);
+  const [roleId, setRoleId] = useState("");
+  if (!visible || !data) return null;
+  const options = roles.data?.rows ?? [];
+  const held = new Set(data.roles.map((r) => r.id));
+  const hasSchoolScope = data.scopes.some((s) => s.school_id === schoolId);
+  const picker = (testId: string, exclude: Set<string>) => (
+    <select className={inputClass} data-testid={testId} required value={roleId} onChange={(e) => setRoleId(e.target.value)}>
+      <option value="">{t("setup.staff.access.chooseRole")}</option>
+      {options.filter((r) => !exclude.has(r.id)).map((r) => (
+        <option key={r.id} value={r.id} disabled={!r.assignable}>{r.name}{r.assignable ? "" : ` — ${t("setup.staff.access.notAssignable")}`}</option>
+      ))}
+    </select>
+  );
+  return (
+    <Card title={t("setup.staff.access.title")} testId="staff-access">
+      {!data.has_account ? (
+        <>
+          <p className="mb-3 text-sm text-slate-600" data-testid="staff-access-none">{t("setup.staff.access.noAccount")}</p>
+          {!staff.email && <p className="mb-3 text-sm text-amber-700" data-testid="staff-access-email-needed">{t("setup.staff.access.emailNeeded")}</p>}
+          {can("membership.create") && can("role.assign") && staff.email && (
+            <form className="flex flex-wrap items-end gap-2"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (await action.run(() => api(`/schools/${schoolId}/staff/${staff.id}/account`, { method: "POST", body: { role_id: roleId } }))) setRoleId("");
+              }}>
+              <Field label={t("setup.staff.access.role")}>{picker("staff-access-role", new Set())}</Field>
+              <button type="submit" className={buttonClass} data-testid="staff-access-activate" disabled={action.busy}>{t("setup.staff.access.activate")}</button>
+            </form>
+          )}
+        </>
+      ) : (
+        <>
+          <p className="mb-3 text-sm" data-testid="staff-access-ready" data-can-login={String(data.can_login)}>
+            {t(data.can_login ? "setup.staff.access.ready" : "setup.staff.access.notReady")}{" "}
+            <span dir="ltr" className="font-mono">{data.email}</span>
+          </p>
+          <h3 className="mb-1 text-sm font-medium">{t("setup.staff.access.roles")}</h3>
+          <ul className="mb-3 divide-y text-sm">
+            {data.roles.map((r) => (
+              <li key={r.id} data-testid={`staff-access-role-${r.code}`} className="flex flex-wrap items-center gap-3 py-2">
+                <span className="flex-1">{r.name}</span>
+                {can("role.assign") && (
+                  <ReasonAction label={t("setup.staff.access.revoke")} testId={`staff-access-role-revoke-${r.code}`} busy={action.busy}
+                    onConfirm={(reason) => action.run(() => api(`/staff/${staff.id}/access/roles/${r.id}/revoke`, { method: "POST", body: { reason } }))} />
+                )}
+              </li>
+            ))}
+          </ul>
+          <h3 className="mb-1 text-sm font-medium">{t("setup.staff.access.scopes")}</h3>
+          <ul className="mb-3 divide-y text-sm">
+            {data.scopes.length === 0 && <li className="py-2 text-slate-500" data-testid="staff-access-no-scope">{t("setup.staff.access.noScope")}</li>}
+            {data.scopes.map((s) => (
+              <li key={`${s.scope_type}-${s.school_id}`} data-testid={`staff-access-scope-${s.school_code ?? s.scope_type}`} className="flex flex-wrap items-center gap-3 py-2">
+                <span className="flex-1">{s.name ?? t(`setup.staff.access.scopeType.${s.scope_type}`)}</span>
+                {can("scope.assign") && s.school_id === schoolId && (
+                  <ReasonAction label={t("setup.staff.access.revoke")} testId="staff-access-scope-revoke" busy={action.busy}
+                    onConfirm={(reason) => action.run(() => api(`/schools/${schoolId}/staff/${staff.id}/access-scope/revoke`, { method: "POST", body: { reason } }))} />
+                )}
+              </li>
+            ))}
+          </ul>
+          {can("scope.assign") && !hasSchoolScope && (
+            <button type="button" className={`${linkButtonClass} mb-3 block`} data-testid="staff-access-scope-grant" disabled={action.busy}
+              onClick={() => void action.run(() => api(`/schools/${schoolId}/staff/${staff.id}/access-scope`, { method: "POST" }))}>
+              {t("setup.staff.access.grantScope")}
+            </button>
+          )}
+          {can("role.assign") && (
+            <form className="flex flex-wrap items-end gap-2"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (await action.run(() => api(`/staff/${staff.id}/access/roles/${roleId}`, { method: "POST" }))) setRoleId("");
+              }}>
+              <Field label={t("setup.staff.access.addRole")}>{picker("staff-access-role-add", held)}</Field>
+              <button type="submit" className={buttonClass} data-testid="staff-access-role-grant" disabled={action.busy}>{t("setup.staff.access.grant")}</button>
+            </form>
+          )}
+        </>
+      )}
+      <ActionError code={action.error} testId="staff-access-error" />
     </Card>
   );
 }

@@ -37,6 +37,19 @@ export async function loginStaff(email: string, password: string): Promise<void>
   await adopt(session, "staff");
 }
 
+// 3-2 (P14): الموظف الجديد بلا كلمة مرور — يدخل برمز تحقق على بريده المسجل (D3)؛ المسار نفسه لولي الأمر بنوع staff
+export async function requestStaffCode(email: string): Promise<void> {
+  await api("/auth/otp/request", { method: "POST", auth: false, body: { kind: "staff", contact: email } });
+}
+
+export async function verifyStaffCode(email: string, code: string): Promise<void> {
+  const session = await api<Session>("/auth/otp/verify", {
+    method: "POST", auth: false,
+    body: { kind: "staff", contact: email, code },
+  });
+  await adopt(session, "staff");
+}
+
 export async function loginStudent(identifier: string, password: string): Promise<void> {
   const session = await api<Session>("/auth/student/login", {
     method: "POST", auth: false,

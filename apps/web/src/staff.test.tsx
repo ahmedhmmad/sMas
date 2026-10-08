@@ -193,3 +193,82 @@ describe("staff detail", () => {
     expect(await screen.findByText(t("state.notFound"))).toBeInTheDocument();
   });
 });
+
+describe("staff access (3-2)", () => {
+  const ROLES = { rows: [
+    { id: "r-teacher", code: "teacher", name: "Teacher", assignable: true },
+    { id: "r-ta", code: "tenant_admin", name: "Tenant admin", assignable: false },
+  ] };
+  const NONE = { has_account: false, email: "sara@example.test", membership_status: null, can_login: false, roles: [], scopes: [] };
+  const READY = { has_account: true, email: "sara@example.test", membership_status: "active", can_login: true,
+    roles: [{ id: "r-teacher", code: "teacher", name: "Teacher" }],
+    scopes: [{ scope_type: "school", school_id: "s1", school_code: "ZT1", name: "ZT One" }] };
+  const ADMIN = ["staff.read", "membership.read", "membership.create", "role.assign", "scope.assign"];
+
+  it("no card and no request without membership.read (teacher, secretary)", async () => {
+    auth.permissions = ["staff.read"];
+    route("/setup/schools/s1/staff/e1", detail());
+    await screen.findByTestId("staff-detail");
+    await screen.findByTestId("staff-specialty-Math");
+    expect(screen.queryByTestId("staff-access")).toBeNull();
+    expect(calls().some((c) => c.path.includes("/access"))).toBe(false);
+  });
+
+  it("activation is one call: the school and staff are in the path, the body carries the role only", async () => {
+    auth.permissions = ADMIN;
+    route("/setup/schools/s1/staff/e1", detail({ "/staff/e1/access": NONE, "/staff/e1/access/assignable-roles": ROLES,
+      "POST /schools/s1/staff/e1/account": READY }));
+    const user = userEvent.setup();
+    await screen.findByTestId("staff-access-none");
+    await user.selectOptions(screen.getByTestId("staff-access-role"), "r-teacher");
+    await user.click(screen.getByTestId("staff-access-activate"));
+    await waitFor(() => expect(calls().some((c) => c.method === "POST")).toBe(true));
+    const post = calls().find((c) => c.method === "POST")!;
+    expect(post.path).toBe("/schools/s1/staff/e1/account");
+    expect(post.body).toEqual({ role_id: "r-teacher" });
+  });
+
+  it("a role beyond the session's authority is offered disabled (display) — the server decides", async () => {
+    auth.permissions = ADMIN;
+    route("/setup/schools/s1/staff/e1", detail({ "/staff/e1/access": NONE, "/staff/e1/access/assignable-roles": ROLES }));
+    await screen.findByTestId("staff-access-none");
+    const select = await screen.findByTestId("staff-access-role");
+    await waitFor(() => expect(select.querySelectorAll("option").length).toBe(3));
+    const option = Array.from(select.querySelectorAll("option")).find((o) => o.value === "r-ta")!;
+    expect(option.disabled).toBe(true);
+  });
+
+  it("without a registered email there is no activation form", async () => {
+    auth.permissions = ADMIN;
+    route("/setup/schools/s1/staff/e1", { ...detail({ "/staff/e1/access": { ...NONE, email: null }, "/staff/e1/access/assignable-roles": ROLES }),
+      "/staff/e1": { ...STAFF, email: null } });
+    expect(await screen.findByTestId("staff-access-email-needed")).toBeInTheDocument();
+    expect(screen.queryByTestId("staff-access-activate")).toBeNull();
+  });
+
+  it("revoking a role sends the reason only; a T8 refusal is shown translated, never the keys", async () => {
+    auth.permissions = ADMIN;
+    route("/setup/schools/s1/staff/e1", detail({ "/staff/e1/access": READY, "/staff/e1/access/assignable-roles": ROLES,
+      "POST /staff/e1/access/roles/r-teacher/revoke": new ApiError(403, "role_exceeds_authority") }));
+    const user = userEvent.setup();
+    expect(await screen.findByTestId("staff-access-ready")).toHaveAttribute("data-can-login", "true");
+    expect(screen.getByTestId("staff-access-scope-ZT1")).toHaveTextContent("ZT One");
+    await user.click(screen.getByTestId("staff-access-role-revoke-teacher"));
+    await user.type(screen.getByTestId("staff-access-role-revoke-teacher-reason"), "left");
+    await user.click(screen.getByTestId("staff-access-role-revoke-teacher-confirm"));
+    const error = await screen.findByTestId("staff-access-error");
+    expect(error).toHaveTextContent(errorText("role_exceeds_authority"));
+    expect(error.textContent).not.toMatch(/T8|[a-z_]+\.[a-z_]+/);
+    expect(calls().find((c) => c.path.endsWith("/revoke"))!.body).toEqual({ reason: "left" });
+  });
+
+  it("read-only with membership.read alone: no activate, grant or revoke controls", async () => {
+    auth.permissions = ["staff.read", "membership.read"];
+    route("/setup/schools/s1/staff/e1", detail({ "/staff/e1/access": READY }));
+    await screen.findByTestId("staff-access-ready");
+    for (const id of ["staff-access-role-revoke-teacher", "staff-access-scope-revoke", "staff-access-role-grant", "staff-access-scope-grant"]) {
+      expect(screen.queryByTestId(id)).toBeNull();
+    }
+    expect(calls().some((c) => c.path.endsWith("/assignable-roles"))).toBe(false);
+  });
+});

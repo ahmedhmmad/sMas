@@ -2,9 +2,7 @@
 import { type FormEvent, useState } from "react";
 import { Link, Navigate } from "react-router";
 import { useAuth } from "../auth/AuthProvider";
-import {
-  loginGuardianPassword, loginStaff, loginStudent, requestGuardianCode, verifyGuardianCode,
-} from "../auth/loginFlows";
+import { loginGuardianPassword, loginStaff, loginStudent, requestGuardianCode, requestStaffCode, verifyGuardianCode, verifyStaffCode } from "../auth/loginFlows";
 import { ContextLabel } from "../components/ContextLabel";
 import { getHostContext } from "../context/appContext";
 import { errorText, t } from "../i18n";
@@ -57,17 +55,39 @@ export function useSubmit() {
 function StaffForm({ done }: { done: () => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
+  // كلمة المرور افتراضاً؛ رمز التحقق على البريد للحساب الجديد (3-2، P14) وللاسترداد (D3)
+  const [mode, setMode] = useState<"password" | "otp">("password");
+  const [sent, setSent] = useState(false);
   const { busy, error, run } = useSubmit();
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    void run(async () => { await loginStaff(email, password); done(); });
+    if (mode === "password") void run(async () => { await loginStaff(email, password); done(); });
+    else if (!sent) void run(async () => { await requestStaffCode(email); setSent(true); });
+    else void run(async () => { await verifyStaffCode(email, code); done(); });
   };
   return (
     <form onSubmit={submit} className="space-y-4" data-testid="form-staff">
       <Field id="staff-email" labelKey="login.email" type="email" autoComplete="username" value={email} onChange={setEmail} />
-      <Field id="staff-password" labelKey="login.password" type="password" autoComplete="current-password" value={password} onChange={setPassword} />
+      {mode === "password" && (
+        <Field id="staff-password" labelKey="login.password" type="password" autoComplete="current-password" value={password} onChange={setPassword} />
+      )}
+      {mode === "otp" && sent && (
+        <>
+          <p data-testid="staff-otp-sent" className="text-sm text-slate-600">{t("login.codeSent")}</p>
+          <Field id="staff-code" labelKey="login.code" autoComplete="one-time-code" value={code} onChange={setCode} />
+        </>
+      )}
       {error && <p role="alert" data-testid="login-error" className="text-red-700">{error}</p>}
-      <Submit labelKey="login.submit" busy={busy} testId="staff-submit" />
+      <Submit labelKey={mode === "password" ? "login.submit" : sent ? "login.verify" : "login.sendCode"} busy={busy} testId="staff-submit" />
+      <button
+        type="button"
+        data-testid="staff-mode"
+        className="w-full text-sm text-emerald-700"
+        onClick={() => { setMode(mode === "otp" ? "password" : "otp"); setSent(false); }}
+      >
+        {t(mode === "otp" ? "login.usePassword" : "login.useOtp")}
+      </button>
     </form>
   );
 }

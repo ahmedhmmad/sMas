@@ -1,7 +1,7 @@
 // Phase 3A / 3-1 — ملف الموظف في المتصفح: مدير المدرسة ينشئ موظفاً ويكمل ملفه؛ المعلم يقرأ ولا يكتب؛ السكرتير لا يرى.
 // الإخفاء في الواجهة عرض فقط: كل «ممنوع» يتجاوز الواجهة باستدعاء الـAPI مباشرة بجلسة المستخدم نفسها ويثبت رفض الخادم.
 import { expect, type Page, test } from "@playwright/test";
-import { fx, go, staffLogin } from "./helpers";
+import { clearOtp, fx, go, readOtp, staffLogin } from "./helpers";
 
 const API = "http://127.0.0.1:8000";
 const RUN = Date.now().toString(36).toUpperCase().slice(-5);
@@ -114,4 +114,62 @@ test("secretary: no staff link, and the API shows no staff (no staff.read)", asy
   await expect(page.getByTestId("open-staff")).toHaveCount(0);
   const list = await direct(page, "GET", `/schools/${sa}/staff`);
   expect(list).toEqual({ status: 200, json: { rows: [] } });
+});
+
+// ------------------------------------------------------------------ 3-2: الحساب والدور والنطاق
+test("school admin activates a new staff account; the staff member really logs in by OTP from the school host", async ({ page }) => {
+  test.setTimeout(120_000);
+  clearOtp();
+  const sa = fx().schools.SA;
+  const code = `ZTW-A${RUN}`;
+  const email = `${code.toLowerCase()}@example.test`;
+  await staffLogin(page, "school.admin@dev.smas.test");
+  await go(page, `/setup/schools/${sa}/staff`);
+  await page.getByTestId("staff-new-code").fill(code);
+  await page.getByTestId("staff-new-first_name").fill("منى");
+  await page.getByTestId("staff-new-family_name").fill("سالم");
+  await page.getByTestId("staff-new-job").fill("معلمة علوم");
+  await page.getByTestId("staff-new-email").fill(email);
+  await page.getByTestId("staff-new-submit").click();
+  await expect(page.getByTestId("staff-access-none")).toBeVisible();
+  const staffId = new URL(page.url()).pathname.split("/").pop()!;
+
+  // الدور الذي يتجاوز صلاحيات مدير المدرسة معروض معطَّلاً (عرض) — والخادم يرفضه حين تُتجاوز الواجهة، بلا أثر
+  const roles = (await direct(page, "GET", `/staff/${staffId}/access/assignable-roles`)).json as { rows: { id: string; code: string; assignable: boolean }[] };
+  const byCode = Object.fromEntries(roles.rows.map((r) => [r.code, r]));
+  expect(byCode.tenant_admin.assignable).toBe(false);
+  const refused = await direct(page, "POST", `/schools/${sa}/staff/${staffId}/account`, { role_id: byCode.tenant_admin.id });
+  expect(refused).toEqual({ status: 403, json: { detail: "role_exceeds_authority" } });
+  expect(((await direct(page, "GET", `/staff/${staffId}/access`)).json as { has_account: boolean }).has_account).toBe(false);
+  // لا سياق من الجسم: مدرسة أخرى في الجسم مرفوضة شكلاً
+  expect((await direct(page, "POST", `/schools/${sa}/staff/${staffId}/account`, { role_id: byCode.teacher.id, school_id: fx().schools.SB })).status).toBe(422);
+
+  // التفعيل من الواجهة: نداء واحد
+  await page.getByTestId("staff-access-role").selectOption(byCode.teacher.id);
+  await page.getByTestId("staff-access-activate").click();
+  await expect(page.getByTestId("staff-access-ready")).toHaveAttribute("data-can-login", "true");
+  await expect(page.getByTestId("staff-access-role-teacher")).toBeVisible();
+  await expect(page.locator("[data-testid^='staff-access-scope-']").first()).toBeVisible();
+  await page.getByTestId("logout").click();
+
+  // الموظف الجديد: رمز تحقق على بريده من host المدرسة
+  await page.getByTestId("tab-staff").click();
+  await page.getByTestId("staff-mode").click();
+  await page.getByTestId("staff-email").fill(email);
+  await page.getByTestId("staff-submit").click();
+  await expect(page.getByTestId("staff-otp-sent")).toBeVisible();
+  await page.getByTestId("staff-code").fill(await readOtp(email));
+  await page.getByTestId("staff-submit").click();
+  await expect(page.getByTestId("dashboard")).toBeVisible();
+  await expect(page.getByTestId("nav-students")).toBeVisible();          // مفاتيح المعلم
+  await expect(page.getByTestId("nav-groups")).toHaveCount(0);
+
+  // يرى موظفي مدرسته ولا يدير الوصول: لا قسم، والخادم يرفض
+  await go(page, `/setup/schools/${sa}/staff/${staffId}`);
+  await expect(page.getByTestId("staff-detail")).toBeVisible();
+  await expect(page.getByTestId("staff-access")).toHaveCount(0);
+  expect((await direct(page, "GET", `/staff/${staffId}/access`)).status).toBe(403);
+  // بلا membership.read العضوية غير مرئية ← غير موجودة (404)، لا «مرئي ومرفوض»
+  expect((await direct(page, "POST", `/staff/${staffId}/access/roles/${byCode.secretary.id}`)).status).toBe(404);
+  expect((await direct(page, "GET", `/schools/${fx().schools.SB}/staff`)).status).toBe(404);
 });
