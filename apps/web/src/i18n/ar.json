@@ -390,6 +390,17 @@
           "tenant": "نطاق الجهة"
         }
       }
+    },
+    "assignments": {
+      "title": "التكليفات",
+      "noSections": "لا شعب نشطة في هذه السنة.",
+      "classTeacher": "مربي الفصل",
+      "unassigned": "غير مكلَّف",
+      "suspended": "معلَّق",
+      "chooseStaff": "اختر الموظف",
+      "assign": "تكليف",
+      "replace": "استبدال",
+      "end": "إنهاء التكليف"
     }
   }
 }

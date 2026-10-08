@@ -114,6 +114,8 @@ insert into expected_policies values
   ('school_assets.school_assets_select:SELECT'),
   ('staff_specialties.staff_specialties_insert:INSERT'), ('staff_specialties.staff_specialties_select:SELECT'), ('staff_specialties.staff_specialties_update:UPDATE'),   -- M46
   ('staff_qualifications.staff_qualifications_insert:INSERT'), ('staff_qualifications.staff_qualifications_select:SELECT'), ('staff_qualifications.staff_qualifications_update:UPDATE'),
+  ('teaching_assignments.teaching_assignments_insert:INSERT'), ('teaching_assignments.teaching_assignments_select:SELECT'),   -- M48: لا UPDATE ولا DELETE
+  ('class_teacher_assignments.class_teacher_assignments_insert:INSERT'), ('class_teacher_assignments.class_teacher_assignments_select:SELECT'),
   ('staff.staff_update:UPDATE'), ('staff_school_assignments.staff_school_assignments_insert:INSERT'), ('staff_school_assignments.staff_school_assignments_select:SELECT'),
   ('staff_school_assignments.staff_school_assignments_update:UPDATE'), ('stages.stages_insert:INSERT'), ('stages.stages_select:SELECT'),
   ('stages.stages_update:UPDATE'), ('student_guardians.student_guardians_insert:INSERT'), ('student_guardians.student_guardians_select:SELECT'),
@@ -139,6 +141,8 @@ insert into expected_triggers values
   ('school_assets.audit:tg_audit:AFTER INSERT OR DELETE OR UPDATE'), ('school_assets.stamp:tg_stamp:BEFORE INSERT OR UPDATE'), ('school_assets.guard:tg_school_asset_guard:BEFORE INSERT OR UPDATE'),
   ('staff_specialties.audit:tg_audit:AFTER INSERT OR DELETE OR UPDATE'), ('staff_specialties.stamp:tg_stamp:BEFORE INSERT OR UPDATE'),   -- M46 (بلا حارس)
   ('staff_qualifications.audit:tg_audit:AFTER INSERT OR DELETE OR UPDATE'), ('staff_qualifications.stamp:tg_stamp:BEFORE INSERT OR UPDATE'),
+  ('teaching_assignments.audit:tg_audit:AFTER INSERT OR DELETE OR UPDATE'), ('teaching_assignments.stamp:tg_stamp:BEFORE INSERT OR UPDATE'), ('teaching_assignments.guard:tg_teaching_assignment_guard:BEFORE INSERT OR UPDATE'),   -- M48 (T17)
+  ('class_teacher_assignments.audit:tg_audit:AFTER INSERT OR DELETE OR UPDATE'), ('class_teacher_assignments.stamp:tg_stamp:BEFORE INSERT OR UPDATE'), ('class_teacher_assignments.guard:tg_teaching_assignment_guard:BEFORE INSERT OR UPDATE'),
   ('audit_log.audit_log_immutable:tg_reject_mutation:BEFORE DELETE OR UPDATE'), ('audit_log.audit_log_no_truncate:tg_reject_mutation:BEFORE TRUNCATE'),
   ('auth_identities.audit:tg_audit:AFTER INSERT OR DELETE OR UPDATE'), ('auth_identities.stamp:tg_stamp:BEFORE INSERT OR UPDATE'),
   ('enrollments.audit:tg_audit:AFTER INSERT OR DELETE OR UPDATE'), ('enrollments.stamp:tg_stamp:BEFORE INSERT OR UPDATE'),
@@ -189,6 +193,8 @@ insert into expected_functions values
   ('copy_bell_day(uuid,smallint,smallint[],text)|app_owner|definer|app, public, pg_temp|authenticated'),   -- M43
   ('copy_bell_schedules(uuid,uuid,text)|app_owner|definer|app, public, pg_temp|authenticated'),           -- M44
   ('tg_school_profile_guard()|app_owner|definer|app, public, pg_temp|-'), ('tg_school_asset_guard()|app_owner|definer|app, public, pg_temp|-'),   -- T16 (M45)
+  ('tg_teaching_assignment_guard()|app_owner|definer|app, public, pg_temp|-'),   -- T17 (M48)
+  ('end_teaching_assignment(uuid,date,text)|app_owner|definer|app, public, pg_temp|authenticated'), ('end_class_teacher_assignment(uuid,date,text)|app_owner|definer|app, public, pg_temp|authenticated'),
   ('register_school_asset(uuid,uuid,text,text,text,integer,integer,integer,text,text)|app_owner|definer|app, public, pg_temp|authenticated'),   -- M45
   ('retire_school_asset(uuid,text)|app_owner|definer|app, public, pg_temp|authenticated'),
   ('authorize_asset_url(uuid)|app_owner|definer|app, public, pg_temp|authenticated'),
@@ -285,7 +291,7 @@ select ok((select v from r where k = 'i23.guardian')    like 'ERR 23505%guardian
 select ok((select v from r where k = 'i27.student')     like 'ERR 23503%student_guardians_student_fk%', 'I27: a guardian link cannot reference a student of another tenant');
 
 -- ---------- السياسات ----------
-select is((select count(*)::int from expected_policies), 90, 'the reviewed policy list has 90 policies (61 + 6 subjects M39 + 4 calendar M41 + 9 bell schedules M43 + 4 profile/assets M45 + 6 staff profile M46)');
+select is((select count(*)::int from expected_policies), 94, 'the reviewed policy list has 94 policies (61 + 6 subjects M39 + 4 calendar M41 + 9 bell schedules M43 + 4 profile/assets M45 + 6 staff profile M46 + 4 assignments M48)');
 select set_eq($q$select tablename || '.' || policyname || ':' || cmd from pg_policies where schemaname in ('public', 'app')$q$,
               'select p from expected_policies', 'policies: exactly the reviewed set — none added, none dropped, no command changed');
 select is((select count(*)::int from pg_policies where schemaname = 'public' and (roles <> '{authenticated}' or permissive <> 'PERMISSIVE')), 0,
@@ -300,12 +306,12 @@ select set_eq($q$select c.relname || '.' || t.tgname || ':' || replace(t.tgfoid:
                         substring(pg_get_triggerdef(t.oid) from 'TRIGGER \S+ (.*?) ON ')
                    from pg_trigger t join pg_class c on c.oid = t.tgrelid
                   where c.relnamespace = 'public'::regnamespace and not t.tgisinternal$q$,
-              'select t from expected_triggers', 'triggers: exactly T5 (audit_log), T6 stamp, T7 audit, T8 authz_integrity, T9 identity scope, T10 year guard, T11 term guard, T12 structure guards, T13 subject guards, T14 calendar guards, T15 bell schedule guards, T16 profile/asset guards — same tables, same events');
+              'select t from expected_triggers', 'triggers: exactly T5 (audit_log), T6 stamp, T7 audit, T8 authz_integrity, T9 identity scope, T10 year guard, T11 term guard, T12 structure guards, T13 subject guards, T14 calendar guards, T15 bell schedule guards, T16 profile/asset guards, T17 assignment guard — same tables, same events');
 select is((select count(*)::int from pg_trigger t join pg_class c on c.oid = t.tgrelid
             where c.relnamespace = 'public'::regnamespace and not t.tgisinternal and t.tgenabled <> 'O'), 0, 'no trigger is disabled');
 
 -- ---------- عقود الدوال ----------
-select is((select count(*)::int from expected_functions), 101, 'the reviewed function list has 101 functions (83 + 6 calendar + 6 bell schedules + 6 profile/assets M45)');
+select is((select count(*)::int from expected_functions), 104, 'the reviewed function list has 104 functions (83 + 6 calendar + 6 bell schedules + 6 profile/assets M45 + 3 assignments M48)');
 select set_eq($q$select substr(p.oid::regprocedure::text, 5) || '|' || pg_get_userbyid(p.proowner) || '|' ||
                         case when p.prosecdef then 'definer' else 'invoker' end || '|' ||
                         replace(coalesce(array_to_string(p.proconfig, ','), ''), 'search_path=', '') || '|' ||

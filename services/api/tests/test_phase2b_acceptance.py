@@ -173,7 +173,8 @@ def test_phase2_acceptance_path(client, admin, ids):
 
 
 # ما أضافته المراحل اللاحقة لخط أساس المرحلة 2 — كل إضافة بقرار مرحلتها (لا تعديل على المرحلة 2 نفسها)
-_AFTER_PHASE2_TABLES = {"staff_specialties", "staff_qualifications"}   # Phase 3A / 3-1 (M46)
+_AFTER_PHASE2_TABLES = {"staff_specialties", "staff_qualifications",     # Phase 3A / 3-1 (M46)
+                        "teaching_assignments", "class_teacher_assignments"}   # Phase 3A / 3-3 (M48)
 _AFTER_PHASE2_KEYS: set[str] = set()                                     # Phase 3A / 3-4: *.read_assigned (P3) — حين تُنفَّذ
 
 

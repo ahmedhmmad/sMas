@@ -23,7 +23,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from . import account_login, accounts, assets, first_login, onboarding, setup, staff, staff_access, student_login, students
+from . import account_login, accounts, assets, first_login, onboarding, setup, staff, staff_access, student_login, students, teaching
 from .audit import write_access_audit
 from .auth_admin import AuthAdmin
 from .config import load_settings, origin_base
@@ -85,6 +85,7 @@ app.include_router(setup.router)                # Phase 2A — إعداد الم
 app.include_router(assets.router)               # Phase 2B-4 — ملف المدرسة وأصولها
 app.include_router(staff.router)                # Phase 3A / 3-1 — ملف الموظف
 app.include_router(staff_access.router)         # Phase 3A / 3-2 — حساب الموظف ودوره ونطاق مدرسته
+app.include_router(teaching.router)             # Phase 3A / 3-3 — تكليفات التدريس ومربي الفصل
 
 
 @app.exception_handler(psycopg.errors.InsufficientPrivilege)

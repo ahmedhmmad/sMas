@@ -22,7 +22,8 @@ insert into expected values
   ('calendar_weekdays'), ('calendar_exceptions'),   -- M41 (Phase 2B / 2B-2)
   ('bell_schedules'), ('bell_periods'), ('grade_level_bell_schedules'),   -- M43 (Phase 2B / 2B-3)
   ('school_profiles'), ('school_assets'),   -- M45 (Phase 2B / 2B-4)
-  ('staff_specialties'), ('staff_qualifications');   -- M46 (Phase 3A / 3-1)
+  ('staff_specialties'), ('staff_qualifications'),   -- M46 (Phase 3A / 3-1)
+  ('teaching_assignments'), ('class_teacher_assignments');   -- M48 (Phase 3A / 3-3)
 
 create temp view actual as
   select c.relname::text as t, c.relrowsecurity as enabled, c.relforcerowsecurity as forced
@@ -30,12 +31,12 @@ create temp view actual as
   where c.relnamespace = 'public'::regnamespace
     and c.relkind in ('r', 'p');
 
-select plan(1 + 1 + 41 + 41 + 1 + 1);
+select plan(1 + 1 + 43 + 43 + 1 + 1);
 
-select is((select count(*)::int from expected), 41, 'the expected list has 41 tables (29 Foundation + login_challenges + 2 subjects + 2 calendar + 3 bell schedules + 2 profile/assets + 2 staff profile)');
+select is((select count(*)::int from expected), 43, 'the expected list has 43 tables (29 Foundation + login_challenges + 2 subjects + 2 calendar + 3 bell schedules + 2 profile/assets + 2 staff profile + 2 assignments)');
 
 select set_eq('select t from actual', 'select t from expected',
-              'public holds exactly the 41 expected tables — none missing, none unlisted');
+              'public holds exactly the 43 expected tables — none missing, none unlisted');
 
 -- لكل جدول بالاسم؛ LEFT JOIN: جدول متوقع غير موجود يُنتج فشلاً لا اختباراً ناقصاً
 select ok(coalesce(a.enabled, false), format('%s: ROW LEVEL SECURITY enabled', e.t))

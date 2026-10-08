@@ -190,6 +190,12 @@ begin
   insert into public.staff_school_assignments (staff_id, school_id, platform_tenant_id, job_title, effective_from) values (v_staff, p_school, p_tenant, 'Teacher', '2026-09-01');
   insert into public.staff_specialties (platform_tenant_id, staff_id, name) values (p_tenant, v_staff, 'Spec ' || p_tag);   -- M46
   insert into public.staff_qualifications (platform_tenant_id, staff_id, degree, field) values (p_tenant, v_staff, 'bachelor', 'Field ' || p_tag);
+  perform set_config('app.audit_reason', 'fixture', true);   -- M48: السنة نشطة — السبب إلزامي (T17)
+  insert into public.teaching_assignments (platform_tenant_id, school_id, academic_year_id, grade_level_id, section_id, subject_id, staff_id, effective_from)
+    values (p_tenant, p_school, v_year, v_grade, v_sec, v_subj, v_staff, '2026-09-01');
+  insert into public.class_teacher_assignments (platform_tenant_id, school_id, academic_year_id, grade_level_id, section_id, staff_id, effective_from)
+    values (p_tenant, p_school, v_year, v_grade, v_sec, v_staff, '2026-09-01');
+  perform set_config('app.audit_reason', '', true);
 end $$;
 select pg_temp.people('10000000-0000-0000-0000-000000000001', '5a100000-0000-0000-0000-000000000001', '11');
 select pg_temp.people('20000000-0000-0000-0000-000000000002', '52a00000-0000-0000-0000-000000000005', '22');
