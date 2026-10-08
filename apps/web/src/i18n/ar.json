@@ -53,7 +53,10 @@
     "title": "الرئيسية",
     "welcome": "مرحباً",
     "context": "السياق الحالي",
-    "platform": "إدارة المنصة"
+    "platform": "إدارة المنصة",
+    "myTeaching": "شعبي وموادي",
+    "myTeachingEmpty": "لا تكليفات فعّالة حالياً — لن تظهر لك بيانات طلاب.",
+    "classTeacher": "مربي الفصل"
   },
   "students": {
     "title": "الطلاب",

@@ -307,7 +307,7 @@ select is((select string_agg(column_name, ',' order by column_name) from informa
 select is((select string_agg(column_name, ',' order by column_name) from information_schema.column_privileges
             where table_schema = 'public' and table_name = 'stages' and grantee = 'authenticated' and privilege_type = 'UPDATE'),
           'name,sequence_no,status', 'column register: a stage''s school is fixed');
-select is((select count(*)::int from public.permissions where code !~ '^subject\.'), 73, 'no new permission key from this migration (73 frozen; subject.* is B10, M38)');
+select is((select count(*)::int from public.permissions where code !~ '^subject\.|\.read_assigned$'), 73, 'no new permission key from this migration (73 frozen; subject.* is B10/M38, *.read_assigned is P3/M50)');
 
 select * from finish();
 rollback;

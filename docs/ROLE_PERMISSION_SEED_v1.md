@@ -62,6 +62,8 @@
 
 **✅ Phase 2B (2026-10-04):** + `subject.read`، `subject.manage` = **75 مفتاحاً** (أول فتح للكتالوج المجمَّد، بقرار في PLAN §9). مورد مستقل — لا إعادة استعمال لـ`grade.*` أو `grade_level.*`. التوزيع: `subject.manage` لـ`tenant_admin`/`group_manager`/`school_admin`؛ `subject.read` لهم وللسكرتير والمحاسب والمعلم والمرشد.
 
+**✅ Phase 3A / 3-4 (2026-10-08، M50):** + `student.read_assigned`، `enrollment.read_assigned`، `guardian.read_assigned`، `family.read_assigned` = **79 مفتاحاً** (الفتح الثاني للكتالوج، بقرار P3 في PLAN §9). **قراءة «بالتكليف»:** تُقيَّم بالمفتاح + **العلاقة** (P5: تكليف تدريس أو مربي فصل فعّال على شعبة التسجيل الحالي للطالب) لا بنطاق المدرسة وحده، **ولا باسم الدور إطلاقاً** — أي عضوية تحملها تتصرف بالدلالة نفسها. `*.read` يبقى الوصول الواسع بالنطاق. لا `*.export_assigned` ولا `*.sensitive_read_assigned`. التوزيع (M51): `teacher` والأدوار الإدارية الثلاثة (N4 — T8 يشترط أن يملك المانح صلاحيات الدور الممنوح).
+
 ### 2.1 قواعد التسمية المجمّدة
 
 ```text
@@ -74,6 +76,7 @@
 | العملية | المعنى |
 |---|---|
 | `read` | عرض داخل النظام |
+| `read_assigned` | عرض ما كُلِّف به الفاعل فقط (المفتاح + العلاقة — P3، 3-4) |
 | `sensitive_read` | عرض الحقول المصنفة حساسة |
 | `create` / `update` | إنشاء / تعديل |
 | `archive` | أرشفة (لا يوجد `delete` في الكتالوج إطلاقاً) |
@@ -125,7 +128,7 @@
 
 ## 4. خريطة Role → Permission
 
-### 4.1 `tenant_admin` — 71 صلاحية (73 بعد 2B)
+### 4.1 `tenant_admin` — 71 صلاحية (73 بعد 2B؛ **77** بعد 3-4)
 
 أعلى دور داخل Tenant. يملك كل شيء داخل Tenant **عدا** عمليات مشغِّل المنصة.
 
@@ -143,9 +146,11 @@
 | Enrollment | `enrollment.read/create/update/transfer/archive/export` |
 | Audit | `audit.read`, `audit.sensitive_read`, `security.manage`, `security.export` |
 
+**+ 3-4 (M51، N4):** `student.read_assigned`، `enrollment.read_assigned`، `guardian.read_assigned`، `family.read_assigned` — ومثلها `group_manager` و`school_admin`. **لا أثر على ما تراه هذه الأدوار** (تملك المفاتيح الأوسع، والمفتاح الجديد لا يفتح شيئاً بلا تكليف)؛ سببها الوحيد T8: المانح يجب أن يملك كل صلاحيات الدور الممنوح، وبدونها لا يستطيع أحد إسناد دور `teacher`. **T8 لا يُعدَّل ولا يُستثنى.**
+
 **لا يملك:** `tenant.suspend` (K3).
 
-### 4.2 `group_manager` — 62 صلاحية (64 بعد 2B)
+### 4.2 `group_manager` — 62 صلاحية (64 بعد 2B؛ **68** بعد 3-4)
 
 مثل `tenant_admin` داخل Group، **ناقصاً إنشاء البنى فوق مستواه**.
 
@@ -160,7 +165,7 @@
 
 **يملك:** `group.read`, `group.export`, `school.create/read/update/archive/export` (داخل مجموعته — `PLAN_v3.md` §7.9)، و`role.read`, `role.assign`, `scope.assign`، وكل صلاحيات Students/Guardians/Staff/Academic/Enrollment الواردة في 4.1، و`audit.read`, `audit.sensitive_read`.
 
-### 4.3 `school_admin` — 59 صلاحية (61 بعد 2B)
+### 4.3 `school_admin` — 59 صلاحية (61 بعد 2B؛ **65** بعد 3-4)
 
 **الفروق عن `tenant_admin`:**
 
@@ -217,19 +222,20 @@
 
 > **انحراف موثق عن Matrix §6:** الجدول هناك يعطي المحاسب `Audit: R مالي`. تقييد Audit بالنوع المالي غير قابل للتعبير في كتالوج Foundation (لا يوجد `audit.financial_read`). بُذر `audit.read` مقيداً بـschool scope، والتضييق المالي يُضاف في المرحلة 7.
 
-### 4.6 `teacher` — 11 صلاحية (12 بعد 2B)
+### 4.6 `teacher` — 11 صلاحية (12 بعد 2B؛ **11 بعد 3-4**)
 
 | المجموعة | الصلاحيات |
 |---|---|
 | Schools | `school.read` |
-| Identity | `profile.read` |
-| Students | `student.read` |
-| Guardians | `family.read`, `guardian.read` |
+| Students | `student.read_assigned` |
+| Guardians | `family.read_assigned`, `guardian.read_assigned` |
 | Academic | `academic_year.read`, `term.read`, `grade_level.read`, `section.read`, `subject.read` (2B) |
-| Enrollment | `enrollment.read` |
+| Enrollment | `enrollment.read_assigned` |
 | Staff | `staff.read` |
 
-**تضييق إلزامي (Matrix §10):** `student.read` لا يعطي المعلم كل طلاب المدرسة. RLS تُضيّقه بـ`teaching_assignments` + `class_teacher_assignments` عند وصول المرحلة 3. **حتى ذلك الحين يبقى تضييقه school scope فقط، وهذا يُسجَّل كدين تقني في §7.**
+**✅ التضييق (Matrix §10 / R5) منفَّذ في 3-4 (M50 + M51، 2026-10-08):** المعلم لا يحمل `student.read`/`enrollment.read`/`guardian.read`/`family.read` — يحمل نظائرها `*.read_assigned`، فيرى **طلاب الشعب المكلَّف بها فقط** (تكليف تدريس أو مربي فصل **فعّال**؛ P5 في `PHASE3_4_TEACHER_NARROWING.md` §2)، وتسجيلاتهم الحالية في تلك الشعب، وأولياء أمورهم بارتباط نشط، وأسرهم. معلم بلا تكليف لا يرى طالباً. **D1 مغلق.**
+
+**`profile.read` سُحب (N8 — مطلوب لا دين):** `profiles_select` تُظهر لحامله صف profile (الاسم الظاهر) لكل من في نطاق مدرسته، فكان يُبقي للمعلم قائمة بأسماء كل الطلاب بعد التضييق. ملفه هو يبقى مرئياً بفرع الذات.
 
 **لا يملك:** أي `*.export`، ولا `student.sensitive_read`, ولا `guardian.sensitive_read`، ولا أي `create/update` على الطلاب.
 
@@ -303,16 +309,18 @@
 
 | الدور | عدد الصلاحيات | `sensitive_read` | `export` |
 |---|---:|:---:|:---:|
-| `tenant_admin` | 71 → **73** (2B) | ✅ student + guardian | ✅ كامل |
-| `group_manager` | 62 → **64** (2B) | ✅ student + guardian | ✅ عدا security |
-| `school_admin` | 59 → **61** (2B) | ✅ student + guardian | ✅ كامل |
+| `tenant_admin` | 71 → 73 (2B) → **77** (3-4) | ✅ student + guardian | ✅ كامل |
+| `group_manager` | 62 → 64 (2B) → **68** (3-4) | ✅ student + guardian | ✅ عدا security |
+| `school_admin` | 59 → 61 (2B) → **65** (3-4) | ✅ student + guardian | ✅ كامل |
 | `secretary` | 19 → **20** (2B) | ❌ | ❌ |
 | `accountant` | 11 → **12** (2B) | ❌ | ❌ |
-| `teacher` | 11 → **12** (2B) | ❌ | ❌ |
+| `teacher` | 11 → 12 (2B) → **11** (3-4: −5 الواسعة و`profile.read`، +4 `*.read_assigned`) | ❌ | ❌ |
 | `counselor` | 10 → **11** (2B) | ✅ student فقط | ❌ |
 | `bus_supervisor` | 2 | ❌ | ❌ |
 | `guardian` | 6 | ❌ | ❌ |
 | `student` | 4 | ❌ | ❌ |
+
+**الروابط:** 255 (M23) + 10 (M38) = 265؛ بعد 3-4 (M51): 265 − 5 + 4 + 12 = **276**. **نتيجة T8 بعد 3-4:** `teacher` لا يغطي أي دور (بلا `profile.read`) — ولا يملك `role.assign` أصلاً؛ الأدوار الإدارية الثلاثة ما زالت تسند `teacher`.
 
 **G1 (2026-09-23):** `profile.update` لم تعد لأي دور غير `tenant_admin`/`group_manager`/`school_admin`. معناها الآن «تعديل profiles الآخرين ضمن نطاق يحتوي عضويتهم» (`can_manage_membership`)، ولا يوجد تعديل ذاتي. `profile.read` باقية للجميع ومعناها «رؤية profiles ضمن النطاق»؛ ولي الأمر والطالب بلا نطاقات فلا يرون إلا أنفسهم عبر مسار الذات الذي لا يحتاج صلاحية.
 
@@ -373,7 +381,7 @@ is_platform_admin = true → full access
 
 | # | البند | يُسدَّد في |
 |---|---|---|
-| D1 | `teacher.student.read` مضيَّق بـschool scope فقط حتى تُنشأ `teaching_assignments` | المرحلة 3 |
+| D1 | ~~`teacher.student.read` مضيَّق بـschool scope فقط حتى تُنشأ `teaching_assignments`~~ — **✅ مغلق في 3-4 (2026-10-08، M50 + M51):** القراءة بالتكليف (`*.read_assigned` + P5)؛ الـ`TODO` في `17_relationship` أُزيل والإثبات في `49_assigned_read` | ✅ |
 | D2 | `counselor.student.sensitive_read` بلا تضييق بتصنيف الملاحظة | المرحلة 4 |
 | D3 | `bus_supervisor` بلا صلاحيات تشغيلية | المرحلة 7 |
 | D4 | `accountant.audit.read` بلا تضييق مالي | المرحلة 7 |
@@ -405,7 +413,7 @@ is_platform_admin = true → full access
 | الاختبار | يثبت |
 |---|---|
 | `secretary` بلا `student.export` لا يصدّر رغم امتلاكه `student.read` | Matrix §8 |
-| `teacher` لا يقرأ طالباً خارج تكليفه | Matrix §10 / D1 |
+| `teacher` لا يقرأ طالباً خارج تكليفه | Matrix §10 / D1 — ✅ `49_assigned_read`، `test_assigned_read` |
 | `guardian` لا يقرأ طالباً غير مرتبط به في نفس المدرسة | Matrix §9 |
 | `student` لا يقرأ إلا سجله | §4.10 |
 | `bus_supervisor` لا يقرأ أي طالب | §4.8 |

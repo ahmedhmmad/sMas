@@ -307,7 +307,7 @@ select is((select pg_get_userbyid(proowner) || '|' || prosecdef || '|' || array_
           'app_owner|true|search_path=app, public, pg_temp', 'contract unchanged: owner, SECURITY DEFINER, pinned search_path');
 select ok(has_function_privilege('authenticated', 'app.can_manage_membership(uuid)', 'EXECUTE') and not has_function_privilege('anon', 'app.can_manage_membership(uuid)', 'EXECUTE'),
           'EXECUTE unchanged: authenticated yes, anon no');
-select is((select count(*)::int from public.permissions), 75, 'no permission key added');
+select is((select count(*)::int from public.permissions where code !~ '\.read_assigned$'), 75, 'no permission key added (*.read_assigned is P3/M50)');
 
 select * from finish();
 rollback;

@@ -306,7 +306,7 @@ select is((select string_agg(indexrelid::regclass::text || ':' || pg_get_expr(in
              from pg_index where indisunique and indpred is not null and indrelid in ('public.teaching_assignments'::regclass, 'public.class_teacher_assignments'::regclass)),
           'class_teacher_assignments_active_uq:(status = ''active''::text) | teaching_assignments_active_uq:(status = ''active''::text)',
           'one-active partial unique indexes (T3)');
-select is((select count(*)::int from public.permissions), 75, 'no permission key added (P8)');
+select is((select count(*)::int from public.permissions where code !~ '\.read_assigned$'), 75, 'no permission key added (P8; *.read_assigned is P3/M50)');
 
 -- القراءة
 select is((select v from r where k = 'read.t.sa'),  'SA',  'school admin SA reads SA teaching assignments only (the closed-year row is its own record)');

@@ -46,6 +46,11 @@ describe("navigation by capabilities", () => {
   it("staff with student.read: students", () => {
     expect(ids(tenant(["school.read", "student.read"]))).toEqual(["nav-dashboard", "nav-students"]);
   });
+  it("assigned reader (3-4, teacher): student.read_assigned opens the same students item", () => {
+    expect(ids(tenant(["school.read", "student.read_assigned"]))).toEqual(["nav-dashboard", "nav-students"]);
+    expect(navItems(tenant(["student.read_assigned"]), "staff")[1].labelKey).toBe("nav.students");
+    expect(ids(tenant(["school.read", "guardian.read_assigned"]))).toEqual(["nav-dashboard"]);     // مفتاح الطالب وحده يفتحها
+  });
   it("bus_supervisor (no student.read): dashboard only", () => {
     expect(ids(tenant(["school.read", "profile.read"]))).toEqual(["nav-dashboard"]);
   });

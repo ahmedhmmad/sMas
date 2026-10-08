@@ -41,8 +41,11 @@ def main(out: str) -> None:
                             headers=auth("tenant_admin"))
             assert r.status_code == 200, r.text
 
-        def student_in(code, who="tenant_admin"):
-            section = str(db.execute("select s.id from public.sections s where s.school_id = %s limit 1", [school[code]]).fetchone()["id"])
+        def student_in(code, who="tenant_admin", grade=None):
+            section = str(db.execute(
+                "select s.id from public.sections s join public.grade_levels g on g.id = s.grade_level_id"
+                " where s.school_id = %s and (%s::int is null or g.sequence_no = %s) order by g.sequence_no limit 1",
+                [school[code], grade, grade]).fetchone()["id"])
             sid = str(uuid.uuid4())
             r = client.post("/students", headers=auth(who), json={
                 "student_id": sid, "section_id": section, "effective_from": "2026-09-01",
@@ -51,7 +54,9 @@ def main(out: str) -> None:
             return {"id": sid, "identifier": r.json()["login_identifier"]}
 
         students = {"seed": {"id": "e0000000-0000-4000-8000-000000000001"}, "sb": student_in("SB"), "ss": student_in("SS"),
-                    "fresh": student_in("SA", who="secretary")}
+                    "fresh": student_in("SA", who="secretary"),
+                    # 3-4: طالب في شعبة SA التي **لا** يُكلَّف بها معلم الـseed (الصف الثاني) — المعلم لا يراه
+                    "other": student_in("SA", who="secretary", grade=2)}
 
         def guardian(child):
             gid, phone = str(uuid.uuid4()), "+2019" + f"{secrets.randbelow(10**8):08d}"

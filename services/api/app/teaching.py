@@ -96,6 +96,41 @@ router.get("/academic-years/{year_id}/teaching-assignments")(_list(_TEACHING))
 router.get("/academic-years/{year_id}/class-teachers")(_list(_CLASS))
 
 
+# 3-4 — «شعبي وموادي»: تكليفاتي **الفعّالة** (شروط P5 نفسها — عرض، والقرار في RLS) في السنوات غير المغلقة.
+# معرّف الموظف من صف staff المرئي بفرع الذات؛ صفوف التكليف نفسها تحت RLS (staff.read) — بلا المفتاح أو بلا صف موظف ← قائمة فارغة.
+_MINE = """
+    select t.kind, t.id, t.school_id, sc.name as school_name, t.academic_year_id, y.name as academic_year_name,
+           t.section_id, sec.name as section_name, t.grade_level_id, g.name as grade_level_name,
+           t.subject_id, sb.subject_code, sb.name as subject_name, t.effective_from
+      from (select 'teaching' as kind, id, school_id, academic_year_id, grade_level_id, section_id, subject_id, staff_id, status, effective_from
+              from public.teaching_assignments
+            union all
+            select 'class_teacher', id, school_id, academic_year_id, grade_level_id, section_id, null, staff_id, status, effective_from
+              from public.class_teacher_assignments) t
+      join public.staff me on me.id = t.staff_id
+      join public.profiles p on p.id = me.profile_id and p.auth_user_id = auth.uid()
+      join public.academic_years y on y.id = t.academic_year_id
+      join public.sections sec on sec.id = t.section_id
+      join public.grade_levels g on g.id = t.grade_level_id
+      left join public.schools sc on sc.id = t.school_id
+      left join public.subjects sb on sb.id = t.subject_id
+     where t.status = 'active' and me.status = 'active' and y.status <> 'closed' and sec.status = 'active'
+       and exists (select 1 from public.staff_school_assignments a
+                    where a.staff_id = t.staff_id and a.school_id = t.school_id and a.status = 'active')
+       and (t.kind = 'class_teacher'
+            or (sb.status = 'active'
+                and exists (select 1 from public.grade_subjects gs
+                             where gs.academic_year_id = t.academic_year_id and gs.grade_level_id = t.grade_level_id
+                               and gs.subject_id = t.subject_id and gs.status = 'active')))
+     order by sc.name, y.start_date desc, g.sequence_no, sec.name, t.kind, sb.subject_code
+"""
+
+
+@router.get("/me/teaching")
+def my_teaching(c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    return _tx(c, database, lambda conn: {"rows": conn.execute(_MINE).fetchall()})
+
+
 def _insert(conn, table: str, section_id: uuid.UUID, staff_id: uuid.UUID, effective_from: datetime.date | None,
             subject_id: uuid.UUID | None = None) -> dict:
     """السياق كله من صف الشعبة المرئي؛ «اليوم» بتوقيت المدرسة حين لا يُحدَّد تاريخ."""

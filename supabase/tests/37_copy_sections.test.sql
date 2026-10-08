@@ -268,7 +268,7 @@ select is((select v from r where k = 'audit.ctx'),    'none', 'the audit context
 -- البنية
 select ok(has_function_privilege('authenticated', 'app.copy_sections(uuid,uuid,text)', 'EXECUTE')
       and not has_function_privilege('anon', 'app.copy_sections(uuid,uuid,text)', 'EXECUTE'), 'copy_sections: EXECUTE for authenticated only');
-select is((select count(*)::int from public.permissions where code !~ '^subject\.'), 73, 'no new permission key from this migration (73 frozen; subject.* is B10, M38)');
+select is((select count(*)::int from public.permissions where code !~ '^subject\.|\.read_assigned$'), 73, 'no new permission key from this migration (73 frozen; subject.* is B10/M38, *.read_assigned is P3/M50)');
 select ok(not has_table_privilege('authenticated', 'public.sections', 'DELETE'), 'no DELETE on sections: a copy can never be undone by deleting');
 select is((select count(*)::int from pg_proc p where p.pronamespace = 'app'::regnamespace and p.proname = 'copy_sections'), 1, 'one copy operation, no overloads');
 

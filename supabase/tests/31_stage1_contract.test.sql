@@ -195,6 +195,10 @@ insert into expected_functions values
   ('tg_school_profile_guard()|app_owner|definer|app, public, pg_temp|-'), ('tg_school_asset_guard()|app_owner|definer|app, public, pg_temp|-'),   -- T16 (M45)
   ('tg_teaching_assignment_guard()|app_owner|definer|app, public, pg_temp|-'),   -- T17 (M48)
   ('end_teaching_assignment(uuid,date,text)|app_owner|definer|app, public, pg_temp|authenticated'), ('end_class_teacher_assignment(uuid,date,text)|app_owner|definer|app, public, pg_temp|authenticated'),
+  -- M50: دوال «مُكلَّف به» — أربع تستدعيها سياسة (authenticated)، واثنتان داخليتان بلا EXECUTE
+  ('section_assigned_to_me(uuid)|app_owner|definer|app, public, pg_temp|authenticated'), ('student_assigned_to_me(uuid)|app_owner|definer|app, public, pg_temp|authenticated'),
+  ('guardian_assigned_to_me(uuid)|app_owner|definer|app, public, pg_temp|authenticated'), ('family_assigned_to_me(uuid)|app_owner|definer|app, public, pg_temp|authenticated'),
+  ('current_staff_id()|app_owner|definer|app, public, pg_temp|-'), ('is_class_teacher_of(uuid)|app_owner|definer|app, public, pg_temp|-'),
   ('register_school_asset(uuid,uuid,text,text,text,integer,integer,integer,text,text)|app_owner|definer|app, public, pg_temp|authenticated'),   -- M45
   ('retire_school_asset(uuid,text)|app_owner|definer|app, public, pg_temp|authenticated'),
   ('authorize_asset_url(uuid)|app_owner|definer|app, public, pg_temp|authenticated'),
@@ -311,7 +315,7 @@ select is((select count(*)::int from pg_trigger t join pg_class c on c.oid = t.t
             where c.relnamespace = 'public'::regnamespace and not t.tgisinternal and t.tgenabled <> 'O'), 0, 'no trigger is disabled');
 
 -- ---------- عقود الدوال ----------
-select is((select count(*)::int from expected_functions), 104, 'the reviewed function list has 104 functions (83 + 6 calendar + 6 bell schedules + 6 profile/assets M45 + 3 assignments M48)');
+select is((select count(*)::int from expected_functions), 110, 'the reviewed function list has 110 functions (83 + 6 calendar + 6 bell schedules + 6 profile/assets M45 + 3 assignments M48 + 6 assigned-read M50)');
 select set_eq($q$select substr(p.oid::regprocedure::text, 5) || '|' || pg_get_userbyid(p.proowner) || '|' ||
                         case when p.prosecdef then 'definer' else 'invoker' end || '|' ||
                         replace(coalesce(array_to_string(p.proconfig, ','), ''), 'search_path=', '') || '|' ||

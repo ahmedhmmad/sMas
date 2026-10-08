@@ -564,6 +564,23 @@ with check (
 )
 ```
 
+> **✅ M50 (Phase 3A / 3-4، 2026-10-08) — فرع القراءة «بالتكليف» (R5):** سياسة SELECT صارت `( <النص أعلاه حرفياً> ) OR ( tenant = current AND has_permission('student.read_assigned') AND app.student_assigned_to_me(id) )`.
+> النمط نفسه — **فرع `OR` واحد، والقائم حرفياً** — على `enrollments` (`enrollment.read_assigned AND student_assigned_to_me(student_id) AND section_assigned_to_me(section_id)`: التسجيل الحالي في شعبة التكليف لا تاريخ الطالب)،
+> `guardians` (`guardian.read_assigned AND guardian_assigned_to_me(id)`)، `families` (`family.read_assigned AND family_assigned_to_me(id)`)، `student_guardians` (`guardian.read_assigned AND status = 'active' AND student_assigned_to_me(student_id)`).
+> **لا سياسة جديدة (94) ولا تغيير في أي سياسة كتابة.** الدوال (ملك `app_owner`، `SECURITY DEFINER`، بلا معامل فاعل، **بلا أي ذكر لدور**):
+>
+> | الدالة | الشرط (P5) | EXECUTE |
+> |---|---|---|
+> | `app.current_staff_id()` | الموظف `active` الذي `profile_id` له = الفاعل | — (داخلية) |
+> | `app.section_assigned_to_me(section)` | الشعبة `active`، سنتها ليست `closed`، للفاعل تكليف مدرسة نشط في مدرستها، وعليها: مربي فصل `active` **أو** تدريس `active` مادته `active` وربطها بالصف `active` | `authenticated` (سياسة `enrollments`) |
+> | `app.student_assigned_to_me(student)` | تسجيل الطالب **الأحدث** (`effective_from`) **وحالته `active`** في شعبة مُكلَّف بها | `authenticated` |
+> | `app.guardian_assigned_to_me(guardian)` | ارتباط **نشط** بطالب مُكلَّف به — مشتق من الطالب | `authenticated` |
+> | `app.family_assigned_to_me(family)` | فيها طالب مُكلَّف به | `authenticated` |
+> | `app.is_class_teacher_of(section)` | مربي الشعبة بالشروط نفسها — للمرحلة 6 | — (لا سياسة تستدعيها بعد) |
+>
+> العلاقة هي **تكليف المدرسة** + تكليف الشعبة، لا نطاق العضوية: الأمان مشتق من الحالة الحالية ولا يعتمد على أي cascade (موظف `ended` بصف تكليف «نشط» متبقٍّ لا يرى شيئاً).
+> `student_in_scope`/`guardian_in_scope`/`family_in_scope`/`can_see_membership`/T8 **بنصوصها** (محروسة بـhash في `49_assigned_read`). M51: دور `teacher` يحمل الأربعة بدل الواسعة و`profile.read`.
+
 > **✅ M31 (S2، مراجعة Stage 1، 2026-10-02):** `family_id` عمود يكتبه العميل، وكان `WITH CHECK` لا يفحص الأسرة الهدف — فيُسند الموظف طالبه إلى أسرة خارج نطاقه فتصير `family_in_scope` لها صحيحة ويقرؤها ويعدّلها (§1.1 بند 11). الشرط: الأسرة الهدف **ضمن نطاق الفاعل أصلاً**. `family_in_scope` تقرأ لقطة الجملة (الصف القديم)، فالطالب المنقول لا يجعل الأسرة الهدف ضمن النطاق بنفسه، بينما الأسرة التي لم تتغير — ولو كان الطالب عضوها الوحيد — تبقى مقبولة. لا دالة جديدة.
 
 > **Gate B (✅ G4):** إن اعتُمد G4 لا يُمنح `authenticated` صلاحية INSERT على `students`، وتنتقل الفحوص أدناه (`student.create` + `can_access_identity_scope`) إلى رأس `app.provision_student()`. السياسة تبقى موثقة كمرجع للفحوص المطلوبة.
@@ -1118,7 +1135,7 @@ D7  سياسة audit_log (§13)
 | R2 | الطالب يرى سجله فقط |
 | R3 | موظف لا يرى طالباً بلا enrollment في مدارسه |
 | R4 | `bus_supervisor` لا يرى أي طالب (Seed §4.8) |
-| R5 | المعلم — علامة `TODO` تفشل حتى تُضاف `teaching_assignments` (دين D1) |
+| R5 | ✅ **3-4 (M50 + M51):** معلم بلا تكليف لا يرى طالباً؛ بتكليف يرى طلاب شعبته وحدهم — `49_assigned_read` (56)، `test_assigned_read`؛ الـ`TODO` أُزيل من `17` |
 
 ### 15.4 منع التصعيد ⚠️
 

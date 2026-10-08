@@ -252,7 +252,7 @@ select is((select v from r where k = 'audit.insert'),   'tenant_user|insert|true
 select is((select v from r where k = 'audit.rejected'), '0|0', 'refused changes leave no audit row');
 
 -- البنية
-select is((select count(*)::int from public.permissions), 75, 'catalog: 75 keys (B10)');
+select is((select count(*)::int from public.permissions where code !~ '\.read_assigned$'), 75, 'catalog: 75 keys after B10 (*.read_assigned is P3/M50)');
 select is((select string_agg(r.code, ',' order by r.code) from public.role_permissions rp join public.roles r on r.id = rp.role_id
              join public.permissions p on p.id = rp.permission_id where p.code = 'subject.manage' and r.platform_tenant_id is null),
           'group_manager,school_admin,tenant_admin', 'subject.manage: the three administrators (B15)');

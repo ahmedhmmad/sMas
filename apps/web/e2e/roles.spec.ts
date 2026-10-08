@@ -65,6 +65,29 @@ for (const email of ["secretary@dev.smas.test", "teacher@dev.smas.test", "accoun
   });
 }
 
+// 3-4 (R5): المعلم يقرأ بالتكليف وحده — طلاب شعبته، لا بقية مدرسته؛ والمدير في المدرسة نفسها يرى الجميع.
+test("teacher: 'my sections' card, only the students of its assigned section; another SA student by URL is not found", async ({ page, browser }) => {
+  const f = fx();
+  await staffLogin(page, "teacher@dev.smas.test");
+  await expect(page.getByTestId("my-teaching")).toContainText("Mathematics");
+  await expect(page.getByTestId("my-teaching-empty")).toHaveCount(0);
+  await expect(page.getByTestId("nav-students")).toBeVisible();
+  const rows = await studentRows(page);
+  expect(rows).toContain(f.students.seed.id);
+  expect(rows).not.toContain(f.students.other.id);
+  expect(rows).not.toContain(f.students.sb.id);
+  await expectNotFound(page, `/students/${f.students.other.id}`);
+  await go(page, `/students/${f.students.seed.id}`);
+  await expect(page.getByTestId("student-detail")).toBeVisible();
+
+  const adminPage = await (await browser.newContext()).newPage();
+  await staffLogin(adminPage, "school.admin@dev.smas.test");
+  await expect(adminPage.getByTestId("my-teaching")).toHaveCount(0);            // البطاقة لمن يقرأ بالتكليف وحده
+  const all = await studentRows(adminPage);
+  expect(all).toContain(f.students.seed.id);
+  expect(all).toContain(f.students.other.id);
+});
+
 test("bus_supervisor: no students menu; the page by URL shows nothing", async ({ page }) => {
   await staffLogin(page, "bus.supervisor@dev.smas.test");
   await expect(page.getByTestId("dashboard")).toBeVisible();

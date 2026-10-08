@@ -66,7 +66,7 @@ rollback;
 | 9 | Permission without Scope → no access | `14` `*.noscope`؛ `16` `vis.noscope`، `w.noscope_stage` | صفر صفوف ورفض الكتابة | ✅ |
 | 10 | Scope without Permission → no access | `14` `*.noperm`؛ `15` `w.tch_assign_fresh`؛ `16` `vis.noperm`؛ `17` `students.noperm` | صفر صفوف ورفض الكتابة | ✅ |
 | 11 | Guardian sees only linked students | `17` → `students.gp` = `sa,sm` | أبناؤه بارتباط نشط فقط؛ لا زميل في المدرسة نفسها، ولا ارتباط منتهٍ | ✅ |
-| 12 | Teacher operation requires teaching assignment | `17` → R5 (`todo_start`)، والسلوك الحالي موثق | — | ⏳ D1 (`teaching_assignments`، المرحلة 3) |
+| 12 | Teacher operation requires teaching assignment | `49_assigned_read` (مصفوفة فاعل × جدول، كل شرط في P5، دور مخصص)؛ `17` → R5 | `test_assigned_read` (FastAPI + PostgREST) | ✅ 3-4 (M50، M51، 2026-10-08) — القراءة؛ عمليات الدرجات/الحضور في مراحلها |
 | 13 | Platform Admin has no implicit Tenant data access | `15` `profiles/members/roles/perms.pa`؛ `16` `vis.pa`؛ `17` `students/enr/guard/staff/fam.pa`؛ `18` `e16.*`؛ `06` `hpp.admin_student`؛ `07` `plat.*` | بكل صلاحيات المنصة لا يرى بيانات العملاء؛ `is_platform_admin()` لا يمنح شيئاً | ✅ |
 | 14 | Cross-tenant FK combinations are rejected | `04` `s.cross_tenant_grp` (`schools_group_fk`)، `is.cross_tenant_school`؛ `07` `m.cross_tenant` (`memberships_profile_fk`)، `mr.wrong_tenant`، `ms.cross_tenant_school`؛ `09` `*_other_tenant`، `sg.cross_tenant`؛ `10` `tenant.mismatch` | كل FK مركّب `(…, platform_tenant_id)` يرفض باسمه | ✅ (G2 أُغلق) |
 | 15 | Archived/closed entities obey operational-state rules without exposing deleted data | `21` (15 دالة: انتقالات صريحة + invariants)؛ `20` `b.archive`، `b.*_status`؛ لا DELETE (`20` DELETE على G2 فقط) | الحالات تتغير بالدوال وحدها؛ لا حذف فعلي فلا بيانات محذوفة | ✅ — ملاحظة: RLS لا تُخفي الصفوف المؤرشفة (المؤرشف ≠ المحذوف)؛ إخفاؤها في الواجهات قرار لاحق إن طُلب |
@@ -102,7 +102,7 @@ rollback;
 | R2 | `17` `students.sa`، `enr.sa` | ✅ |
 | R3 | `17` `students.ta`/`sa1` (لا `sn`)؛ `12` `student_in_scope.*` | ✅ |
 | R4 | `17` `students.bus` | ✅ (يُعاد مع البذر الحقيقي: `23` يثبت أن `bus_supervisor` بلا `student.read`) |
-| R5 | `17` `todo_start` + السلوك الحالي | ⏳ D1 |
+| R5 | `49_assigned_read`؛ `17` (دور النظام teacher بلا المفاتيح الواسعة) | ✅ 3-4 |
 
 ### 15.4 منع التصعيد
 
@@ -226,7 +226,7 @@ rollback;
 
 | البند | السبب |
 |---|---|
-| Matrix #12 / R5 | D1: `teaching_assignments` (المرحلة 3) — `TODO` يفشل عمداً |
+| ~~Matrix #12 / R5~~ | ✅ مغلق في 3-4 (2026-10-08): `teaching_assignments` (M48) + القراءة بالتكليف (M50، M51) — لا `TODO` |
 | P3 (القناة) | التصدير قناة FastAPI (RLS §12.2) — Gate F4 |
 | تسجيل قراءات Platform Admin والتصدير | FastAPI (§7.4، N5) — Gate F4 |
 | INV-I43 | FastAPI / المرحلة 4 |

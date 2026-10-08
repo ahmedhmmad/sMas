@@ -129,6 +129,7 @@ Frontend visibility ليست Security Boundary.
 | Permission | العملية |
 |---|---|
 | `student.read` | قراءة بيانات الطالب |
+| `student.read_assigned` | ✅ 3-4 (M50): قراءة الطلاب **المكلَّف بهم** — المفتاح + العلاقة (§10)؛ ومثله `enrollment.read_assigned`، `guardian.read_assigned`، `family.read_assigned` |
 | `student.create` | إنشاء طالب |
 | `student.update` | تعديل بيانات الطالب |
 | `student.archive` | أرشفة الطالب |
@@ -334,7 +335,9 @@ Allowed guardian fields
 
 ## 10. Teacher Authorization
 
-Teacher يمكن أن يمتلك `student.read` ضمن المدرسة، لكن الوصول إلى بعض العمليات التعليمية يجب أن يمر بعلاقة التكليف:
+> **✅ 3-4 (2026-10-08، M50 + M51) — منفَّذ للقراءة:** دور `teacher` **لا يحمل** `student.read`؛ يحمل `student.read_assigned` (ونظائره للتسجيل وولي الأمر والأسرة). قرار الوصول = `Tenant Isolation + Permission + Resource relationship`: المفتاح + أن يكون الطالب **مُكلَّفاً به** (تسجيله الأحدث `active` في شعبة عليها للفاعل تكليف تدريس أو مربي فصل فعّال — `PHASE3_4_TEACHER_NARROWING.md` §2). **لا حالة خاصة لاسم الدور:** أي عضوية تحمل `*.read_assigned` تتصرف بالدلالة نفسها، و`*.read` يبقى وصولاً واسعاً بالنطاق.
+
+العمليات التعليمية (المراحل 5، 6، 11) تمر بعلاقة التكليف نفسها:
 
 ```text
 Teacher

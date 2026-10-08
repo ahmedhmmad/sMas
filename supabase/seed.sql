@@ -166,6 +166,32 @@ set local role authenticated;
 select app.provision_account('guardian', 'a0000000-0000-4000-8000-000000000009', 'a0000000-0000-4000-8000-000000000009');
 reset role;
 
+-- ------------------------------------------------------------------
+-- 4b. school_admin ← مادة، ربطها بالصف، وتكليف المعلم بشعبة الطالب (3-4 / N11)
+--     بعد M51 المعلم يرى «بالتكليف» وحده: بلا هذا التكليف لا يرى معلم التطوير أي طالب.
+--     المسار نفسه الذي يسلكه الـAPI: subject.manage ثم staff.assign تحت RLS و T13/T17؛ السنة active فالسبب إلزامي حيث يُشترط.
+-- ------------------------------------------------------------------
+select pg_temp.act('a0000000-0000-4000-8000-000000000003');
+set local role authenticated;
+set local app.audit_reason = 'development seed';
+insert into public.subjects (school_id, subject_code, name)
+  select id, 'MATH', 'Mathematics' from public.schools where school_code = 'SA';
+insert into public.grade_subjects (school_id, academic_year_id, grade_level_id, subject_id, weekly_periods)
+  select s.school_id, s.academic_year_id, s.grade_level_id, sb.id, 5
+    from public.sections s join public.schools sc on sc.id = s.school_id
+    join public.grade_levels g on g.id = s.grade_level_id
+    join public.subjects sb on sb.school_id = s.school_id and sb.subject_code = 'MATH'
+   where sc.school_code = 'SA' and g.sequence_no = 1;
+insert into public.teaching_assignments (platform_tenant_id, school_id, academic_year_id, grade_level_id, section_id, subject_id, staff_id, effective_from)
+  select sc.platform_tenant_id, s.school_id, s.academic_year_id, s.grade_level_id, s.id, sb.id,
+         'a0000000-0000-4000-8000-000000000006', '2026-09-01'      -- I2: معرّف الموظف = معرّف حسابه
+    from public.sections s join public.schools sc on sc.id = s.school_id
+    join public.grade_levels g on g.id = s.grade_level_id
+    join public.subjects sb on sb.school_id = s.school_id and sb.subject_code = 'MATH'
+   where sc.school_code = 'SA' and g.sequence_no = 1;
+set local app.audit_reason = '';
+reset role;
+
 select set_config('request.jwt.claims', '', true), set_config('request.jwt.claim.sub', '', true);
 
 -- ------------------------------------------------------------------
@@ -203,9 +229,16 @@ begin
     raise exception 'seed: users without exactly their role/scope: %', v_bad;
   end if;
 
-  -- لا بيانات مرجعية من الـseed: الكتالوج والأدوار كما بذرتها M23 + M38 (subject.*، B10)
-  if (select count(*) from public.permissions) <> 75 or (select count(*) from public.roles) <> 10
-     or (select count(*) from public.role_permissions) <> 265 or (select count(*) from public.platform_admin_roles) <> 1 then
+  -- معلم التطوير مُكلَّف بشعبة طالب التطوير (N11): تكليف تدريس نشط واحد
+  if (select count(*) from public.teaching_assignments t join public.enrollments e on e.section_id = t.section_id
+       where t.staff_id = 'a0000000-0000-4000-8000-000000000006' and t.status = 'active'
+         and e.student_id = 'e0000000-0000-4000-8000-000000000001' and e.status = 'active') <> 1 then
+    raise exception 'seed: the dev teacher is not assigned to the dev student''s section';
+  end if;
+
+  -- لا بيانات مرجعية من الـseed: الكتالوج والأدوار كما بذرتها M23 + M38 (subject.*، B10) + M50/M51 (*.read_assigned، P3)
+  if (select count(*) from public.permissions) <> 79 or (select count(*) from public.roles) <> 10
+     or (select count(*) from public.role_permissions) <> 276 or (select count(*) from public.platform_admin_roles) <> 1 then
     raise exception 'seed: reference data changed — the seed must not create permissions or roles';
   end if;
 

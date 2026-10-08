@@ -7,7 +7,7 @@ export const DEV_PASSWORD = "DevOnly-Seed-2026";
 
 type Fixtures = {
   schools: Record<"SA" | "SB" | "SS", string>;
-  students: Record<"seed" | "sb" | "ss" | "fresh", { id: string; identifier?: string }>;
+  students: Record<"seed" | "sb" | "ss" | "fresh" | "other", { id: string; identifier?: string }>;
   guardians: Record<"A" | "B" | "C", { id: string; phone: string; temporary_password?: string }>;
 };
 

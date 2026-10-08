@@ -99,7 +99,8 @@ def test_activation_is_one_call_and_the_staff_member_really_logs_in(client, ids,
     # الدخول الفعلي بـOTP من host المدرسة، ثم ما يسمح به دور المعلم داخل مدرسته وحدها
     token = otp_login(client, teacher["email"])
     mine = caps(client, token)
-    assert {"staff.read", "student.read", "subject.read"} <= mine and not ({"staff.update", "role.assign", "membership.read"} & mine)
+    assert {"staff.read", "student.read_assigned", "subject.read"} <= mine      # 3-4 (M51): المعلم يقرأ الطلاب بالتكليف وحده
+    assert not ({"student.read", "profile.read", "staff.update", "role.assign", "membership.read"} & mine)
     assert client.get(f"/schools/{sa}/staff", headers=bearer(token)).status_code == 200
     assert client.get(f"/schools/{sb}/staff", headers=bearer(token)).status_code == 404
     assert client.get(f"/staff/{teacher['id']}/access", headers=bearer(token)).status_code == 403      # بلا membership.read

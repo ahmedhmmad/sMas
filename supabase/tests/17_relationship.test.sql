@@ -325,11 +325,12 @@ select is((select v from r where k = 'students.t2a'),    'st2',            'stud
 select is((select v from r where k = 'students.pa'),     '<null>',         'E7: platform admin — even with student.read in the platform context — reads no student');
 select ok((select v from r where k = 'students.anon') like 'ERR 42501%permission denied%students%', 'students: anon has no privilege (M20)');
 
--- R5 — دين D1: المعلم يرى طلاب شعبه فقط. لا teaching_assignments بعد، فالمعلم يرى كل مدرسته — TODO يفشل عمداً.
-select todo_start('D1: teaching_assignments not implemented — a teacher currently sees its whole school (R5)');
-select is((select v from r where k = 'students.tch'), '<null>', 'R5: a teacher with no teaching assignment sees no student');
-select todo_end();
-select is((select v from r where k = 'students.tch'), 'sa,sc,sx', 'R5 (current state, documented): the teacher sees its school''s current students — H2 applies, sm excluded');
+-- R5 — D1 مغلق في 3-4 (M50، M51): دور النظام teacher لا يحمل مفاتيح القراءة الواسعة؛ الإثبات الكامل (بلا تكليف ← لا طالب) في 49_assigned_read.
+-- دور الاختبار هنا (zt_teacher) يحمل student.read **الواسع** عمداً: المفتاح الواسع يبقى بدلالته — النطاق لا التكليف.
+select is((select count(*)::int from public.role_permissions rp join public.roles ro on ro.id = rp.role_id join public.permissions p on p.id = rp.permission_id
+            where ro.code = 'teacher' and ro.platform_tenant_id is null and p.code in ('student.read', 'enrollment.read', 'guardian.read', 'family.read', 'profile.read')), 0,
+          'R5: the system teacher role holds none of the wide read keys (M51) — its visibility is by assignment (49_assigned_read)');
+select is((select v from r where k = 'students.tch'), 'sa,sc,sx', 'the wide key keeps its meaning: a holder of student.read sees its school''s current students — H2 applies, sm excluded');
 
 -- ---------- enrollments ----------
 select is((select v from r where k = 'enr.sa1'), 'sa:SA1,sc:SA1,sm:SA1,sx:SA1', 'enrollments: SA1 reads its own rows incl. sm''s historical SA1 row (historical access approved in H2)');

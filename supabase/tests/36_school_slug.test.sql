@@ -222,7 +222,7 @@ select is((select string_agg(column_name, ',' order by column_name) from informa
 select ok(has_function_privilege('authenticated', 'app.set_school_slug(uuid,text,text)', 'EXECUTE')
       and not has_function_privilege('anon', 'app.set_school_slug(uuid,text,text)', 'EXECUTE'), 'set_school_slug: EXECUTE for authenticated only');
 select is((select v from r where k = 'after.x'), (select v from r where k = 'before.x'), 'another tenant''s admin reaches nothing of T1, before and after');
-select is((select count(*)::int from public.permissions where code !~ '^subject\.'), 73, 'no new permission key from this migration (73 frozen; subject.* is B10, M38)');
+select is((select count(*)::int from public.permissions where code !~ '^subject\.|\.read_assigned$'), 73, 'no new permission key from this migration (73 frozen; subject.* is B10/M38, *.read_assigned is P3/M50)');
 select is((select count(*)::int from pg_class c where c.relnamespace = 'public'::regnamespace and c.relkind = 'r' and c.relname ~ '(slug|reserv)'), 0,
           'no slug history or reservation table (Q6)');
 
