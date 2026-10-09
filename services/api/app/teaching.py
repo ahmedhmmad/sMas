@@ -17,11 +17,12 @@ from pydantic import Field
 
 from .db import Database
 from .deps import claims, db
-from .setup import _COLUMNS, _NOT_FOUND, Reason, _Body, _call, _reason, _tx, _visible
+from .setup import _COLUMNS, _NOT_FOUND, Reason, _Body, _call, _reason, _tx, _update, _visible
 
 router = APIRouter()
 
 _COLUMNS.update({
+    "teacher_load_limits": "id, school_id, academic_year_id, staff_id, max_weekly_periods",
     "teaching_assignments": "id, school_id, academic_year_id, grade_level_id, section_id, subject_id, staff_id, status, effective_from, effective_to",
     "class_teacher_assignments": "id, school_id, academic_year_id, grade_level_id, section_id, staff_id, status, effective_from, effective_to",
 })
@@ -37,6 +38,11 @@ class NewTeaching(_Body):
 class NewClassTeacher(_Body):
     staff_id: uuid.UUID
     effective_from: datetime.date | None = None
+    reason: str | None = Field(default=None, min_length=1, max_length=500)
+
+
+class LoadLimit(_Body):
+    max_weekly_periods: int | None = Field(ge=1, le=100)          # مطلوب صراحةً؛ null = بلا حد (L3)
     reason: str | None = Field(default=None, min_length=1, max_length=500)
 
 
@@ -191,3 +197,87 @@ router.post("/teaching-assignments/{assignment_id}/end")(_end("teaching_assignme
 router.post("/teaching-assignments/{assignment_id}/replace", status_code=201)(_replace("teaching_assignments", "end_teaching_assignment"))
 router.post("/class-teacher-assignments/{assignment_id}/end")(_end("class_teacher_assignments", "end_class_teacher_assignment"))
 router.post("/class-teacher-assignments/{assignment_id}/replace", status_code=201)(_replace("class_teacher_assignments", "end_class_teacher_assignment"))
+
+
+# ------------------------------------------------------------------ 3-5 — النصاب (docs/PHASE3_5_WORKLOAD.md)
+# النصاب **مشتق غير مخزّن** (L2): Σ weekly_periods لتكليفات التدريس active التي شعبتها ومادتها وربطها active.
+#   المنتهي لا يُحتسب؛ «المعلَّق» (شعبة أو مادة أو ربط معطَّل) يُعدّ منفصلاً؛ مربي الفصل بلا حصص؛ الموظف on_leave يُحتسب (تخطيط لا أمان).
+# الحد يُقرأ تحت RLS (staff.assign + النطاق، أو صف الفاعل — L5). limit_visible يُشتق من القاعدة نفسها لا من وجود الصف:
+#   RLS لا تميّز «مخفي» من «غير موجود»، فمن لا يرى الحد يحصل على null/null لا على «بلا حد».
+# over_limit = النصاب > الحد (التساوي ليس تجاوزاً). **عرض فقط — لا مسار كتابة للتكليف يقرأ النصاب** (L7).
+_LOAD = """
+    with t as (
+      select t.staff_id, t.status, gs.weekly_periods,
+             (t.status = 'active' and sec.status = 'active' and sb.status = 'active' and gs.status = 'active') as counted
+        from public.teaching_assignments t
+        join public.sections sec on sec.id = t.section_id
+        join public.subjects sb on sb.id = t.subject_id
+        join public.grade_subjects gs on gs.academic_year_id = t.academic_year_id
+                                     and gs.grade_level_id = t.grade_level_id and gs.subject_id = t.subject_id
+       where t.academic_year_id = %(year)s
+    ), agg as (
+      select staff_id,
+             coalesce(sum(weekly_periods) filter (where counted), 0)::int as weekly_periods,
+             count(*) filter (where counted)::int as teaching_count,
+             count(*) filter (where status = 'active' and not counted)::int as suspended_count
+        from t group by staff_id
+    ), ct as (
+      select c.staff_id, count(*)::int as class_teacher_count
+        from public.class_teacher_assignments c
+        join public.sections sec on sec.id = c.section_id
+       where c.academic_year_id = %(year)s and c.status = 'active' and sec.status = 'active'
+       group by c.staff_id
+    ), lim as (
+      select staff_id, max_weekly_periods from public.teacher_load_limits where academic_year_id = %(year)s
+    ), ids as (
+      select staff_id from agg where teaching_count + suspended_count > 0
+      union select staff_id from ct
+      union select staff_id from lim where max_weekly_periods is not null
+    )
+    select i.staff_id, st.full_name as staff_name, st.employee_code, st.status as staff_status,
+           coalesce(a.weekly_periods, 0) as weekly_periods, coalesce(a.teaching_count, 0) as teaching_count,
+           coalesce(a.suspended_count, 0) as suspended_count, coalesce(c.class_teacher_count, 0) as class_teacher_count,
+           v.limit_visible,
+           case when v.limit_visible then l.max_weekly_periods end as max_weekly_periods,
+           case when v.limit_visible then coalesce(coalesce(a.weekly_periods, 0) > l.max_weekly_periods, false) end as over_limit
+      from ids i
+      join public.academic_years y on y.id = %(year)s
+      left join public.staff st on st.id = i.staff_id
+      left join agg a on a.staff_id = i.staff_id
+      left join ct c on c.staff_id = i.staff_id
+      left join lim l on l.staff_id = i.staff_id
+      cross join lateral (select coalesce((app.can_access_school(y.school_id) and app.has_permission('staff.assign'))
+                                          or i.staff_id = app.current_staff_id(), false) as limit_visible) v
+     order by st.full_name, i.staff_id
+"""
+
+
+@router.get("/academic-years/{year_id}/teacher-load")
+def teacher_load(year_id: uuid.UUID, c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    def work(conn):
+        _visible(conn, "academic_years", year_id)
+        return {"rows": conn.execute(_LOAD, {"year": year_id}).fetchall()}
+    return _tx(c, database, work)
+
+
+@router.put("/academic-years/{year_id}/teacher-load-limits/{staff_id}")
+def set_load_limit(year_id: uuid.UUID, staff_id: uuid.UUID, body: LoadLimit,
+                   c: dict = Depends(claims), database: Database = Depends(db)) -> dict:
+    """الحد الاختياري لموظف في سنة (L3): موجود ومرئي ← تعديل؛ وإلا إدراج — والقرار كله في DB (RLS: staff.assign + النطاق؛ T18).
+    السنة والموظف أهداف في المسار؛ الـTenant والمدرسة من صف السنة. null = بلا حد (لا حذف)."""
+    def work(conn):
+        _visible(conn, "academic_years", year_id)
+        _visible(conn, "staff", staff_id)
+        _reason(conn, body.reason)
+        current = conn.execute("select id from public.teacher_load_limits where academic_year_id = %s and staff_id = %s",
+                               [year_id, staff_id]).fetchone()
+        if current is not None:
+            return _update(conn, "teacher_load_limits", current["id"], {"max_weekly_periods": body.max_weekly_periods})
+        row = _call(conn, "insert into public.teacher_load_limits (platform_tenant_id, school_id, academic_year_id, staff_id, max_weekly_periods)"
+                          " select sc.platform_tenant_id, y.school_id, y.id, %s, %s"
+                          "   from public.academic_years y join public.schools sc on sc.id = y.school_id where y.id = %s returning id",
+                    [staff_id, body.max_weekly_periods, year_id])
+        if row is None:
+            raise _NOT_FOUND
+        return _visible(conn, "teacher_load_limits", row["id"])
+    return _tx(c, database, work)

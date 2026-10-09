@@ -1423,6 +1423,27 @@ CREATE TRIGGER audit_log_no_truncate
 الأعمدة كـ§2.39 **بلا `subject_id`**. **القيود:** `class_teacher_assignments_pkey`، `…_school_fk`، `…_staff_fk`، `…_section_fk`، `…_status_chk`، `…_active_chk`، `…_dates_chk`، `…_created_by_fk`، `…_updated_by_fk`. **الفهارس:** **`class_teacher_assignments_active_uq (section_id) WHERE status = 'active'`**؛ فهرس لكل FK؛ `…_staff_active_idx`.
 **الامتيازات:** INSERT `(platform_tenant_id, school_id, academic_year_id, grade_level_id, section_id, staff_id, effective_from)`؛ لا UPDATE ولا DELETE — `app.end_class_teacher_assignment`. **RLS** و**T17** كـ§2.39.
 
+
+### 2.41 `teacher_load_limits` — [S عبر السنة] ✅ M52 (Phase 3A / 3-5)
+
+**الملكية: School-level** (`school_id NOT NULL` + RLS + فهرس)، مرتبط بالسنة الأكاديمية (الثابت 15). الحد **الاختياري** لنصاب موظف في سنة (P11، L3). **النصاب نفسه غير مخزّن في أي جدول** — مشتق من `teaching_assignments` × `grade_subjects.weekly_periods` (`PHASE3_5_WORKLOAD.md` §2).
+
+| العمود | النوع | NULL | ملاحظات |
+|---|---|---|---|
+| `id` | uuid | لا | PK، `gen_random_uuid()` |
+| `platform_tenant_id` | uuid | لا | |
+| `school_id` | uuid | لا | مدرسة السنة |
+| `academic_year_id` | uuid | لا | |
+| `staff_id` | uuid | لا | |
+| `max_weekly_periods` | integer | **نعم** | `NULL` = بلا حد (الإزالة بـNULL لا بالحذف)؛ وإلا 1–100 |
+| `created_at`/`created_by`/`updated_at`/`updated_by` | | | الأعمدة العامة (T6) |
+
+**القيود:** `teacher_load_limits_pkey`؛ `…_school_fk` `(school_id, platform_tenant_id) → schools`؛ `…_year_fk` `(academic_year_id, school_id) → academic_years (id, school_id)`؛ `…_staff_fk` `(staff_id, platform_tenant_id) → staff`؛ `…_year_staff_uq` `UNIQUE (academic_year_id, staff_id)`؛ `…_max_chk` `CHECK (max_weekly_periods is null or max_weekly_periods between 1 and 100)`؛ `…_created_by_fk`، `…_updated_by_fk`.
+**الفهارس:** فهرس لكل FK (`…_school_idx`، `…_year_idx`، `…_staff_idx`، `…_created_by_idx`، `…_updated_by_idx`).
+**الامتيازات (secure-by-default):** INSERT `(platform_tenant_id, school_id, academic_year_id, staff_id, max_weekly_periods)`؛ UPDATE `(max_weekly_periods)` وحده؛ **لا DELETE**.
+**RLS** (ENABLE + FORCE): SELECT = `(can_access_school(school_id) AND has_permission('staff.assign')) OR staff_id = current_staff_id()` — **لا بـ`staff.read`**؛ INSERT/UPDATE = `can_access_school(school_id) AND has_permission('staff.assign')`.
+**T18** حارس؛ **T7** تدقيق.
+
 ---
 
 ## 3. ملخص الفهارس (ERD §8)
@@ -1467,6 +1488,7 @@ CREATE TRIGGER audit_log_no_truncate
 | **T11** | `terms` (INSERT، UPDATE): دورة الحياة، الفصل النشط داخل سنة نشطة، ما يُعدَّل حسب الحالة، تجمّد فصول السنة المغلقة | ✅ M34 (Phase 2A) — يعتمد على الصف القديم وعلى حالة صف في جدول آخر (السنة) |
 | **T10** | `academic_years` (UPDATE): ما يُعدَّل حسب الحالة والانتقالات المعلنة | ✅ M33 (Phase 2A، Q1) — يقارن الصف القديم بالجديد؛ لا بديل إعلاني (`CHECK` لا يرى الصف القديم، و RLS `WITH CHECK` كذلك) |
 | **T17** | `teaching_assignments`، `class_teacher_assignments` (INSERT، UPDATE): السنة غير مغلقة (والنشطة بسبب — C3)؛ عند الإنشاء: الشعبة والمادة وربطها نشطة، والموظف `active` وله تكليف مدرسة نشط فيها؛ الهوية ثابتة؛ الانتقال الوحيد `active → ended`؛ الصف `ended` مجمَّد. **لا حارس عكسي** على جداول المرحلة 2 (T8) | ✅ M48 (Phase 3A / 3-3) — حالات تتغير بعد الإدراج فلا يصلح لها FK |
+| **T18** | `teacher_load_limits` (INSERT، UPDATE) ✅ M52: السنة المغلقة مجمدة والنشطة بسبب (C3 — `require_year_setup_writable`)؛ الهوية (Tenant، مدرسة، سنة، موظف) ثابتة — `max_weekly_periods` وحده يتغير؛ عند الإنشاء: للموظف تكليف مدرسة **نشط** في مدرسة السنة. `SECURITY DEFINER`، على كل مسار. **لا يفحص النصاب ولا يمس التكليفات** (L7) |
 | **T16** | `school_profiles` (INSERT، UPDATE)، `school_assets` (UPDATE): المدرسة المؤرشفة للقراءة فقط؛ الأصل لا يتغير عدا التقاعد، والتقاعد نهائي | ✅ M45 (Phase 2B / 2B-4) |
 | **T15** | `bell_schedules`، `bell_periods`، `grade_level_bell_schedules` (INSERT، UPDATE) + امتداد T14 على `calendar_weekdays`: حالة السنة (D3: السبب في النشطة، المغلقة مجمدة)؛ الهوية؛ الحصة النشطة تحت جدول نشط وعلى يوم دوام نشط، ولا تعطيل يوم دوام له حصص نشطة (D4)؛ لا تعطيل لجدول له حصص نشطة أو إسناد | ✅ M43 (Phase 2B / 2B-3) |
 | **T14** | `calendar_exceptions` (INSERT، UPDATE)، `calendar_weekdays` (UPDATE): B8 بقرارات C1–C5 — «اليوم» بتوقيت المدرسة؛ السبب إلزامي في سنة نشطة؛ الماضي لا يُعدَّل؛ الإلغاء نهائي؛ السنة المغلقة مجمدة | ✅ M41 (Phase 2B / 2B-2) — يعتمد على التاريخ الحالي وحالة السنة وصفوف التقويم |

@@ -81,3 +81,61 @@ test("school admin assigns, replaces and ends; the teacher only reads", async ({
   // لا سياق من الجسم
   expect((await direct(page, "POST", `/sections/${section_id}/class-teacher`, { staff_id: first.id, school_id: fx().schools.SB })).status).toBe(422);
 });
+
+// 3-5 — النصاب: الحد يضعه مدير المدرسة، والتكليف فوقه **ينجح** ثم تظهر شارة التنبيه؛ المعلم لا يرى حدود زملائه.
+test("workload: a limit is a warning — assigning above it succeeds and the badge appears; colleagues' limits stay hidden", async ({ page, browser }) => {
+  test.setTimeout(120_000);
+  const sa = fx().schools.SA;
+  const section = `ZTV-${RUN}`;
+  const subject = `نصاب ${RUN}`;
+  await staffLogin(page, "school.admin@dev.smas.test");
+
+  const grades = (await direct<{ rows: { id: string; status: string }[] }>(page, "GET", `/schools/${sa}/grade-levels`)).json.rows;
+  const grade = grades.find((g) => g.status === "active")!.id;
+  const n = 3000 + (Date.now() % 900);
+  const year = (await direct<{ id: string }>(page, "POST", `/schools/${sa}/academic-years`, { name: `ZTV ${RUN}`, start_date: `${n}-09-01`, end_date: `${n + 1}-06-30` })).json.id;
+  expect((await direct(page, "POST", `/academic-years/${year}/sections`, { grade_level_id: grade, name: section })).status).toBe(201);
+  const subjectId = (await direct<{ id: string }>(page, "POST", `/schools/${sa}/subjects`, { subject_code: `ZTV-${RUN}`, name: subject })).json.id;
+  expect((await direct(page, "POST", `/academic-years/${year}/grade-subjects`, { grade_level_id: grade, subject_id: subjectId, weekly_periods: 6 })).status).toBe(201);
+  const staff = (await direct<{ rows: { id: string; full_name: string; status: string; employee_code: string }[] }>(page, "GET", `/schools/${sa}/staff`)).json.rows
+    .filter((s) => s.status === "active" && s.employee_code !== "TEACHER");
+  const target = staff[0];
+
+  await go(page, `/setup/schools/${sa}/years/${year}`);
+  await expect(page.getByTestId("load-empty")).toBeVisible();
+
+  // الحد 4 (سنة planned: بلا سبب)
+  await page.getByTestId("load-staff").selectOption(target.id);
+  await page.getByTestId("load-max").fill("4");
+  await page.getByTestId("load-save").click();
+  await expect(page.getByTestId(`load-limit-${target.employee_code}`)).toHaveText("4");
+  await expect(page.getByTestId(`load-periods-${target.employee_code}`)).toContainText("0");
+  await expect(page.getByTestId(`load-over-${target.employee_code}`)).toHaveCount(0);
+
+  // تكليف بـ6 حصص فوق الحد: ينجح، ثم الشارة
+  const teach = `slot-teach-${section}-${subject}`;
+  await page.getByTestId(`${teach}-staff`).selectOption(target.id);
+  await page.getByTestId(`${teach}-submit`).click();
+  await expect(page.getByTestId(`${teach}-current`)).toContainText(target.full_name);
+  await expect(page.getByTestId(`load-periods-${target.employee_code}`)).toContainText("6");
+  await expect(page.getByTestId(`load-over-${target.employee_code}`)).toBeVisible();
+
+  // إزالة الحد (حقل فارغ = null): الشارة تختفي والتكليف باقٍ
+  await page.getByTestId("load-staff").selectOption(target.id);
+  await page.getByTestId("load-save").click();
+  await expect(page.getByTestId(`load-limit-${target.employee_code}`)).toHaveText("بلا حد");
+  await expect(page.getByTestId(`load-over-${target.employee_code}`)).toHaveCount(0);
+  expect((await direct(page, "PUT", `/academic-years/${year}/teacher-load-limits/${target.id}`, { max_weekly_periods: 4 })).status).toBe(200);
+
+  // المعلم: يرى نصاب زميله (من تكليفات يقرؤها) ولا يرى حدّه؛ لا نموذج كتابة؛ والخادم يرفض التجاوز
+  const teacherPage = await (await browser.newContext()).newPage();
+  await staffLogin(teacherPage, "teacher@dev.smas.test");
+  await go(teacherPage, `/setup/schools/${sa}/years/${year}`);
+  await expect(teacherPage.getByTestId(`load-periods-${target.employee_code}`)).toContainText("6");
+  await expect(teacherPage.getByTestId(`load-limit-${target.employee_code}`)).toHaveText("—");
+  await expect(teacherPage.getByTestId(`load-over-${target.employee_code}`)).toHaveCount(0);
+  await expect(teacherPage.getByTestId("load-form")).toHaveCount(0);
+  expect((await direct(teacherPage, "PUT", `/academic-years/${year}/teacher-load-limits/${target.id}`, { max_weekly_periods: 50 })).status).toBe(403);
+  // لا سياق من الجسم
+  expect((await direct(page, "PUT", `/academic-years/${year}/teacher-load-limits/${target.id}`, { max_weekly_periods: 9, school_id: fx().schools.SB })).status).toBe(422);
+});

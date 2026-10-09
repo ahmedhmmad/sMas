@@ -1,6 +1,7 @@
 // Phase 3A / 3-3 — التكليفات في صفحة السنة: لكل شعبة نشطة مربي فصلها، ثم موادها (من ربط المواد بصفها) ومعلم كل مادة.
 // لا تفويض هنا: الخادم و DB (RLS، T17، الفهرس الفريد «نشط واحد») يقررون؛ الأزرار بـstaff.assign عرض فقط.
 // «معلَّق» عرض مشتق من الخادم (operational = false): شعبة أو ربط معطَّل، أو موظف غير نشط.
+// 3-5 — «النصاب»: مجموع الحصص المشتق والحد الاختياري من الخادم؛ شارة التجاوز **تنبيه لا منع** — التكليف لا يقرأ النصاب.
 import { useState } from "react";
 import { useAuth } from "../../auth/AuthProvider";
 import { t } from "../../i18n";
@@ -17,6 +18,12 @@ type Assignment = {
   effective_from: string; operational: boolean;
 };
 
+type LoadRow = {
+  staff_id: string; staff_name: string | null; employee_code: string | null; staff_status: string | null;
+  weekly_periods: number; teaching_count: number; suspended_count: number; class_teacher_count: number;
+  limit_visible: boolean; max_weekly_periods: number | null; over_limit: boolean | null;
+};
+
 const today = () => new Date().toISOString().slice(0, 10);
 const later = (a: string, b: string) => (a > b ? a : b);
 
@@ -28,9 +35,11 @@ export function Assignments({ year, schoolId }: { year: Year; schoolId: string }
   const staff = useApi<{ rows: StaffRow[] }>(`/schools/${schoolId}/staff`);
   const teaching = useApi<{ rows: Assignment[] }>(`/academic-years/${year.id}/teaching-assignments?status=active`);
   const classes = useApi<{ rows: Assignment[] }>(`/academic-years/${year.id}/class-teachers?status=active`);
+  const load = useApi<{ rows: LoadRow[] }>(`/academic-years/${year.id}/teacher-load`);
   if (!sections.data || !staff.data || !teaching.data || !classes.data) return null;
 
-  const reload = () => { teaching.reload(); classes.reload(); };
+  // بعد أي تكليف يُعاد جلب النصاب: الشارة تظهر والتكليف قد تم (L7)
+  const reload = () => { teaching.reload(); classes.reload(); load.reload(); };
   const writable = can("staff.assign") && year.status !== "closed";
   const people = staff.data.rows.filter((s) => s.status === "active");
   const subjectName = (id: string) => subjects.data?.rows.find((s) => s.id === id)?.name ?? "";
@@ -52,7 +61,84 @@ export function Assignments({ year, schoolId }: { year: Year; schoolId: string }
           ))}
         </div>
       ))}
+      {load.data && <Load rows={load.data.rows} year={year} writable={writable} people={people} reload={load.reload} />}
     </Card>
+  );
+}
+
+function Load({ rows, year, writable, people, reload }: { rows: LoadRow[]; year: Year; writable: boolean; people: StaffRow[]; reload: () => void }) {
+  const action = useAction(reload);
+  const [staffId, setStaffId] = useState("");
+  const [max, setMax] = useState("");
+  const [reason, setReason] = useState("");
+  const needsReason = year.status === "active";                 // C3 — DB هي الحكم
+  const save = async () => {
+    // الحقل الفارغ = «بلا حد» (null) — لا حذف
+    const ok = await action.run(() => api(`/academic-years/${year.id}/teacher-load-limits/${staffId}`, {
+      method: "PUT", body: { max_weekly_periods: max === "" ? null : Number(max), ...(reason ? { reason } : {}) },
+    }));
+    if (ok) { setStaffId(""); setMax(""); setReason(""); }
+  };
+  return (
+    <div data-testid="load" className="mt-4 border-t border-slate-200 pt-3">
+      <h3 className="mb-2 font-medium">{t("setup.load.title")}</h3>
+      {rows.length === 0 ? (
+        <p className="text-sm text-slate-500" data-testid="load-empty">{t("setup.load.empty")}</p>
+      ) : (
+        <table className="w-full text-start text-sm">
+          <thead>
+            <tr className="border-b text-slate-500">
+              <th className="p-1 text-start">{t("setup.load.staff")}</th>
+              <th className="p-1 text-start">{t("setup.load.periods")}</th>
+              <th className="p-1 text-start">{t("setup.load.limit")}</th>
+              <th className="p-1" />
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => {
+              const id = r.employee_code ?? r.staff_id;
+              return (
+                <tr key={r.staff_id} className="border-b" data-testid={`load-row-${id}`}>
+                  <td className="p-1">
+                    {r.staff_name ?? "—"}
+                    {r.staff_status && r.staff_status !== "active" && <span className="ms-2 text-slate-500">({r.staff_status})</span>}
+                  </td>
+                  <td className="p-1" data-testid={`load-periods-${id}`}>
+                    {r.weekly_periods}
+                    {r.suspended_count > 0 && <span className="ms-2 text-amber-700">{t("setup.load.suspended")}: {r.suspended_count}</span>}
+                    {r.class_teacher_count > 0 && <span className="ms-2 text-slate-500">{t("setup.assignments.classTeacher")}: {r.class_teacher_count}</span>}
+                  </td>
+                  <td className="p-1" data-testid={`load-limit-${id}`}>
+                    {!r.limit_visible ? "—" : r.max_weekly_periods === null ? t("setup.load.noLimit") : r.max_weekly_periods}
+                  </td>
+                  <td className="p-1">
+                    {r.over_limit === true && <span className="rounded bg-amber-100 px-2 py-0.5 text-amber-800" data-testid={`load-over-${id}`}>{t("setup.load.over")}</span>}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+      {writable && (
+        <form className="mt-3 flex flex-wrap items-end gap-2 text-sm" data-testid="load-form" onSubmit={(e) => { e.preventDefault(); void save(); }}>
+          <select className={inputClass} data-testid="load-staff" required value={staffId} onChange={(e) => setStaffId(e.target.value)}>
+            <option value="">{t("setup.assignments.chooseStaff")}</option>
+            {people.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+          </select>
+          <Field label={t("setup.load.limitHint")}>
+            <input className={inputClass} data-testid="load-max" type="number" min={1} max={100} value={max} onChange={(e) => setMax(e.target.value)} />
+          </Field>
+          {needsReason && (
+            <Field label={t("setup.reason")}>
+              <input className={inputClass} data-testid="load-reason" required maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
+            </Field>
+          )}
+          <button type="submit" className={buttonClass} data-testid="load-save" disabled={action.busy}>{t("setup.load.save")}</button>
+        </form>
+      )}
+      <ActionError code={action.error} testId="load-error" />
+    </div>
   );
 }
 

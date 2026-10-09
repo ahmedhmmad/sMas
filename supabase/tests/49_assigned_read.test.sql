@@ -391,7 +391,8 @@ select is((select count(*)::int from pg_policies where schemaname = 'public' and
 -- ---------- العقود ----------
 select is((select string_agg(p.proname, ',' order by p.proname) from pg_proc p where p.pronamespace = 'app'::regnamespace and p.proname ~ 'assigned_to_me$|^is_class_teacher_of$|^current_staff_id$'
             and has_function_privilege('authenticated', p.oid, 'EXECUTE')),
-          'family_assigned_to_me,guardian_assigned_to_me,section_assigned_to_me,student_assigned_to_me', 'EXECUTE: only the helpers a policy calls');
+          'current_staff_id,family_assigned_to_me,guardian_assigned_to_me,section_assigned_to_me,student_assigned_to_me',
+          'EXECUTE: only the helpers a policy calls (current_staff_id since M52: the self branch of teacher_load_limits) — never is_class_teacher_of');
 select is((select count(*)::int from pg_proc p where p.pronamespace = 'app'::regnamespace and p.proname ~ 'assigned_to_me$|^is_class_teacher_of$|^current_staff_id$'
             and (pg_get_userbyid(p.proowner) <> 'app_owner' or not p.prosecdef or has_function_privilege('anon', p.oid, 'EXECUTE'))), 0,
           'all six: owned by app_owner, SECURITY DEFINER, nothing for anon');
@@ -452,7 +453,8 @@ select is((select string_agg(old.name, ',' order by old.name) from (values
   'each of the five SELECT policies is EXACTLY its Foundation text (M17, verbatim as pg stored it before M50) OR its one assigned branch — nothing else changed');
 select is((select count(*)::int from pg_policies where schemaname = 'public' and policyname in ('students_select', 'enrollments_select', 'guardians_select', 'families_select', 'student_guardians_select')
             and qual ~ 'read_assigned' and cmd = 'SELECT'), 5, 'each of the five SELECT policies carries exactly its assigned branch');
-select is((select count(*)::int from pg_policies where schemaname = 'public'), 94, 'no policy added or removed (94)');
+select is((select count(*)::int from pg_policies where schemaname = 'public' and tablename in ('students', 'enrollments', 'guardians', 'families', 'student_guardians')), 12,
+          'no policy added to or removed from the five tables (12, as M17 left them)');
 select is((select md5(string_agg(p.proname || ':' || p.prosrc, '|' order by p.proname)) from pg_proc p where p.pronamespace = 'app'::regnamespace
             and p.proname in ('student_in_scope', 'guardian_in_scope', 'family_in_scope', 'can_see_membership', 'can_manage_membership', 'tg_authz_integrity', 'has_permission')),
           '72cbb02b6ff6771f01620cf026f77f05', 'H2 helpers, can_see/can_manage_membership, has_permission and T8: source text unchanged by 3-4 (pinned hash of the texts as of 3-3)');

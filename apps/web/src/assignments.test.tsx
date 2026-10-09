@@ -146,3 +146,89 @@ describe("assignments card (3-3)", () => {
     expect(current).toHaveTextContent(t("setup.assignments.suspended"));
   });
 });
+
+// ---------------- 3-5 — النصاب: عرض مشتق من الخادم؛ الحد بـstaff.assign؛ التجاوز تنبيه لا منع ----------------
+describe("workload table (3-5)", () => {
+  const LOAD = { rows: [
+    { staff_id: "e1", staff_name: "Sara Nabil", employee_code: "E1", staff_status: "active", weekly_periods: 9, teaching_count: 2, suspended_count: 1,
+      class_teacher_count: 1, limit_visible: true, max_weekly_periods: 8, over_limit: true },
+    { staff_id: "e2", staff_name: "Omar Adel", employee_code: "E2", staff_status: "on_leave", weekly_periods: 4, teaching_count: 1, suspended_count: 0,
+      class_teacher_count: 0, limit_visible: true, max_weekly_periods: null, over_limit: false },
+    { staff_id: "e3", staff_name: "Hidden Limit", employee_code: "E3", staff_status: "active", weekly_periods: 30, teaching_count: 6, suspended_count: 0,
+      class_teacher_count: 0, limit_visible: false, max_weekly_periods: null, over_limit: null },
+  ] };
+  const withLoad = (extra: Record<string, unknown | ApiError> = {}) => ({ "/academic-years/y1/teacher-load": LOAD, ...extra });
+
+  it("shows the server's numbers: periods, limit, the over-limit badge, suspended and class-teacher notes", async () => {
+    auth.permissions = READ;
+    mount("planned", withLoad());
+    expect(await screen.findByTestId("load-periods-E1")).toHaveTextContent("9");
+    expect(screen.getByTestId("load-periods-E1")).toHaveTextContent(`${t("setup.load.suspended")}: 1`);
+    expect(screen.getByTestId("load-limit-E1")).toHaveTextContent("8");
+    expect(screen.getByTestId("load-over-E1")).toHaveTextContent(t("setup.load.over"));
+    expect(screen.getByTestId("load-limit-E2")).toHaveTextContent(t("setup.load.noLimit"));
+    expect(screen.queryByTestId("load-over-E2")).toBeNull();
+    expect(screen.getByTestId("load-row-E2")).toHaveTextContent("on_leave");
+  });
+
+  it("a limit the viewer may not see is a dash — not «no limit», and never a badge computed in the browser", async () => {
+    auth.permissions = READ;
+    mount("planned", withLoad());
+    expect(await screen.findByTestId("load-limit-E3")).toHaveTextContent("—");
+    expect(screen.getByTestId("load-limit-E3")).not.toHaveTextContent(t("setup.load.noLimit"));
+    expect(screen.queryByTestId("load-over-E3")).toBeNull();
+  });
+
+  it("the limit form needs staff.assign and an open year", async () => {
+    auth.permissions = READ;
+    const first = mount("planned", withLoad());
+    await screen.findByTestId("load");
+    expect(screen.queryByTestId("load-form")).toBeNull();
+    first.unmount();
+    auth.permissions = WRITE;
+    mount("closed", withLoad());
+    await screen.findByTestId("load");
+    expect(screen.queryByTestId("load-form")).toBeNull();
+  });
+
+  it("saving sends the number only — year and staff are in the path; empty means null (no limit)", async () => {
+    auth.permissions = WRITE;
+    mount("planned", withLoad({ "PUT /academic-years/y1/teacher-load-limits/e2": { id: "l1" } }));
+    const user = userEvent.setup();
+    await user.selectOptions(await screen.findByTestId("load-staff"), "e2");
+    expect(screen.queryByTestId("load-reason")).toBeNull();                  // سنة planned
+    await user.type(screen.getByTestId("load-max"), "12");
+    await user.click(screen.getByTestId("load-save"));
+    await waitFor(() => expect(calls().some((c) => c.method === "PUT")).toBe(true));
+    expect(calls().find((c) => c.method === "PUT")).toEqual({ path: "/academic-years/y1/teacher-load-limits/e2", method: "PUT", body: { max_weekly_periods: 12 } });
+    apiMock.api.mockClear();
+    await user.selectOptions(screen.getByTestId("load-staff"), "e2");
+    await user.click(screen.getByTestId("load-save"));
+    await waitFor(() => expect(calls().some((c) => c.method === "PUT")).toBe(true));
+    expect(calls().find((c) => c.method === "PUT")!.body).toEqual({ max_weekly_periods: null });
+  });
+
+  it("an active year asks for a reason; a refusal is shown translated", async () => {
+    auth.permissions = WRITE;
+    mount("active", withLoad({ "PUT /academic-years/y1/teacher-load-limits/e1": new ApiError(403, "forbidden") }));
+    const user = userEvent.setup();
+    await user.selectOptions(await screen.findByTestId("load-staff"), "e1");
+    await user.type(screen.getByTestId("load-max"), "20");
+    await user.type(screen.getByTestId("load-reason"), "review");
+    await user.click(screen.getByTestId("load-save"));
+    expect(await screen.findByTestId("load-error")).toHaveTextContent(errorText("forbidden"));
+    expect(calls().find((c) => c.method === "PUT")!.body).toEqual({ max_weekly_periods: 20, reason: "review" });
+  });
+
+  it("after an assignment the workload is fetched again — the assignment itself was not blocked", async () => {
+    auth.permissions = WRITE;
+    mount("planned", withLoad({ "POST /sections/sec1/teaching-assignments": { id: "t2" } }));
+    const user = userEvent.setup();
+    await user.selectOptions(await screen.findByTestId("slot-teach-A-Math-staff"), "e1");      // e1 فوق حدّه أصلاً
+    const before = calls().filter((c) => c.path === "/academic-years/y1/teacher-load").length;
+    await user.click(screen.getByTestId("slot-teach-A-Math-submit"));
+    await waitFor(() => expect(calls().filter((c) => c.path === "/academic-years/y1/teacher-load").length).toBeGreaterThan(before));
+    expect(calls().find((c) => c.method === "POST")!.body).toEqual({ subject_id: "ma", staff_id: "e1" });
+    expect(screen.queryByTestId("slot-teach-A-Math-error")).toBeNull();
+  });
+});

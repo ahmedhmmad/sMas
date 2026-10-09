@@ -195,6 +195,8 @@ begin
     values (p_tenant, p_school, v_year, v_grade, v_sec, v_subj, v_staff, '2026-09-01');
   insert into public.class_teacher_assignments (platform_tenant_id, school_id, academic_year_id, grade_level_id, section_id, staff_id, effective_from)
     values (p_tenant, p_school, v_year, v_grade, v_sec, v_staff, '2026-09-01');
+  insert into public.teacher_load_limits (platform_tenant_id, school_id, academic_year_id, staff_id, max_weekly_periods)   -- M52
+    values (p_tenant, p_school, v_year, v_staff, 20);
   perform set_config('app.audit_reason', '', true);
 end $$;
 select pg_temp.people('10000000-0000-0000-0000-000000000001', '5a100000-0000-0000-0000-000000000001', '11');
