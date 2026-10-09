@@ -1,7 +1,7 @@
 # Phase 3A / 3-5 — النصاب (Workload): وثيقة التصميم — Design Gate
 
 **التاريخ:** 2026-10-09
-**الحالة:** ✅ **معتمدة (2026-10-09) — Design Gate مغلق، 🟢 GO للتنفيذ**: L1–L10 ونقاط التأكيد الست (§9) كما اقتُرحت. لا commit قبل Implementation/Acceptance Gate · **✅ التنفيذ معتمد في Implementation/Acceptance Gate (2026-10-09)** — النتائج والاستثناءان: §10؛ الإغلاق التشغيلي بعد CI
+**الحالة:** ✅ **معتمدة (2026-10-09) — Design Gate مغلق، 🟢 GO للتنفيذ**: L1–L10 ونقاط التأكيد الست (§9) كما اقتُرحت. لا commit قبل Implementation/Acceptance Gate · **✅ التنفيذ معتمد في Implementation/Acceptance Gate (2026-10-09)** — النتائج والاستثناءان: §10 · **🔒 مغلقة رسمياً (2026-10-09): CI أخضر على `e108a28`** (https://github.com/ahmedhmmad/sMas/actions/runs/37922651907)
 **خط الأساس:** `fe9c088` — 3-1 🔒 · M47 🔒 · 3-2 🔒 · 3-3 🔒 · 3-4 🔒؛ 56 migration (M01–M51)؛ 43 جدولاً؛ 94 سياسة؛ 110 دوال في `app`؛ الكتالوج 79
 **المرجع:** `docs/PHASE3_SCOPE.md` §5 و P11؛ `PLAN_v3.md` §5 (المرحلة 3: «عرض نصاب كل معلم (عدد الحصص الأسبوعية) مع تنبيه عند التجاوز»)؛ `docs/PHASE3_3_ASSIGNMENTS.md` (T7، T8، «معلَّق»)؛ `DATA_DICTIONARY_v1.md` §2.29 (`grade_subjects.weekly_periods`)، §2.39 (`teaching_assignments`)
 
